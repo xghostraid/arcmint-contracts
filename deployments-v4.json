@@ -1,0 +1,26 @@
+{
+  "status": "deployed",
+  "chainId": 5042002,
+  "version": "v4-antirug",
+  "note": "Anti-snipe 60s/2% max buy, creator max 5% buy, creatorHasSold, creator fees unlock after graduation (14d fallback)",
+  "deployer": "0x620607cf36e28c2e42a3e3FdF3eb7fC5611f3f93",
+  "platformOwner": "0x620607cf36e28c2e42a3e3FdF3eb7fC5611f3f93",
+  "treasury": "0x620607cf36e28c2e42a3e3FdF3eb7fC5611f3f93",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "factory": "0x7b46A92585E118386D3C29701B55AD8455f97723",
+  "feeRouter": "0x92A6bB7E2592A330764332d40Ea1B98Bbd4b0Cc4",
+  "swapRouter": "0x2C1a1e2246DcfD1988c957dF715843848ea4F1f9",
+  "swapFactory": "0xF30A8670E350cA4292e2D924454BD5046D7d8Cd0",
+  "curveImpl": "0xEc82eeD2c336B3667e25b4a5A564C55c28A18197",
+  "liquidityLocker": "0xFFb42977299CC4ce747A1635ae09a2F61CD473C5",
+  "graduationMigrator": "0x0eD39838177998DE68b53816617B42c8687D3277",
+  "previousLaunchFactory": "0xc80737257b5AE5C4Fe6b62Ec2C9e1b8dF4e8A7E2",
+  "catalogFactory": "0x0F5d0D0271068568134Fa2ca834756f34C485901",
+  "deployedAt": "2026-07-22",
+  "antiRug": {
+    "antiSnipeSeconds": 60,
+    "maxBuyBpsSnipe": 200,
+    "creatorMaxBuyBps": 500,
+    "creatorFeeFallbackUnlockDays": 14
+  }
+}

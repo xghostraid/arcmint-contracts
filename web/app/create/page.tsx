@@ -5,7 +5,10 @@ export default function CreatePage() {
     <main>
       <section className="hero">
         <h1>Launch a token</h1>
-        <p>One transaction on Arc Mainnet. You get a toast as soon as the factory emits Launched.</p>
+        <p>
+          One factory transaction on Arc Mainnet — no IPFS pin required. You get a toast as soon as the
+          transaction lands, and Live reads the new token from chain.
+        </p>
       </section>
       <CreateForm />
     </main>

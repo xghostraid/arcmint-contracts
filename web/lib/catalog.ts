@@ -36,11 +36,15 @@ type LaunchTuple = {
 
 const client = createPublicClient({
   chain: arcMainnet,
-  transport: http(ARC_RPC, { timeout: 20_000 }),
+  transport: http(ARC_RPC, {
+    timeout: 20_000,
+    fetchOptions: { headers: { "user-agent": "arcmint-catalog" } },
+  }),
 });
 
 let cache: { at: number; data: CatalogSnapshot } | null = null;
 const CACHE_MS = 8_000;
+const MAX_INDEX_SCAN = 500;
 
 function asLaunch(row: LaunchTuple | readonly unknown[]): LaunchTuple {
   if (Array.isArray(row)) {
@@ -82,20 +86,45 @@ function isLiveLaunch(row: LaunchTuple): boolean {
   );
 }
 
+async function scanLaunchCount(): Promise<bigint> {
+  for (let i = 0n; i < BigInt(MAX_INDEX_SCAN); i++) {
+    try {
+      const token = await client.readContract({
+        address: FACTORY_ADDRESS,
+        abi: factoryAbi,
+        functionName: "launchByIndex",
+        args: [i],
+      });
+      if (!token || token === zeroAddress) return i;
+    } catch {
+      return i;
+    }
+  }
+  return BigInt(MAX_INDEX_SCAN);
+}
+
 async function readLaunchCount(): Promise<bigint> {
   try {
-    return await client.readContract({
+    const count = await client.readContract({
       address: FACTORY_ADDRESS,
       abi: factoryAbi,
       functionName: "launchCount",
     });
+    if (count > 0n) return count;
   } catch {
-    return await client.readContract({
+    /* live factory may lag this selector */
+  }
+  try {
+    const count = await client.readContract({
       address: FACTORY_ADDRESS,
       abi: factoryAbi,
       functionName: "getLaunchCount",
     });
+    if (count > 0n) return count;
+  } catch {
+    /* older ABI */
   }
+  return scanLaunchCount();
 }
 
 async function readViaGetLaunches(count: bigint): Promise<LaunchTuple[] | null> {

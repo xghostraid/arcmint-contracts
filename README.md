@@ -30,7 +30,7 @@ Open-source Solidity for **arcmint.fun** (Arc Network launchpad).
 
 ## Catalog app (`web/`)
 
-Reads launches from the factory with `launchCount` + `launchByIndex` (no `eth_getLogs`). That is why new tokens show on Live / Browse / Hub, and why create can toast as soon as `Launched` is in the receipt.
+Reads launches from the live factory `0x0F5d0D0271068568134Fa2ca834756f34C485901` with `launchCount` + `launchByIndex` (no `eth_getLogs`). Create calls `createLaunch` directly — it does **not** pin IPFS or stuff `data:` URLs into calldata (that is what stalled launches on the current production UI). After the tx lands, `/api/tx/wait` confirms on the server and the board refreshes from chain.
 
 ```bash
 cd web
@@ -39,7 +39,7 @@ npm run check:catalog   # lists live Arc Mainnet launches
 npm run dev             # http://localhost:3000
 ```
 
-Point a Vercel project at the `web/` directory to serve this catalog.
+Vercel: set the project **Root Directory** to `web/` and redeploy. That is the app that should serve arcmint.fun.
 
 ## Tests
 

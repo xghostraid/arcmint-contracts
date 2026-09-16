@@ -7,11 +7,18 @@ import { WagmiProvider, createConfig, http } from "wagmi";
 import { ARC_RPC, arcMainnet } from "@/lib/chain";
 import { ToastHost } from "./ToastHost";
 
+function rpcUrl() {
+  if (typeof window === "undefined") return ARC_RPC;
+  return `${window.location.origin}/api/rpc`;
+}
+
 const wagmiConfig = createConfig({
   chains: [arcMainnet],
   connectors: [injected({ shimDisconnect: true })],
   transports: {
-    [arcMainnet.id]: http(ARC_RPC),
+    [arcMainnet.id]: http(rpcUrl(), {
+      fetchOptions: { headers: { "user-agent": "arcmint-catalog" } },
+    }),
   },
   ssr: true,
 });

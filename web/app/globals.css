@@ -1,0 +1,135 @@
+:root {
+  --bg: #0b0f17;
+  --card: #121826;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #eef4fb;
+  --muted: #8b98a8;
+  --cta: #fbbf24;
+  --info: #3b82f6;
+  --profit: #22c55e;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+
+.shell { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 0 28px;
+}
+.brand { font-weight: 700; letter-spacing: -0.03em; font-size: 1.15rem; }
+.brand-arc { color: var(--cta); }
+.muted { color: var(--muted); }
+.nav-links { display: flex; gap: 14px; margin-left: 8px; }
+.nav-links a { color: var(--muted); font-size: 0.95rem; }
+.nav-links a.active, .nav-links a:hover { color: var(--text); }
+.wallet-btn {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  background: #1a1b1f;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.wallet-btn.primary { background: var(--cta); color: #0b0f17; border: 0; font-weight: 700; }
+.wallet-btn.wide { width: 100%; margin: 8px 0 0; }
+.wallet-btn:disabled { opacity: 0.6; cursor: wait; }
+
+.hero { padding: 12px 0 28px; }
+.hero h1 { font-size: 2.1rem; letter-spacing: -0.04em; margin: 0 0 8px; }
+.hero p { color: var(--muted); margin: 0; }
+
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+.token-card {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+.token-card:hover { border-color: rgba(251, 191, 36, 0.45); }
+.token-card-top { display: flex; gap: 10px; align-items: center; }
+.token-avatar {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, #fbbf24, #22c55e);
+  color: #0b0f17; font-weight: 800;
+  display: grid; place-items: center;
+}
+.token-symbol { margin: 0; font-weight: 700; }
+.token-name { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.token-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; color: var(--muted); font-size: 0.78rem; }
+.pill { margin-left: auto; font-size: 0.7rem; border: 1px solid var(--line); border-radius: 999px; padding: 3px 8px; color: var(--muted); }
+.pill.live { color: var(--profit); border-color: rgba(34, 197, 94, 0.35); }
+
+.empty { color: var(--muted); padding: 40px 0; }
+.stats { color: var(--muted); font-size: 0.85rem; margin: 0 0 16px; }
+
+.search {
+  width: 100%;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #0e1420;
+  color: var(--text);
+}
+
+.create-form, .panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  max-width: 520px;
+}
+.create-form label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 0.85rem; color: var(--muted); }
+.create-form input {
+  border: 1px solid var(--line);
+  background: #0e1420;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.form-error { color: #f87171; }
+.hint { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+
+.detail h1 { margin: 0 0 6px; }
+.detail .sub { color: var(--muted); }
+.kv { display: grid; gap: 8px; margin-top: 20px; }
+.kv div { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 0.9rem; }
+.kv span { color: var(--muted); word-break: break-all; text-align: right; }
+
+.toast-stack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 340px;
+}
+.toast {
+  background: #151b28;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+}
+.toast-title { margin: 0; font-weight: 700; }
+.toast-body { margin: 4px 0 0; color: var(--muted); font-size: 0.85rem; }

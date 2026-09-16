@@ -28,6 +28,19 @@ Open-source Solidity for **arcmint.fun** (Arc Network launchpad).
 
 1% platform · 0–5% creator · 0.5% graduation
 
+## Catalog app (`web/`)
+
+Reads launches from the factory with `launchCount` + `launchByIndex` (no `eth_getLogs`). That is why new tokens show on Live / Browse / Hub, and why create can toast as soon as `Launched` is in the receipt.
+
+```bash
+cd web
+npm install
+npm run check:catalog   # lists live Arc Mainnet launches
+npm run dev             # http://localhost:3000
+```
+
+Point a Vercel project at the `web/` directory to serve this catalog.
+
 ## Tests
 
 ```bash

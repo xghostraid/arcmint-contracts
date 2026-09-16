@@ -190,9 +190,20 @@ export function CreateForm() {
         />
       </label>
       {error ? <p className="form-error">{error}</p> : null}
-      <button className="wallet-btn primary wide" type="submit" disabled={isPending || confirming || connecting}>
-        {!isConnected ? "Connect wallet" : confirming ? "Confirming…" : isPending ? "Sign in wallet…" : "Launch token"}
-      </button>
+      {!isConnected ? (
+        <button
+          className="wallet-btn primary wide"
+          type="button"
+          disabled={connecting || !injected}
+          onClick={() => injected && connect({ connector: injected })}
+        >
+          {connecting ? "Connecting…" : "Connect wallet"}
+        </button>
+      ) : (
+        <button className="wallet-btn primary wide" type="submit" disabled={isPending || confirming}>
+          {confirming ? "Confirming…" : isPending ? "Sign in wallet…" : "Launch token"}
+        </button>
+      )}
       <p className="hint">
         Image/IPFS is not required. The factory is called directly, then the catalog is refreshed from chain so the token
         shows on Live immediately. Explorer: {EXPLORER_URL}

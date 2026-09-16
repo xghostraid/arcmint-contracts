@@ -80,6 +80,7 @@ export function CreateForm() {
 
       const launchName = name.trim();
       const ticker = symbol.trim().toUpperCase();
+      if (!launchName || !ticker) throw new Error("Name and symbol are required");
       const uri = sanitizeMetadata(metadataURI);
       const params = {
         name: launchName,
@@ -169,14 +170,20 @@ export function CreateForm() {
     <form className="create-form" onSubmit={onSubmit}>
       <label>
         Name
-        <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={32} placeholder="Test Token" />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required={isConnected}
+          maxLength={32}
+          placeholder="Test Token"
+        />
       </label>
       <label>
         Symbol
         <input
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
-          required
+          required={isConnected}
           maxLength={12}
           placeholder="TEST"
         />
@@ -194,8 +201,15 @@ export function CreateForm() {
         <button
           className="wallet-btn primary wide"
           type="button"
-          disabled={connecting || !injected}
-          onClick={() => injected && connect({ connector: injected })}
+          disabled={connecting}
+          onClick={() => {
+            if (!injected) {
+              setError("No injected wallet found. Install MetaMask (or another injected wallet) on Arc Mainnet.");
+              return;
+            }
+            setError(null);
+            void connect({ connector: injected });
+          }}
         >
           {connecting ? "Connecting…" : "Connect wallet"}
         </button>

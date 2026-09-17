@@ -139,12 +139,23 @@ function short(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-/** Pull a token CA out of a paste (bare 0x, explorer URL, extra text). */
-function extractContractAddress(text: string): `0x${string}` | null {
-  const m = text.match(/0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/);
-  if (!m) return null;
-  if (!isAddress(m[0], { strict: false })) return null;
-  return getAddress(m[0]);
+/** Pull a token CA out of any paste (ZWS, backticks, URLs, missing 0x). */
+export function extractContractAddress(text: string): `0x${string}` | null {
+  if (!text) return null;
+  const cleaned = text
+    .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00AD]/g, '')
+    .replace(/[\s`"'<>()[\]]/g, ' ');
+  const prefixed = cleaned.match(/0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/i)?.[0];
+  const bare = cleaned.match(/(^|[^a-fA-F0-9xX])([a-fA-F0-9]{40})(?![a-fA-F0-9])/)?.[2];
+  const hex = (prefixed || bare || '').replace(/^0x/i, '');
+  if (!/^[a-fA-F0-9]{40}$/.test(hex)) return null;
+  const raw = `0x${hex}`;
+  try {
+    if (!isAddress(raw, { strict: false })) return null;
+    return getAddress(raw);
+  } catch {
+    return null;
+  }
 }
 
 function userLang(tgId: number) {
@@ -818,126 +829,86 @@ export function createBot(token: string): Bot<BotContext> {
     }
   });
 
-  bot.on('message:text', async (ctx) => {
-    const text = ctx.message.text.trim();
-    const id = ctx.from!.id;
+  bot.on('message:text', (ctx) => onPastedText(ctx, ctx.message.text));
+  bot.on('message:caption', (ctx) => onPastedText(ctx, ctx.message.caption || ''));
 
-    if (ctx.session.expect === 'bridge_amount') {
-      ctx.session.expect = null;
-      const amount = text.replace(/\$/g, '').trim();
-      if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
-        await ctx.reply('Invalid amount. Try again or go Back.');
-        return;
-      }
-      const dir = ctx.session.bridgeDir ?? 'in';
-      await previewBridge(ctx, amount, dir);
+  // Never let a single handler crash kill long-polling
+  bot.catch((err) => {
+    console.error('[bot] handler error (ignored — bot stays up):', err);
+  });
+
+  return bot;
+}
+
+async function onPastedText(ctx: BotContext, rawText: string): Promise<void> {
+  const text = rawText.trim();
+  const id = ctx.from!.id;
+
+  // Never treat a private-key import as a token paste.
+  if (ctx.session.expect === 'import_pk') {
+    ctx.session.expect = null;
+    let pk = text;
+    if (!pk.startsWith('0x')) pk = `0x${pk}`;
+    if (!/^0x[0-9a-fA-F]{64}$/.test(pk)) {
+      await ctx.reply('Invalid private key format.');
       return;
     }
-
-    if (ctx.session.expect === 'set_ref_code') {
-      ctx.session.expect = null;
-      const result = setRefCode(id, text);
-      if (!result.ok) {
-        ctx.session.expect = 'set_ref_code';
-        await ctx.reply(`❌ ${result.error}\n\nTry another username:`, {
-          reply_markup: cancelOnly('menu:referral', langOf(ctx)),
-        });
-        return;
-      }
-      const link = referralInviteLink(id);
-      await ctx.reply(
-        `Set to *${result.code}*\n\`${link}\``,
-        {
-          parse_mode: 'Markdown',
-          link_preview_options: { is_disabled: true },
-          reply_markup: referralMenu(link, langOf(ctx)),
-        },
-      );
-      return;
+    try {
+      const { privateKeyToAccount } = await import('viem/accounts');
+      const account = privateKeyToAccount(pk as Hex);
+      const enc = encryptPrivateKey(pk as Hex);
+      const n = listWallets(id).length + 1;
+      addWallet(id, `W${n}`, account.address, enc);
+      await ctx.deleteMessage().catch(() => {});
+      await ctx.reply(`Imported ${account.address}`, {
+        reply_markup: walletMenu(true, langOf(ctx)),
+      });
+    } catch {
+      await ctx.reply('Import failed.');
     }
+    return;
+  }
 
-    // import pk
-    if (ctx.session.expect === 'import_pk') {
-      ctx.session.expect = null;
-      let pk = text;
-      if (!pk.startsWith('0x')) pk = `0x${pk}`;
-      if (!/^0x[0-9a-fA-F]{64}$/.test(pk)) {
-        await ctx.reply('Invalid private key format.');
-        return;
-      }
-      try {
-        const { privateKeyToAccount } = await import('viem/accounts');
-        const account = privateKeyToAccount(pk as Hex);
-        const enc = encryptPrivateKey(pk as Hex);
-        const n = listWallets(id).length + 1;
-        addWallet(id, `W${n}`, account.address, enc);
-        await ctx.deleteMessage().catch(() => {});
-        await ctx.reply(`✅ Imported \`${account.address}\``, {
-          parse_mode: 'Markdown',
-          reply_markup: walletMenu(true, langOf(ctx)),
-        });
-      } catch {
-        await ctx.reply('Import failed.');
-      }
-      return;
-    }
-
-    if (ctx.session.expect === 'buy_amount' && ctx.session.pendingToken) {
-      const amount = text.replace(/\$/g, '');
-      if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
-        await ctx.reply('Invalid amount.');
-        return;
-      }
+  // Token CA first — always reply. Session amount prompts must not swallow it.
+  const pasted = extractContractAddress(text);
+  if (pasted) {
+    console.log(`[paste] tg=${id} token=${pasted}`);
+    if (ctx.session.expect === 'send_to' && ctx.session.pendingToken) {
       const token = ctx.session.pendingToken as `0x${string}`;
-      ctx.session.expect = null;
-      ctx.session.pendingToken = undefined;
-      await previewBuy(ctx, token, amount);
-      return;
-    }
-
-    if (ctx.session.expect === 'sell_usd_amount' && ctx.session.pendingToken) {
-      const amount = text.replace(/[$,]/g, '').trim();
-      const usdc = Number(amount);
-      if (!Number.isFinite(usdc) || usdc <= 0) {
-        await ctx.reply('Invalid USD amount. Example: `10` or `25.50`', {
-          parse_mode: 'Markdown',
-        });
-        return;
-      }
-      const token = ctx.session.pendingToken as `0x${string}`;
-      ctx.session.expect = null;
-      ctx.session.pendingToken = undefined;
-      await previewSell(ctx, token, { kind: 'usd', usdc });
-      return;
-    }
-
-    if (ctx.session.expect === 'send_token') {
-      const addr = extractContractAddress(text);
-      if (!addr) {
-        await ctx.reply('Send a valid `0x` token address.');
-        return;
-      }
-      ctx.session.expect = null;
-      await beginSendTo(ctx, addr);
-      return;
-    }
-
-    if (ctx.session.expect === 'watch_token') {
-      const addr = extractContractAddress(text);
-      if (!addr) {
-        await ctx.reply('Send a valid `0x` token address.');
-        return;
-      }
-      ctx.session.expect = null;
       let symbol = 'TOKEN';
       try {
-        symbol = (await getTokenMeta(addr)).symbol;
+        symbol = (await getTokenMeta(token)).symbol;
       } catch {
         /* */
       }
-      addToWatchlist(id, addr, symbol);
-      await ctx.reply(`⭐ Added *$${symbol}* to watchlist`, {
-        parse_mode: 'Markdown',
+      ctx.session.sendDraft = {
+        token,
+        to: pasted,
+        amountHuman: '',
+        symbol,
+      };
+      ctx.session.expect = 'send_amount';
+      await ctx.reply(
+        `Send $${symbol}\nTo: ${pasted}\n\nSend amount (e.g. 10 or 0.5):`,
+        { reply_markup: cancelOnly('menu:send', langOf(ctx)) },
+      );
+      return;
+    }
+    if (ctx.session.expect === 'send_token') {
+      ctx.session.expect = null;
+      await beginSendTo(ctx, pasted);
+      return;
+    }
+    if (ctx.session.expect === 'watch_token') {
+      ctx.session.expect = null;
+      let symbol = 'TOKEN';
+      try {
+        symbol = (await getTokenMeta(pasted)).symbol;
+      } catch {
+        /* */
+      }
+      addToWatchlist(id, pasted, symbol);
+      await ctx.reply(`Added $${symbol} to watchlist`, {
         reply_markup: watchlistMenu(
           listWatchlist(id).map((w) => ({
             address: w.token_address,
@@ -948,98 +919,102 @@ export function createBot(token: string): Bot<BotContext> {
       });
       return;
     }
-
-    if (ctx.session.expect === 'send_to' && ctx.session.pendingToken) {
-      if (!isAddress(text)) {
-        await ctx.reply('Send a valid recipient `0x` address.', {
-          parse_mode: 'Markdown',
-        });
-        return;
-      }
-      const to = getAddress(text);
-      const token = ctx.session.pendingToken as `0x${string}`;
-      let symbol = 'TOKEN';
-      try {
-        symbol = (await getTokenMeta(token)).symbol;
-      } catch {
-        /* */
-      }
-      ctx.session.sendDraft = {
-        token,
-        to,
-        amountHuman: '',
-        symbol,
-      };
-      ctx.session.expect = 'send_amount';
-      await ctx.reply(
-        [
-          `*Send $${symbol}*`,
-          `To: \`${to}\``,
-          ``,
-          `Send *amount* (e.g. \`10\` or \`0.5\`):`,
-          `_Double-check the address — transfers cannot be reversed._`,
-        ].join('\n'),
-        {
-          parse_mode: 'Markdown',
-          reply_markup: cancelOnly('menu:send', langOf(ctx)),
-        },
-      );
-      return;
-    }
-
-    if (ctx.session.expect === 'send_amount' && ctx.session.sendDraft) {
-      const amount = text.replace(/[$,]/g, '').trim();
-      if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
-        await ctx.reply('Invalid amount. Example: `10` or `1.5`', {
-          parse_mode: 'Markdown',
-        });
-        return;
-      }
-      ctx.session.sendDraft.amountHuman = amount;
+    if (ctx.session.expect === 'sell_token') {
       ctx.session.expect = null;
-      const d = ctx.session.sendDraft;
-      await ctx.reply(
-        [
-          `*Confirm withdraw*`,
-          ``,
-          `Token: *$${d.symbol}*`,
-          `Amount: *${d.amountHuman}*`,
-          `To: \`${d.to}\``,
-          ``,
-          `⚠️ *Irreversible.* Wrong address = lost funds.`,
-        ].join('\n'),
-        {
-          parse_mode: 'Markdown',
-          reply_markup: confirmSend(langOf(ctx)),
-        },
-      );
+      await openSell(ctx, pasted);
       return;
     }
+    ctx.session.expect = null;
+    await openBuy(ctx, pasted);
+    return;
+  }
 
-    // bare token address — buy by default, sell if expecting sell
-    const pasted = extractContractAddress(text);
-    if (pasted) {
-      if (ctx.session.expect === 'sell_token') {
-        ctx.session.expect = null;
-        await openSell(ctx, pasted);
-        return;
-      }
-      ctx.session.expect = null;
-      await openBuy(ctx, pasted);
+  if (ctx.session.expect === 'bridge_amount') {
+    ctx.session.expect = null;
+    const amount = text.replace(/\$/g, '').trim();
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      await ctx.reply('Invalid amount. Try again or go Back.');
       return;
     }
+    const dir = ctx.session.bridgeDir ?? 'in';
+    await previewBridge(ctx, amount, dir);
+    return;
+  }
 
-    if (ctx.session.expect === 'buy_token' || ctx.session.expect === 'sell_token') {
-      await ctx.reply('Send a valid `0x` token address.', { parse_mode: 'Markdown' });
+  if (ctx.session.expect === 'set_ref_code') {
+    ctx.session.expect = null;
+    const result = setRefCode(id, text);
+    if (!result.ok) {
+      ctx.session.expect = 'set_ref_code';
+      await ctx.reply(`❌ ${result.error}\n\nTry another username:`, {
+        reply_markup: cancelOnly('menu:referral', langOf(ctx)),
+      });
+      return;
     }
-  });
+    const link = referralInviteLink(id);
+    await ctx.reply(`Set to ${result.code}\n${link}`, {
+      link_preview_options: { is_disabled: true },
+      reply_markup: referralMenu(link, langOf(ctx)),
+    });
+    return;
+  }
 
-  // Never let a single handler crash kill long-polling
-  bot.catch((err) => {
-    console.error('[bot] handler error (ignored — bot stays up):', err);
-  });
+  if (ctx.session.expect === 'buy_amount' && ctx.session.pendingToken) {
+    const amount = text.replace(/\$/g, '');
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      await ctx.reply('Invalid amount.');
+      return;
+    }
+    const token = ctx.session.pendingToken as `0x${string}`;
+    ctx.session.expect = null;
+    ctx.session.pendingToken = undefined;
+    await previewBuy(ctx, token, amount);
+    return;
+  }
 
-  return bot;
+  if (ctx.session.expect === 'sell_usd_amount' && ctx.session.pendingToken) {
+    const amount = text.replace(/[$,]/g, '').trim();
+    const usdc = Number(amount);
+    if (!Number.isFinite(usdc) || usdc <= 0) {
+      await ctx.reply('Invalid USD amount. Example: 10 or 25.50');
+      return;
+    }
+    const token = ctx.session.pendingToken as `0x${string}`;
+    ctx.session.expect = null;
+    ctx.session.pendingToken = undefined;
+    await previewSell(ctx, token, { kind: 'usd', usdc });
+    return;
+  }
+
+  if (ctx.session.expect === 'send_amount' && ctx.session.sendDraft) {
+    const amount = text.replace(/[$,]/g, '').trim();
+    if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+      await ctx.reply('Invalid amount. Example: 10 or 1.5');
+      return;
+    }
+    ctx.session.sendDraft.amountHuman = amount;
+    ctx.session.expect = null;
+    const d = ctx.session.sendDraft;
+    await ctx.reply(
+      `Confirm withdraw\n\nToken: $${d.symbol}\nAmount: ${d.amountHuman}\nTo: ${d.to}\n\nIrreversible. Wrong address = lost funds.`,
+      { reply_markup: confirmSend(langOf(ctx)) },
+    );
+    return;
+  }
+
+  if (ctx.session.expect === 'buy_token' || ctx.session.expect === 'sell_token') {
+    await ctx.reply('Send a valid 0x token address.');
+    return;
+  }
+
+  if (ctx.session.expect === 'send_token' || ctx.session.expect === 'watch_token') {
+    await ctx.reply('Send a valid 0x token address.');
+    return;
+  }
+
+  if (ctx.session.expect === 'send_to') {
+    await ctx.reply('Send a valid recipient 0x address.');
+  }
 }
 
 async function showWallet(ctx: BotContext, edit = false): Promise<void> {
@@ -2068,17 +2043,37 @@ async function openBuy(ctx: BotContext, token: `0x${string}`): Promise<void> {
   const feeExempt = w ? env.isFeeExempt(w.address) : false;
   const feePct = (env.platformFeeBps() / 100).toFixed(2);
   const feeLine = !w
-    ? `_Create a wallet to buy_`
+    ? 'Create a wallet to buy'
     : feeExempt
-      ? `Bot fee: *waived*`
-      : `Bot fee: *${feePct}%*${getReferrerTgId(id) ? ' (includes referral share)' : ''}`;
+      ? 'Bot fee: waived'
+      : `Bot fee: ${feePct}%${getReferrerTgId(id) ? ' (includes referral share)' : ''}`;
 
+  const watching = isOnWatchlist(id, token);
   const markup = w
-    ? buyPresets(token, langOf(ctx), {
-        hasBalance: false,
-        watching: isOnWatchlist(id, token),
-      })
+    ? buyPresets(token, langOf(ctx), { hasBalance: false, watching })
     : walletMenu(false, langOf(ctx));
+
+  const stub = [
+    short(token),
+    token,
+    'Looking up token…',
+    'Pick a size to buy',
+  ].join('\n');
+
+  // Reply immediately so a pasted CA never looks like "0 response".
+  let chatId: number | undefined;
+  let messageId: number | undefined;
+  try {
+    const sent = await ctx.reply(stub, {
+      reply_markup: markup,
+      link_preview_options: { is_disabled: true },
+    });
+    chatId = sent.chat.id;
+    messageId = sent.message_id;
+  } catch (e) {
+    console.error('[openBuy] stub reply failed', e);
+    return;
+  }
 
   try {
     const card = await buildTokenCard({
@@ -2091,47 +2086,35 @@ async function openBuy(ctx: BotContext, token: `0x${string}`): Promise<void> {
       feeLine,
     });
     rememberToken(id, token, card.symbol, card.decimals);
-
     const text = [
       card.text,
-      ``,
-      `Network: *Arc Mainnet* · \`${env.chainId}\``,
+      '',
+      `Network: Arc Mainnet ${env.chainId}`,
     ].join('\n');
     const kb = w
       ? buyPresets(token, langOf(ctx), {
           hasBalance: card.hasBalance,
-          watching: isOnWatchlist(id, token),
+          watching,
         })
       : markup;
-    try {
-      await ctx.reply(text, {
-        parse_mode: 'Markdown',
-        link_preview_options: { is_disabled: true },
-        reply_markup: kb,
-      });
-    } catch (mdErr) {
-      console.warn('[openBuy] markdown failed', mdErr);
-      await ctx.reply(`$${card.symbol}\n${token}\nPick a size to buy`, {
-        reply_markup: kb,
-        link_preview_options: { is_disabled: true },
-      });
-    }
+    await ctx.api.editMessageText(chatId, messageId, text, {
+      reply_markup: kb,
+      link_preview_options: { is_disabled: true },
+    });
   } catch (e) {
-    const fallback = [
-      `$${short(token)}`,
-      `\`${token}\``,
-      `Network: *Arc Mainnet* · \`${env.chainId}\``,
-      e instanceof Error ? e.message : 'error',
-      `_Pick a size to buy_`,
-    ].join('\n');
+    console.warn('[openBuy] enrich failed', e instanceof Error ? e.message : e);
     try {
-      await ctx.reply(fallback, {
-        parse_mode: 'Markdown',
-        reply_markup: markup,
-        link_preview_options: { is_disabled: true },
-      });
+      await ctx.api.editMessageText(
+        chatId,
+        messageId,
+        `$${short(token)}\n${token}\nPick a size to buy`,
+        {
+          reply_markup: markup,
+          link_preview_options: { is_disabled: true },
+        },
+      );
     } catch {
-      await ctx.reply(`${token}\nPick a size to buy`, { reply_markup: markup });
+      /* stub already visible */
     }
   }
 }

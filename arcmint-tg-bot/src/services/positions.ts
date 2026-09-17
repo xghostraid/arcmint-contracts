@@ -703,25 +703,20 @@ export async function buildTokenCard(opts: {
     opts.slippageBps != null ? `${(opts.slippageBps / 100).toFixed(1)}%` : null;
 
   const lines = [
-    tokenNameLink(symbol, token),
-    name && name.toLowerCase() !== symbol.toLowerCase()
-      ? `_${escapeMd(name)}_`
-      : null,
-    `\`${token}\``,
-    ``,
-    `💵 Price   \`—\``,
-    `📊 MC      \`—\``,
+    `$${symbol}`,
+    name && name.toLowerCase() !== symbol.toLowerCase() ? name : null,
+    token,
     ``,
     raw > 0n
-      ? `🎒 You hold \`${fmtAmount(raw, decimals)}\`${
-          pnl.hasBasis ? `\nPnL  \`${formatPnlCompact(pnl)}\`` : ''
+      ? `You hold ${fmtAmount(raw, decimals)}${
+          pnl.hasBasis ? `\nPnL ${formatPnlCompact(pnl)}` : ''
         }`
-      : `🎒 You hold \`0\``,
+      : `You hold 0`,
     ``,
     slip ? `Slippage: ${slip}` : null,
     opts.feeLine || null,
     ``,
-    `_Pick a size to buy_`,
+    `Pick a size to buy`,
   ].filter((x) => x != null && x !== '') as string[];
 
   return {

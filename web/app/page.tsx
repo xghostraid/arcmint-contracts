@@ -1,20 +1,25 @@
-import { TokenGrid } from "@/components/TokenCard";
+import { LiveBoard } from "@/components/LiveBoard";
 import { loadCatalog } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function HomePage() {
-  const catalog = await loadCatalog();
+  const catalog = await loadCatalog(true);
   return (
     <main>
       <section className="hero">
         <h1>Fair Mode · USDC · live catalog</h1>
-        <p>Launches are read from the factory on Arc Mainnet, not a private index that can go stale.</p>
+        <p>
+          The board watches the factory every couple of seconds. Any new launch appears here automatically — no indexer,
+          no hidden test tickers.
+        </p>
       </section>
-      <p className="stats">
-        {catalog.launchCount} launches · synced from chain at block {catalog.toBlock}
-      </p>
-      <TokenGrid tokens={catalog.tokens} empty="Board is quiet — be the first launch on this factory." />
+      <LiveBoard
+        initial={catalog.tokens}
+        empty="Board is quiet — be the first launch on this factory."
+        showStats
+      />
     </main>
   );
 }

@@ -1,7 +1,8 @@
-import { TokenGrid } from "@/components/TokenCard";
+import { LiveBoard } from "@/components/LiveBoard";
 import { loadCatalog } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function ExplorePage({
   searchParams,
@@ -9,27 +10,23 @@ export default async function ExplorePage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  const catalog = await loadCatalog();
-  const query = q.trim().toLowerCase();
-  const tokens = query
-    ? catalog.tokens.filter(
-        (t) =>
-          t.name.toLowerCase().includes(query) ||
-          t.symbol.toLowerCase().includes(query) ||
-          t.token.toLowerCase().includes(query),
-      )
-    : catalog.tokens;
+  const catalog = await loadCatalog(true);
 
   return (
     <main>
       <section className="hero">
         <h1>Browse launches</h1>
-        <p>Search name, ticker, or token address. Results come from on-chain catalog reads.</p>
+        <p>Live list of every factory token. Search filters the same chain feed as it updates.</p>
       </section>
       <form>
         <input className="search" name="q" defaultValue={q} placeholder="Search tokens" />
       </form>
-      <TokenGrid tokens={tokens} empty="No launches match that search." />
+      <LiveBoard
+        initial={catalog.tokens}
+        query={q}
+        empty="No launches match that search."
+        notify={false}
+      />
     </main>
   );
 }

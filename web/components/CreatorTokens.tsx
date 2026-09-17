@@ -1,7 +1,7 @@
 "use client";
 
 import { useAccount } from "wagmi";
-import { TokenGrid } from "./TokenCard";
+import { LiveBoard } from "./LiveBoard";
 import type { CatalogToken } from "@/lib/catalog";
 
 export function CreatorTokens({ tokens }: { tokens: CatalogToken[] }) {
@@ -9,6 +9,12 @@ export function CreatorTokens({ tokens }: { tokens: CatalogToken[] }) {
   if (!isConnected || !address) {
     return <p className="empty">Connect a wallet to see tokens you created.</p>;
   }
-  const mine = tokens.filter((t) => t.creator.toLowerCase() === address.toLowerCase());
-  return <TokenGrid tokens={mine} empty="You have not launched a token yet." />;
+  return (
+    <LiveBoard
+      initial={tokens}
+      creator={address}
+      empty="You have not launched a token yet."
+      notify={false}
+    />
+  );
 }

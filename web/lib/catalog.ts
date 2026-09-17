@@ -43,7 +43,7 @@ const client = createPublicClient({
 });
 
 let cache: { at: number; data: CatalogSnapshot } | null = null;
-const CACHE_MS = 8_000;
+const CACHE_MS = 1_500;
 const MAX_INDEX_SCAN = 500;
 
 function asLaunch(row: LaunchTuple | readonly unknown[]): LaunchTuple {
@@ -236,6 +236,10 @@ export async function loadToken(address: string): Promise<CatalogToken | null> {
   } catch {
     return null;
   }
+}
+
+export async function peekLaunchCount(): Promise<number> {
+  return Number(await readLaunchCount());
 }
 
 export function invalidateCatalog() {

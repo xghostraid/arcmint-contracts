@@ -2,3 +2,9 @@ cache/
 out/
 broadcast/
 lib/
+
+# Telegram bot local/runtime
+arcmint-tg-bot/node_modules/
+arcmint-tg-bot/.env
+arcmint-tg-bot/data/
+arcmint-tg-bot/*.sqlite

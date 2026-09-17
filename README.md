@@ -30,7 +30,7 @@ Open-source Solidity for **arcmint.fun** (Arc Network launchpad).
 
 ## Catalog app (`web/`)
 
-Reads launches from the live factory `0x0F5d0D0271068568134Fa2ca834756f34C485901` with `launchCount` + `launchByIndex` (no `eth_getLogs`). Create calls `createLaunch` directly — it does **not** pin IPFS or stuff `data:` URLs into calldata (that is what stalled launches on the current production UI). After the tx lands, `/api/tx/wait` confirms on the server and the board refreshes from chain.
+Reads launches from the live factory `0x0F5d0D0271068568134Fa2ca834756f34C485901` with `launchCount` + `launchByIndex`. Create calls `createLaunch` directly (no IPFS required). After the tx lands, `/api/tx/wait` confirms and Live polls `launchCount` every 2s so every new token appears. Token pages can buy/sell on the curve.
 
 ```bash
 cd web

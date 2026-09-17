@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
+import { TradeForm } from "@/components/TradeForm";
 import { loadToken } from "@/lib/catalog";
 import { EXPLORER_URL } from "@/lib/chain";
 import { formatUsdFromMicro, shortenAddress, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function TokenPage({
   params,
@@ -16,15 +18,35 @@ export default async function TokenPage({
 
   return (
     <main className="detail">
-      <p className="sub">{token.graduated ? "Graduated" : "Live on the curve"} · {timeAgo(token.createdAt)}</p>
+      <p className="sub">
+        {token.graduated ? "Graduated" : "Live on the curve"} · {timeAgo(token.createdAt)}
+      </p>
       <h1>${token.symbol}</h1>
       <p className="sub">{token.name}</p>
       <div className="kv panel" style={{ maxWidth: 640, marginTop: 20 }}>
-        <div><b>Token</b><span>{token.token}</span></div>
-        <div><b>Pool</b><span>{token.pool}</span></div>
-        <div><b>Creator</b><span>{token.creator}</span></div>
-        <div><b>Market cap</b><span>{formatUsdFromMicro(token.marketCapUsdc)}</span></div>
-        <div><b>Metadata</b><span>{token.metadataURI || "—"}</span></div>
+        <div>
+          <b>Token</b>
+          <span>{token.token}</span>
+        </div>
+        <div>
+          <b>Pool</b>
+          <span>{token.pool}</span>
+        </div>
+        <div>
+          <b>Creator</b>
+          <span>{token.creator}</span>
+        </div>
+        <div>
+          <b>Market cap</b>
+          <span>{formatUsdFromMicro(token.marketCapUsdc)}</span>
+        </div>
+        <div>
+          <b>Metadata</b>
+          <span>{token.metadataURI || "—"}</span>
+        </div>
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <TradeForm token={token} />
       </div>
       <p className="hint" style={{ marginTop: 16 }}>
         Creator {shortenAddress(token.creator)} ·{" "}

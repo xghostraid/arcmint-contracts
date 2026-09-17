@@ -1,4 +1,11 @@
 cache/
 out/
 broadcast/
-lib/
+/lib/
+web/node_modules/
+web/.next/
+web/.env.local
+web/.env
+web/.vercel/
+web/tsconfig.tsbuildinfo
+foundry.lock

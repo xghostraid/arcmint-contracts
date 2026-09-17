@@ -44,9 +44,9 @@ function makeHttp(url: string): Transport {
     headers.Referer = 'https://dashboard.alchemy.com/';
   }
   return http(url, {
-    timeout: 20_000,
-    retryCount: 2,
-    retryDelay: 400,
+    timeout: 8_000,
+    retryCount: 1,
+    retryDelay: 200,
     fetchOptions: { headers },
   });
 }
@@ -58,7 +58,7 @@ const transport = () => {
   console.log(`[rpc] Arc transports: ${redacted.join(' | ')}`);
   return fallback(
     unique.map((u) => makeHttp(u)),
-    { rank: true, retryCount: 2 },
+    { rank: true, retryCount: 1 },
   );
 };
 

@@ -8,8 +8,20 @@ import { erc20Abi, erc20Bytes32MetaAbi } from '../chain/abis.js';
 import { env } from '../config/env.js';
 import { cacheGet, cacheGetOrSet, cacheSet } from './cache.js';
 
-const RPC_MS = 6_000;
-const HTTP_MS = 5_000;
+const RPC_MS = 2_500;
+const HTTP_MS = 2_000;
+
+/** Resolve with fallback if `p` hangs or throws. */
+export async function raceTimeout<T>(
+  p: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return Promise.race([
+    p.catch(() => fallback),
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
 
 function blockscoutBase(): string | null {
   const raw = (process.env.ARC_BLOCKSCOUT_URL || '').replace(/\/$/, '');
@@ -153,41 +165,37 @@ async function readErc20String(
   fn: 'name' | 'symbol',
 ): Promise<string> {
   const client = publicClient();
-  try {
-    const v = await withTimeout(
-      client.readContract({
-        address: token,
-        abi: erc20Abi,
-        functionName: fn,
-      }) as Promise<string>,
-      RPC_MS,
-      `token ${fn}`,
-    );
-    return cleanMetaText(String(v ?? ''), 48);
-  } catch {
-    /* try bytes32 */
-  }
-  try {
-    const v = await withTimeout(
-      client.readContract({
-        address: token,
-        abi: erc20Bytes32MetaAbi,
-        functionName: fn,
-      }) as Promise<Hex>,
-      RPC_MS,
-      `token ${fn} bytes32`,
-    );
-    return decodeBytes32(v);
-  } catch {
-    return '';
-  }
+  const asString = withTimeout(
+    client.readContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: fn,
+    }) as Promise<string>,
+    RPC_MS,
+    `token ${fn}`,
+  )
+    .then((v) => cleanMetaText(String(v ?? ''), 48))
+    .catch(() => '');
+  const asBytes = withTimeout(
+    client.readContract({
+      address: token,
+      abi: erc20Bytes32MetaAbi,
+      functionName: fn,
+    }) as Promise<Hex>,
+    RPC_MS,
+    `token ${fn} bytes32`,
+  )
+    .then((v) => decodeBytes32(v))
+    .catch(() => '');
+  const [a, b] = await Promise.all([asString, asBytes]);
+  return a || b || '';
 }
 
 async function fetchLaunchpadMeta(token: `0x${string}`): Promise<TokenMeta | null> {
   try {
     const base = env.catalogApi();
     if (!base) return null;
-    const data = (await fetchJson(`${base}/api/tokens/${token}`, 6_000)) as {
+    const data = (await fetchJson(`${base}/api/tokens/${token}`, HTTP_MS)) as {
       token?: { name?: string; symbol?: string };
       name?: string;
       symbol?: string;
@@ -206,8 +214,43 @@ async function fetchLaunchpadMeta(token: `0x${string}`): Promise<TokenMeta | nul
   }
 }
 
+async function readOnChainMeta(token: `0x${string}`): Promise<TokenMeta | null> {
+  const client = publicClient();
+  const [name, symbol, decimals] = await Promise.all([
+    readErc20String(token, 'name'),
+    readErc20String(token, 'symbol'),
+    withTimeout(
+      client.readContract({
+        address: token,
+        abi: erc20Abi,
+        functionName: 'decimals',
+      }) as Promise<number>,
+      RPC_MS,
+      'token decimals',
+    ).catch(() => 18),
+  ]);
+  const resolvedName = bestLabel(name, symbol);
+  const resolvedSymbol = bestLabel(symbol, name);
+  if (!resolvedName && !resolvedSymbol) return null;
+  return {
+    name: resolvedName || resolvedSymbol,
+    symbol: (resolvedSymbol || resolvedName).slice(0, 24),
+    decimals: Number(decimals) || 18,
+  };
+}
+
 function isPlaceholderMeta(meta: TokenMeta): boolean {
   return isPlaceholderLabel(meta.symbol) && isPlaceholderLabel(meta.name);
+}
+
+function mergeMeta(a: TokenMeta | null, b: TokenMeta | null): TokenMeta {
+  const name = bestLabel(a?.name, b?.name) || PLACEHOLDER_META.name;
+  const symbol = (bestLabel(a?.symbol, b?.symbol, name) || PLACEHOLDER_META.symbol).slice(
+    0,
+    24,
+  );
+  const decimals = a?.decimals || b?.decimals || 18;
+  return { name, symbol, decimals };
 }
 
 export async function getTokenMeta(token: `0x${string}`): Promise<TokenMeta> {
@@ -215,67 +258,41 @@ export async function getTokenMeta(token: `0x${string}`): Promise<TokenMeta> {
   const cached = cacheGet<TokenMeta>(key);
   if (cached && !isPlaceholderMeta(cached)) return cached;
 
-  let name = '';
-  let symbol = '';
-  let decimals = 18;
+  let chain: TokenMeta | null = null;
+  let catalog: TokenMeta | null = null;
 
-  try {
-    const client = publicClient();
-    const [n, s, d] = await Promise.all([
-      readErc20String(token, 'name'),
-      readErc20String(token, 'symbol'),
-      withTimeout(
-        client.readContract({
-          address: token,
-          abi: erc20Abi,
-          functionName: 'decimals',
-        }) as Promise<number>,
-        RPC_MS,
-        'token decimals',
-      ).catch(() => 18),
-    ]);
-    name = n;
-    symbol = s;
-    decimals = Number(d) || 18;
-  } catch {
-    /* */
-  }
+  const chainP = readOnChainMeta(token)
+    .then((v) => {
+      chain = v;
+      return v;
+    })
+    .catch(() => null);
+  const catalogP = fetchLaunchpadMeta(token)
+    .then((v) => {
+      catalog = v;
+      return v;
+    })
+    .catch(() => null);
 
-  if (!name || !symbol) {
-    try {
-      const base = blockscoutBase();
-      if (base) {
-        const data = (await fetchJson(`${base}/api/v2/tokens/${token}`)) as {
-          name?: string;
-          symbol?: string;
-          decimals?: string | number;
-        };
-        name = name || cleanMetaText(String(data.name ?? ''), 48);
-        symbol = symbol || cleanMetaText(String(data.symbol ?? ''), 24);
-        if (data.decimals != null) decimals = Number(data.decimals) || decimals;
-      }
-    } catch {
-      /* */
-    }
-  }
+  await new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, 2_800);
+    const done = () => {
+      clearTimeout(t);
+      resolve();
+    };
+    void catalogP.finally(() => {
+      if (catalog && !isPlaceholderMeta(catalog)) done();
+    });
+    void Promise.all([chainP, catalogP]).finally(done);
+  });
 
-  if (!name || !symbol) {
-    const catalog = await fetchLaunchpadMeta(token);
-    if (catalog) {
-      name = name || catalog.name;
-      symbol = symbol || catalog.symbol;
-    }
-  }
-
-  const resolvedName = bestLabel(name, symbol) || PLACEHOLDER_META.name;
-  const resolvedSymbol = (bestLabel(symbol, name) || PLACEHOLDER_META.symbol).slice(0, 24);
-  const meta: TokenMeta = {
-    name: resolvedName,
-    symbol: resolvedSymbol,
-    decimals,
-  };
-  if (!isPlaceholderMeta(meta)) {
-    cacheSet(key, meta, 60_000);
+  const meta = mergeMeta(chain, catalog);
+  if (!isPlaceholderMeta(meta)) cacheSet(key, meta, 120_000);
+  if (!chain) {
+    void chainP.then((v) => {
+      if (!v || isPlaceholderMeta(v)) return;
+      cacheSet(key, mergeMeta(v, catalog), 120_000);
+    });
   }
   return meta;
 }

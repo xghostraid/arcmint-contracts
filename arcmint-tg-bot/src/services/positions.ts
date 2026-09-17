@@ -7,6 +7,7 @@ import {
   getUsdcBalance,
   isPlaceholderLabel,
   PLACEHOLDER_META,
+  raceTimeout,
 } from './balances.js';
 import {
   formatPnlShort,
@@ -15,12 +16,7 @@ import {
   rememberToken,
   type PositionPnl,
 } from '../db/store.js';
-import {
-  formatQuoteHuman,
-  formatUsdc,
-  quoteTokenToUsdc,
-  quoteUsdcToToken,
-} from './swap.js';
+import { quoteTokenToUsdc } from './swap.js';
 import { cacheGetOrSet } from './cache.js';
 
 export type TokenHolding = {
@@ -667,8 +663,8 @@ export function formatTokenDetail(p: EnrichedPosition): string {
 }
 
 /**
- * Fast token card for paste/buy — no enrichPositions double-pass.
- * One parallel batch: balance + meta + buy quote + optional remote (short).
+ * Fast token card for paste/buy.
+ * Name/symbol must show even when DEX quotes are slow or missing.
  */
 export async function buildTokenCard(opts: {
   token: `0x${string}`;
@@ -687,73 +683,24 @@ export async function buildTokenCard(opts: {
   marketCapUsdc: number | null;
 }> {
   const { token, tgId } = opts;
-  const sample = opts.sampleUsdc || env.buyPresets()[0] || '10';
 
-  const [raw, meta, buyQuote, remote] = await Promise.all([
+  const [raw, meta] = await Promise.all([
     opts.owner
-      ? getTokenBalance(token, opts.owner).catch(() => 0n)
+      ? raceTimeout(getTokenBalance(token, opts.owner), 1_200, 0n)
       : Promise.resolve(0n),
     getTokenMeta(token).catch(() => PLACEHOLDER_META),
-    quoteUsdcToToken(token, sample, true, opts.feeExempt ?? false).catch(() => null),
-    fetchTokenMetaRemote(token),
   ]);
 
-  const symbol =
-    bestLabel(meta.symbol, remote?.symbol, meta.name, remote?.name) ||
-    PLACEHOLDER_META.symbol;
-  const decimals = remote?.decimals || meta.decimals || 18;
-  const name = bestLabel(meta.name, remote?.name, symbol) || symbol;
+  const symbol = bestLabel(meta.symbol, meta.name) || PLACEHOLDER_META.symbol;
+  const decimals = meta.decimals || 18;
+  const name = bestLabel(meta.name, symbol) || symbol;
 
-  let valueUsdc = 0;
-  let priceUsdc: number | null = null;
-
-  // Derive price from buy quote sample (already fetched) — avoids extra RPC
-  if (buyQuote && buyQuote.amountOut > 0n && buyQuote.amountIn > 0n) {
-    const tokensOut = Number(formatUnits(buyQuote.amountOut, decimals));
-    const usdcIn = Number(formatUnits(buyQuote.amountIn, 6));
-    if (tokensOut > 0 && usdcIn > 0) {
-      priceUsdc = usdcIn / tokensOut;
-    }
-  }
-
-  if (raw > 0n && priceUsdc != null) {
-    const amt = Number(formatUnits(raw, decimals));
-    if (Number.isFinite(amt)) valueUsdc = amt * priceUsdc;
-  } else if (raw > 0n) {
-    // Only if we still have no price: one bag quote
-    try {
-      const q = await quoteTokenToUsdc(token, raw);
-      if (q && q.amountOut > 0n) {
-        valueUsdc = usdcOutToNumber(q.amountOut);
-        const amt = Number(formatUnits(raw, decimals));
-        if (amt > 0) priceUsdc = valueUsdc / amt;
-      }
-    } catch {
-      /* */
-    }
-  }
-
-  let marketCapUsdc: number | null = null;
-  if (remote?.totalSupply != null && priceUsdc != null && priceUsdc > 0) {
-    const supplyHuman = Number(formatUnits(remote.totalSupply, decimals));
-    if (Number.isFinite(supplyHuman) && supplyHuman > 0) {
-      marketCapUsdc = priceUsdc * supplyHuman;
-      if (!Number.isFinite(marketCapUsdc) || marketCapUsdc > 1e15) marketCapUsdc = null;
-    }
-  }
-
-  const pnl = getPositionPnl(tgId, token, raw, valueUsdc);
-  const holders =
-    remote?.holders != null ? remote.holders.toLocaleString() : '—';
-  const price = priceUsdc != null && priceUsdc > 0 ? fmtUsd(priceUsdc) : '—';
-  const mc = marketCapUsdc != null ? fmtUsd(marketCapUsdc) : '—';
+  const valueUsdc = 0;
+  const priceUsdc: number | null = null;
+  const marketCapUsdc: number | null = null;
+  const pnl = getPositionPnl(tgId, token, raw, 0);
   const slip =
     opts.slippageBps != null ? `${(opts.slippageBps / 100).toFixed(1)}%` : null;
-
-  let quoteLine = '_No USDC pool — try another size_';
-  if (buyQuote) {
-    quoteLine = formatQuoteHuman(buyQuote, symbol, decimals) + ` _($${sample})_`;
-  }
 
   const lines = [
     tokenNameLink(symbol, token),
@@ -762,17 +709,15 @@ export async function buildTokenCard(opts: {
       : null,
     `\`${token}\``,
     ``,
-    `💵 Price   \`${price}\``,
-    `📊 MC      \`${mc}\``,
-    `👥 Holders \`${holders}\``,
+    `💵 Price   \`—\``,
+    `📊 MC      \`—\``,
     ``,
     raw > 0n
-      ? `🎒 You hold \`${fmtAmount(raw, decimals)}\`  ·  \`${fmtUsd(valueUsdc)}\`${
+      ? `🎒 You hold \`${fmtAmount(raw, decimals)}\`${
           pnl.hasBasis ? `\nPnL  \`${formatPnlCompact(pnl)}\`` : ''
         }`
       : `🎒 You hold \`0\``,
     ``,
-    quoteLine,
     slip ? `Slippage: ${slip}` : null,
     opts.feeLine || null,
     ``,

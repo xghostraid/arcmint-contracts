@@ -139,6 +139,14 @@ function short(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+/** Pull a token CA out of a paste (bare 0x, explorer URL, extra text). */
+function extractContractAddress(text: string): `0x${string}` | null {
+  const m = text.match(/0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/);
+  if (!m) return null;
+  if (!isAddress(m[0], { strict: false })) return null;
+  return getAddress(m[0]);
+}
+
 function userLang(tgId: number) {
   return normalizeLang(getLang(tgId));
 }
@@ -904,22 +912,23 @@ export function createBot(token: string): Bot<BotContext> {
     }
 
     if (ctx.session.expect === 'send_token') {
-      if (!isAddress(text)) {
+      const addr = extractContractAddress(text);
+      if (!addr) {
         await ctx.reply('Send a valid `0x` token address.');
         return;
       }
       ctx.session.expect = null;
-      await beginSendTo(ctx, getAddress(text));
+      await beginSendTo(ctx, addr);
       return;
     }
 
     if (ctx.session.expect === 'watch_token') {
-      if (!isAddress(text)) {
+      const addr = extractContractAddress(text);
+      if (!addr) {
         await ctx.reply('Send a valid `0x` token address.');
         return;
       }
       ctx.session.expect = null;
-      const addr = getAddress(text);
       let symbol = 'TOKEN';
       try {
         symbol = (await getTokenMeta(addr)).symbol;
@@ -1008,15 +1017,15 @@ export function createBot(token: string): Bot<BotContext> {
     }
 
     // bare token address — buy by default, sell if expecting sell
-    if (isAddress(text)) {
-      const addr = getAddress(text);
+    const pasted = extractContractAddress(text);
+    if (pasted) {
       if (ctx.session.expect === 'sell_token') {
         ctx.session.expect = null;
-        await openSell(ctx, addr);
+        await openSell(ctx, pasted);
         return;
       }
       ctx.session.expect = null;
-      await openBuy(ctx, addr);
+      await openBuy(ctx, pasted);
       return;
     }
 
@@ -2056,24 +2065,25 @@ async function executeSell(
 async function openBuy(ctx: BotContext, token: `0x${string}`): Promise<void> {
   const id = ctx.from!.id;
   const w = getActiveWallet(id);
-  if (!w) {
-    await ctx.reply(t(langOf(ctx), 'create_wallet_first'), {
-      reply_markup: walletMenu(false, langOf(ctx)),
-    });
-    return;
-  }
-
-  const feeExempt = env.isFeeExempt(w.address);
+  const feeExempt = w ? env.isFeeExempt(w.address) : false;
   const feePct = (env.platformFeeBps() / 100).toFixed(2);
-  const feeLine = feeExempt
-    ? `Bot fee: *waived*`
-    : `Bot fee: *${feePct}%*${getReferrerTgId(id) ? ' (includes referral share)' : ''}`;
+  const feeLine = !w
+    ? `_Create a wallet to buy_`
+    : feeExempt
+      ? `Bot fee: *waived*`
+      : `Bot fee: *${feePct}%*${getReferrerTgId(id) ? ' (includes referral share)' : ''}`;
+
+  const markup = w
+    ? buyPresets(token, langOf(ctx), {
+        hasBalance: false,
+        watching: isOnWatchlist(id, token),
+      })
+    : walletMenu(false, langOf(ctx));
 
   try {
-    // No extra "loading" Telegram round-trip — one reply when ready
     const card = await buildTokenCard({
       token,
-      owner: w.address as `0x${string}`,
+      owner: w ? (w.address as `0x${string}`) : null,
       tgId: id,
       feeExempt,
       sampleUsdc: env.buyPresets()[0] || '10',
@@ -2087,25 +2097,42 @@ async function openBuy(ctx: BotContext, token: `0x${string}`): Promise<void> {
       ``,
       `Network: *Arc Mainnet* · \`${env.chainId}\``,
     ].join('\n');
-    await ctx.reply(text, {
-      parse_mode: 'Markdown',
-      link_preview_options: { is_disabled: true },
-      reply_markup: buyPresets(token, langOf(ctx), {
-        hasBalance: card.hasBalance,
-        watching: isOnWatchlist(id, token),
-      }),
-    });
-  } catch (e) {
-    await ctx.reply(
-      `Could not load token: ${e instanceof Error ? e.message : 'error'}\n\`${token}\``,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: buyPresets(token, langOf(ctx), {
+    const kb = w
+      ? buyPresets(token, langOf(ctx), {
+          hasBalance: card.hasBalance,
           watching: isOnWatchlist(id, token),
-        }),
+        })
+      : markup;
+    try {
+      await ctx.reply(text, {
+        parse_mode: 'Markdown',
         link_preview_options: { is_disabled: true },
-      },
-    );
+        reply_markup: kb,
+      });
+    } catch (mdErr) {
+      console.warn('[openBuy] markdown failed', mdErr);
+      await ctx.reply(`$${card.symbol}\n${token}\nPick a size to buy`, {
+        reply_markup: kb,
+        link_preview_options: { is_disabled: true },
+      });
+    }
+  } catch (e) {
+    const fallback = [
+      `$${short(token)}`,
+      `\`${token}\``,
+      `Network: *Arc Mainnet* · \`${env.chainId}\``,
+      e instanceof Error ? e.message : 'error',
+      `_Pick a size to buy_`,
+    ].join('\n');
+    try {
+      await ctx.reply(fallback, {
+        parse_mode: 'Markdown',
+        reply_markup: markup,
+        link_preview_options: { is_disabled: true },
+      });
+    } catch {
+      await ctx.reply(`${token}\nPick a size to buy`, { reply_markup: markup });
+    }
   }
 }
 

@@ -22,7 +22,7 @@ RadarDEX also exposes Uniswap V3 router/quoter used for swaps (see `.env.example
 ## Cove-like interface
 
 - `/start` home + inline menu (Buy / Sell / Wallet / Positions / Settings)
-- Paste `0x` token address → buy presets (`$5 $10 $25…`)
+- Paste `0x` token address → bot resolves **name + symbol** (on-chain `name()`/`symbol()`, then arcmint.fun catalog) and shows buy presets (`$5 $10 $25…`)
 - Confirm → approve USDC → swap on Arc Mainnet
 - Multi-wallet create / import / export (encrypted at rest)
 

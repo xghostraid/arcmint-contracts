@@ -75,6 +75,9 @@ export const env = {
       .map((s) => s.trim())
       .filter(Boolean),
   explorer: () => opt('ARC_EXPLORER', 'https://arc-scan.org'),
+  /** Launchpad catalog used to resolve token name/symbol when RPC meta is empty. */
+  catalogApi: () =>
+    opt('ARCMINT_API_URL', 'https://arcmint.fun').replace(/\/+$/, ''),
 
   usdc: () => addr('USDC_ADDRESS', '0x3600000000000000000000000000000000000000'),
   swapRouter: () =>

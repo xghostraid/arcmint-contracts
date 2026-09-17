@@ -1,6 +1,13 @@
 import { formatUnits, type Hex } from 'viem';
 import { env } from '../config/env.js';
-import { getTokenBalance, getTokenMeta, getUsdcBalance } from './balances.js';
+import {
+  bestLabel,
+  getTokenBalance,
+  getTokenMeta,
+  getUsdcBalance,
+  isPlaceholderLabel,
+  PLACEHOLDER_META,
+} from './balances.js';
 import {
   formatPnlShort,
   getPositionPnl,
@@ -188,10 +195,12 @@ async function fetchViaRpc(
         const raw = await getTokenBalance(addr, owner);
         if (raw <= 0n) return;
         let symbol = t.symbol;
+        let name = t.symbol;
         let decimals = t.decimals;
         try {
           const meta = await getTokenMeta(addr);
-          symbol = meta.symbol;
+          symbol = bestLabel(meta.symbol, t.symbol) || PLACEHOLDER_META.symbol;
+          name = bestLabel(meta.name, meta.symbol, t.symbol) || symbol;
           decimals = meta.decimals;
         } catch {
           /* use stored */
@@ -199,7 +208,7 @@ async function fetchViaRpc(
         holdings.push({
           address: addr,
           symbol,
-          name: symbol,
+          name,
           decimals,
           raw,
           formatted: fmtAmount(raw, decimals),
@@ -224,45 +233,112 @@ type TokenMetaRemote = {
 async function fetchTokenMetaRemote(address: `0x${string}`): Promise<TokenMetaRemote | null> {
   const key = `meta:${address.toLowerCase()}`;
   return cacheGetOrSet(key, 60_000, async () => {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 4_000);
-    try {
-      const base = blockscoutBase();
-      if (!base) return null;
-      const res = await fetch(`${base}/api/v2/tokens/${address}`, {
-        signal: ctrl.signal,
-        headers: { accept: 'application/json' },
-      });
-      if (!res.ok) return null;
-      const d = (await res.json()) as {
-        name?: string;
-        symbol?: string;
-        decimals?: string;
-        total_supply?: string;
-        holders_count?: string | number;
-      };
-      let totalSupply: bigint | null = null;
+    let name = '';
+    let symbol = '';
+    let decimals = 18;
+    let totalSupply: bigint | null = null;
+    let holders: number | null = null;
+
+    const base = blockscoutBase();
+    if (base) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 4_000);
       try {
-        if (d.total_supply) totalSupply = BigInt(d.total_supply);
+        const res = await fetch(`${base}/api/v2/tokens/${address}`, {
+          signal: ctrl.signal,
+          headers: {
+            accept: 'application/json',
+            'user-agent': 'arcmint-tg-bot/1.0 (+https://t.me/arcTraderXbot)',
+          },
+        });
+        if (res.ok) {
+          const d = (await res.json()) as {
+            name?: string;
+            symbol?: string;
+            decimals?: string;
+            total_supply?: string;
+            holders_count?: string | number;
+          };
+          name = String(d.name ?? '');
+          symbol = String(d.symbol ?? '');
+          decimals = Number(d.decimals ?? 18) || 18;
+          try {
+            if (d.total_supply) totalSupply = BigInt(d.total_supply);
+          } catch {
+            totalSupply = null;
+          }
+          const h =
+            d.holders_count != null && d.holders_count !== ''
+              ? Number(d.holders_count)
+              : null;
+          holders = Number.isFinite(h as number) ? (h as number) : null;
+        }
       } catch {
-        totalSupply = null;
+        /* */
+      } finally {
+        clearTimeout(t);
       }
-      const holders =
-        d.holders_count != null && d.holders_count !== ''
-          ? Number(d.holders_count)
-          : null;
-      return {
-        name: (d.name || d.symbol || 'Token').slice(0, 48),
-        symbol: (d.symbol || '???').slice(0, 24),
-        decimals: Number(d.decimals ?? 18) || 18,
-        totalSupply,
-        holders: Number.isFinite(holders as number) ? (holders as number) : null,
-      };
-    } catch {
-      return null;
-    } finally {
-      clearTimeout(t);
     }
+
+    if (isPlaceholderLabel(name) || isPlaceholderLabel(symbol) || holders == null) {
+      try {
+        const catalog = env.catalogApi();
+        if (catalog) {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), 5_000);
+          try {
+            const res = await fetch(`${catalog}/api/tokens/${address}`, {
+              signal: ctrl.signal,
+              headers: {
+                accept: 'application/json',
+                'user-agent': 'arcmint-tg-bot/1.0 (+https://t.me/arcTraderXbot)',
+              },
+            });
+            if (res.ok) {
+              const data = (await res.json()) as {
+                token?: {
+                  name?: string;
+                  symbol?: string;
+                  holderCount?: number;
+                };
+                name?: string;
+                symbol?: string;
+                holderCount?: number;
+              };
+              const row = data.token ?? data;
+              if (isPlaceholderLabel(name)) name = String(row.name ?? '');
+              if (isPlaceholderLabel(symbol)) symbol = String(row.symbol ?? '');
+              if (holders == null && row.holderCount != null) {
+                const h = Number(row.holderCount);
+                holders = Number.isFinite(h) ? h : holders;
+              }
+            }
+          } finally {
+            clearTimeout(t);
+          }
+        }
+      } catch {
+        /* */
+      }
+    }
+
+    name = bestLabel(name, symbol);
+    symbol = bestLabel(symbol, name);
+    if (
+      isPlaceholderLabel(name) &&
+      isPlaceholderLabel(symbol) &&
+      holders == null &&
+      totalSupply == null
+    ) {
+      return null;
+    }
+    return {
+      name: name || PLACEHOLDER_META.name,
+      symbol: (symbol || PLACEHOLDER_META.symbol).slice(0, 24),
+      decimals,
+      totalSupply,
+      holders,
+    };
   });
 }
 
@@ -394,8 +470,10 @@ export async function enrichPositions(
       }
 
       const remote = await fetchTokenMetaRemote(h.address);
-      const name = remote?.name || h.name;
-      const symbol = remote?.symbol || h.symbol;
+      const symbol =
+        bestLabel(h.symbol, remote?.symbol, h.name, remote?.name) ||
+        PLACEHOLDER_META.symbol;
+      const name = bestLabel(h.name, remote?.name, symbol) || symbol;
       const rDec = remote?.decimals || decimals;
 
       const spot = await spotPriceUsdc(h.address, rDec, h.raw);
@@ -569,15 +647,23 @@ export function formatTokenDetail(p: EnrichedPosition): string {
   const pnl = formatPnlCompact(p.pnl);
   const price =
     p.priceUsdc != null && p.priceUsdc > 0 ? fmtUsd(p.priceUsdc) : '—';
+  const nameLine =
+    p.name && p.name.toLowerCase() !== p.symbol.toLowerCase()
+      ? `_${escapeMd(p.name)}_`
+      : null;
   return [
     tokenNameLink(p.symbol, p.address),
+    nameLine,
+    `\`${p.address}\``,
     ``,
     `Price  \`${price}\``,
     `MC  \`${mc}\``,
     `Holders  \`${holders}\``,
     `Have  \`${p.formatted}\`  ·  \`${fmtUsd(p.valueUsdc)}\``,
     `PnL  \`${pnl}\``,
-  ].join('\n');
+  ]
+    .filter((x) => x != null && x !== '')
+    .join('\n');
 }
 
 /**
@@ -607,14 +693,16 @@ export async function buildTokenCard(opts: {
     opts.owner
       ? getTokenBalance(token, opts.owner).catch(() => 0n)
       : Promise.resolve(0n),
-    getTokenMeta(token).catch(() => ({ symbol: 'TOKEN', decimals: 18 })),
+    getTokenMeta(token).catch(() => PLACEHOLDER_META),
     quoteUsdcToToken(token, sample, true, opts.feeExempt ?? false).catch(() => null),
     fetchTokenMetaRemote(token),
   ]);
 
-  const symbol = remote?.symbol || meta.symbol || 'TOKEN';
+  const symbol =
+    bestLabel(meta.symbol, remote?.symbol, meta.name, remote?.name) ||
+    PLACEHOLDER_META.symbol;
   const decimals = remote?.decimals || meta.decimals || 18;
-  const name = remote?.name || symbol;
+  const name = bestLabel(meta.name, remote?.name, symbol) || symbol;
 
   let valueUsdc = 0;
   let priceUsdc: number | null = null;
@@ -669,7 +757,9 @@ export async function buildTokenCard(opts: {
 
   const lines = [
     tokenNameLink(symbol, token),
-    name && name !== symbol ? `_${escapeMd(name)}_` : null,
+    name && name.toLowerCase() !== symbol.toLowerCase()
+      ? `_${escapeMd(name)}_`
+      : null,
     `\`${token}\``,
     ``,
     `💵 Price   \`${price}\``,

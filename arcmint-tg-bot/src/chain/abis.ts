@@ -15,6 +15,13 @@ export const erc20Abi = [
   },
   {
     type: 'function',
+    name: 'name',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'string' }],
+  },
+  {
+    type: 'function',
     name: 'symbol',
     stateMutability: 'view',
     inputs: [],
@@ -49,6 +56,24 @@ export const erc20Abi = [
       { name: 'amount', type: 'uint256' },
     ],
     outputs: [{ type: 'bool' }],
+  },
+] as const;
+
+/** Legacy ERC-20s (e.g. bytes32 symbol/name). */
+export const erc20Bytes32MetaAbi = [
+  {
+    type: 'function',
+    name: 'name',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'bytes32' }],
+  },
+  {
+    type: 'function',
+    name: 'symbol',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'bytes32' }],
   },
 ] as const;
 

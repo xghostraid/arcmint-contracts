@@ -1177,7 +1177,7 @@ async function showPositionDetail(
     try {
       const meta = await getTokenMeta(token);
       symbol = meta.symbol;
-      name = meta.symbol;
+      name = meta.name || meta.symbol;
       decimals = meta.decimals;
     } catch {
       /* */

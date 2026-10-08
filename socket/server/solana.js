@@ -53,6 +53,62 @@ export function walletFromPublicKey(publicKey) {
   return encodeBase58(raw);
 }
 
+const P = 2n ** 255n - 19n;
+const D = (P + (-121665n * modPow(121666n, P - 2n))) % P;
+
+function modPow(base, exp) {
+  let result = 1n;
+  let b = ((base % P) + P) % P;
+  let e = exp;
+  while (e > 0n) {
+    if (e & 1n) result = (result * b) % P;
+    b = (b * b) % P;
+    e >>= 1n;
+  }
+  return result;
+}
+
+// Program ids and mints are not fee wallets. Token accounts are program
+// addresses and fail the curve check below. No network call.
+const NOT_WALLETS = new Set([
+  "11111111111111111111111111111111",
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+  "So11111111111111111111111111111111111111112",
+  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+  "ComputeBudget111111111111111111111111111111",
+  "Vote111111111111111111111111111111111111111",
+  "Stake11111111111111111111111111111111111111",
+  "BPFLoaderUpgradeab1e11111111111111111111111",
+  "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
+]);
+
+export function isOnCurve(bytes) {
+  if (!bytes || bytes.length !== 32) return false;
+  let y = 0n;
+  for (let i = 0; i < 32; i += 1) y += BigInt(bytes[i]) << (8n * BigInt(i));
+  const sign = (y >> 255n) & 1n;
+  y &= (1n << 255n) - 1n;
+  if (y >= P) return false;
+  const y2 = (y * y) % P;
+  const u = (y2 - 1n + P) % P;
+  const v = (D * y2 + 1n) % P;
+  if (v === 0n) return false;
+  const x2 = (u * modPow(v, P - 2n)) % P;
+  let x = modPow(x2, (P + 3n) / 8n);
+  if ((x * x - x2 + P) % P !== 0n) x = (x * modPow(2n, (P - 1n) / 4n)) % P;
+  if ((x * x - x2 + P) % P !== 0n) return false;
+  if (x === 0n && sign === 1n) return false;
+  return true;
+}
+
+export function isOrdinaryWallet(address) {
+  if (typeof address !== "string" || NOT_WALLETS.has(address)) return false;
+  const raw = decodeBase58(address);
+  return Boolean(raw && raw.length === 32 && isOnCurve(raw));
+}
+
 export function verifyWalletSignature(wallet, message, signature) {
   try {
     const raw = decodeBase58(wallet);

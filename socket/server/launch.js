@@ -34,6 +34,8 @@ function presentLaunch(row) {
   const paused = row.error === "paused";
   let text = "Launch failed.";
   if (paused) text = "Launches are paused.";
+  else if (row.error === "blocked") text = "That name cannot impersonate Socket.";
+  else if (row.error === "wallet") text = "That fee address is not an ordinary wallet.";
   else if (row.error === "wallet-hourly") text = "This wallet is at its hourly launch cap.";
   else if (row.error === "wallet-daily") text = "This wallet is at its daily launch cap.";
   else if (row.error === "hourly" || row.error === "daily") text = "The launch cap is full.";
@@ -86,8 +88,16 @@ export function launchCoin(db, raw = {}, options = {}) {
     let states = "received,quoted";
     markLaunch(db, id, { status: "quoted", error: null, states, mint: null }, now);
 
-    const cap = launchLimit(db, quote.wallet, now);
-    if (cap) {
+    const blocked = quote.issues.some((issue) => issue.error === "blocked");
+    const walletRejected = quote.issues.some((issue) => issue.field === "wallet");
+    const cap = !blocked && !walletRejected ? launchLimit(db, quote.wallet, now) : null;
+    if (blocked) {
+      states = "received,quoted,failed";
+      markLaunch(db, id, { status: "failed", error: "blocked", states, mint: null }, now);
+    } else if (walletRejected) {
+      states = "received,quoted,failed";
+      markLaunch(db, id, { status: "failed", error: "wallet", states, mint: null }, now);
+    } else if (cap) {
       states = "received,quoted,failed";
       markLaunch(db, id, { status: "failed", error: cap, states, mint: null }, now);
     } else if (!canPay) {

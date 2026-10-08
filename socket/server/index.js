@@ -7,6 +7,7 @@ import { coinEvents, getLiveCoin, getPicture, latestLiveRow, listBurns, listLive
 import { renderDraftCard } from "./draft-card.js";
 import { renderBurns, renderCoin, renderDesk, renderFloor, renderHome, renderLivePreview, renderNotFound, renderPreview } from "./html.js";
 import { renderLiveCard } from "./live-card.js";
+import { cronAuthorized, lowFloatAlert, opsStatus } from "./ops.js";
 import { watchPayouts } from "./payout.js";
 import { handleMcpMessage, sseBody, wantsSse } from "./mcp.js";
 import { PICTURE_MAX_BYTES, sniffImage } from "./picture.js";
@@ -147,7 +148,7 @@ function serveAsset(res, rel) {
   send(res, 200, type, fs.readFileSync(file), { "cache-control": cache });
 }
 
-async function route(req, res, db) {
+async function route(req, res, db, env = process.env) {
   const url = new URL(req.url || "/", "http://127.0.0.1");
   const pathname = url.pathname;
   const status = () => publicStatus(db);
@@ -334,6 +335,14 @@ async function route(req, res, db) {
     sendJson(res, 200, status());
     return;
   }
+  if (pathname === "/api/ops") {
+    if (!cronAuthorized(req.headers.authorization, env)) {
+      sendJson(res, 401, { ok: false, error: "rejected" });
+      return;
+    }
+    sendJson(res, 200, opsStatus(env));
+    return;
+  }
 
   if (pathname === "/api/coins") {
     const limitRaw = url.searchParams.get("limit");
@@ -476,10 +485,10 @@ async function route(req, res, db) {
   sendHtml(res, 404, renderNotFound(status()));
 }
 
-export function createServer({ dbPath = process.env.SOCKET_DB || DEFAULT_DB } = {}) {
+export function createServer({ dbPath = process.env.SOCKET_DB || DEFAULT_DB, env = process.env } = {}) {
   const db = openDb(dbPath);
   const server = http.createServer((req, res) => {
-    route(req, res, db).catch((err) => {
+    route(req, res, db, env).catch((err) => {
       console.error(err);
       if (!res.headersSent) send(res, 500, "text/plain; charset=utf-8", "read failed");
     });
@@ -494,6 +503,8 @@ if (isDirect) {
   const host = process.env.HOST || "127.0.0.1";
   const server = createServer();
   seedLocalCoin(server.db);
+  const floatAlert = lowFloatAlert();
+  if (floatAlert) console.error(floatAlert.text);
   const tick = () => {
     try {
       watchPayouts(server.db);

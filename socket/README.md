@@ -6,7 +6,9 @@ Read path, pictures, quotes, and a paused `launch_coin`. Coins, burns, pictures,
 
 A payout watcher runs once a minute. It would push creator fees once a coin has at least 0.003 SOL waiting. Each push is a ledger row: coin, amount, signature, and time. The live card’s unpaid figure is that ledger, not a separate balance. While the launch key is missing, the watcher writes nothing and does not call the network. There is no house token, so nothing is bought or burned.
 
-The desk proves a Solana address with a signature over a nonce. It is not a custody wallet and not a ChatGPT login. The connector stays no sign-in. A wallet may launch 5 times an hour and 20 a day, inside the global cap. `list_wallet_coins` returns that wallet’s coins, paid SOL, and its failed jobs only.
+The desk proves a Solana address with a signature over a nonce. It is not a custody wallet and not a ChatGPT login. The connector stays no sign-in. A wallet may launch 5 times an hour and 20 a day, inside the global cap of 30 an hour and 200 a day. `list_wallet_coins` returns that wallet’s coins, paid SOL, and its failed jobs only.
+
+A new launch cannot use a name or ticker that impersonates Socket. There is no house token. Fee addresses have to be ordinary wallets. Public `/api/status` does not include signer balance or secret flags. `/api/ops` answers whether one launch can be paid, and it stays behind the cron secret. A low float raises “The float cannot cover one launch.”
 
 ```bash
 npm start

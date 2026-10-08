@@ -1,5 +1,7 @@
 import { getPicture } from "./db.js";
+import { impersonatesSocket } from "./names.js";
 import { IMAGE_URL_MAX_BYTES } from "./picture.js";
+import { isOrdinaryWallet } from "./solana.js";
 import { publicStatus } from "./status.js";
 import { treasuryCanPay } from "./treasury.js";
 
@@ -58,12 +60,20 @@ export function buildQuote(db, raw = {}, now = new Date()) {
   const pictureIdRaw = rawText(args.picture_id);
   const imageRaw = rawText(args.image_url);
 
-  const name = nameRaw && nameRaw.length <= 32 ? nameRaw : null;
+  let name = nameRaw && nameRaw.length <= 32 ? nameRaw : null;
   if (nameRaw && nameRaw.length > 32) issues.push({ field: "name", error: "size" });
+  else if (name && impersonatesSocket(name)) {
+    issues.push({ field: "name", error: "blocked" });
+    name = null;
+  }
 
-  const ticker = tickerRaw && /^[A-Za-z0-9]{1,10}$/.test(tickerRaw) ? tickerRaw : null;
+  let ticker = tickerRaw && /^[A-Za-z0-9]{1,10}$/.test(tickerRaw) ? tickerRaw : null;
   if (tickerRaw && tickerRaw.length > 10) issues.push({ field: "ticker", error: "size" });
   else if (tickerRaw && !ticker) issues.push({ field: "ticker", error: "format" });
+  else if (ticker && impersonatesSocket(ticker)) {
+    issues.push({ field: "ticker", error: "blocked" });
+    ticker = null;
+  }
 
   const description = descriptionRaw && descriptionRaw.length <= 400 ? descriptionRaw : null;
   if (descriptionRaw && descriptionRaw.length > 400) issues.push({ field: "description", error: "size" });
@@ -72,6 +82,8 @@ export function buildQuote(db, raw = {}, now = new Date()) {
   if (walletRaw) {
     if (walletRaw.length > 44 || walletRaw.length < 32 || !BASE58.test(walletRaw)) {
       issues.push({ field: "wallet", error: "format" });
+    } else if (!isOrdinaryWallet(walletRaw)) {
+      issues.push({ field: "wallet", error: "wallet" });
     } else wallet = walletRaw;
   }
 

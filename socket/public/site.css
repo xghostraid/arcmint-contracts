@@ -220,11 +220,17 @@ h1 em { font-style: italic; font-weight: 480; }
 
 .space-line {
   margin: 8px 0;
-  font-size: clamp(32px, 4vw, 52px);
+  font-size: clamp(44px, 6vw, 84px);
   font-weight: 520;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.045em;
   line-height: 0.95;
   color: var(--filament);
+}
+.plate-floor.is-empty,
+.plate-burns:has(.space-line) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 .space-line[hidden] { display: none; }
 
@@ -431,6 +437,9 @@ pre {
   h1 { font-size: 40px; }
   .slot, .path, .split-line { font-size: 15px; }
   .figure-num { font-size: 32px; }
+  .plate-stat { padding: 8px 6px 10px; }
+  .plate-stat .figure-num { font-size: 22px; }
+  .plate-stat .figure-label { font-size: 9px; letter-spacing: 0.06em; }
   .figures { grid-template-columns: 1fr; }
   .url-row { flex-direction: column; }
   .copy { min-height: 44px; }

@@ -10,7 +10,6 @@ import {
   FogExp2,
   Group,
   Mesh,
-  MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   PerspectiveCamera,
@@ -26,7 +25,7 @@ import {
 
 const POSES = {
   home: { pos: [0.2, 0.38, 5.55], look: [0, 0.02, 0] },
-  floor: { pos: [0.05, 1.05, -3.15], look: [0, 0.05, -7.1] },
+  floor: { pos: [0.02, 0.58, -4.15], look: [0, 0.22, -6.7] },
   burns: { pos: [0.15, -1.85, 3.35], look: [0, -3.05, -0.2] },
   copy: { pos: [-1.15, 0.48, 2.85], look: [-1.85, 0.28, 0.85] },
 };
@@ -105,13 +104,6 @@ function buildInstrument() {
   ]);
   group.add(new Mesh(new TubeGeometry(curve, 28, 0.042, 12, false), cableMat));
 
-  const shadow = new Mesh(
-    new CircleGeometry(1.15, 48),
-    new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4 }),
-  );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = -1.22;
-  group.add(shadow);
   return group;
 }
 
@@ -218,10 +210,10 @@ export function mountChamber() {
     anchors[name] = anchor;
   }
 
-  addPlate("hero", [-2.42, 0.08, 0.28], 1.78, 1.22);
-  addPlate("left", [-1.42, 1.58, -1.65], 1.08, 0.64);
-  addPlate("paid", [2.12, 0.92, 0.42], 1.08, 0.64);
-  addPlate("burned", [1.52, -1.18, 1.95], 1.08, 0.64);
+  addPlate("hero", [-2.62, -0.02, -0.05], 2.02, 1.78);
+  addPlate("left", [-2.35, 1.28, -2.35], 1.2, 0.58);
+  addPlate("paid", [2.35, 0.58, -0.35], 1.2, 0.58);
+  addPlate("burned", [1.95, -0.55, 0.72], 1.2, 0.58);
   addPlate("floor", [0, 0.42, -6.45], 2.35, 0.92);
   addPlate("burns", [0.05, -2.62, -0.15], 2.25, 0.95);
 
@@ -244,6 +236,7 @@ export function mountChamber() {
     });
     const line = document.querySelector("[data-empty-line]");
     if (line && list.length === 0 && !line.textContent) line.textContent = "The floor is clear.";
+    if (anchors.floor) anchors.floor.visible = list.length > 0;
   }
 
   const seed = document.querySelector("#coin-seed");
@@ -278,7 +271,12 @@ export function mountChamber() {
     const next = spherical(pose.pos, pose.look, orbit.yaw, orbit.pitch);
     camera.position.copy(next);
     lookTarget.set(pose.look[0], pose.look[1], pose.look[2]);
-    camera.lookAt(lookTarget);
+    aim();
+  }
+
+  function aim() {
+    const bias = window.innerWidth < 740 && (view === "home" || view === "copy") ? -0.78 : 0;
+    camera.lookAt(lookTarget.x, lookTarget.y + bias, lookTarget.z);
   }
 
   function go(next, { intro = false } = {}) {
@@ -348,13 +346,25 @@ export function mountChamber() {
     const scale = 0.0052;
     orbit.yaw += dx * scale;
     orbit.pitch = Math.max(-0.7, Math.min(0.7, orbit.pitch + dy * scale));
-    orbit.vy = dx * scale;
-    orbit.vp = dy * scale;
+    if (Math.abs(dx) + Math.abs(dy) > 0.4) {
+      orbit.vy = dx * scale;
+      orbit.vp = dy * scale;
+      orbit.movedAt = performance.now();
+    }
     if (anim) anim = null;
   });
-  function endDrag() { dragging = false; }
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    if (performance.now() - (orbit.movedAt || 0) > 120) {
+      orbit.vy = 0;
+      orbit.vp = 0;
+    }
+  }
   canvas.addEventListener("pointerup", endDrag);
   canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("lostpointercapture", endDrag);
+  window.addEventListener("pointerup", endDrag);
 
   const clock = new Clock();
   let elapsed = reduced ? 1.4 : 0;
@@ -369,10 +379,54 @@ export function mountChamber() {
   resize();
   window.addEventListener("resize", resize);
 
+  function showPlate(plate, left, top, plateW) {
+    plate.style.width = `${plateW}px`;
+    plate.style.minHeight = "0px";
+    plate.style.left = `${left}px`;
+    plate.style.top = `${top}px`;
+    plate.style.transform = "none";
+    plate.style.opacity = "1";
+    plate.style.pointerEvents = "none";
+  }
+
   function placePlates() {
     const active = document.body.dataset.focus || view;
     const width = window.innerWidth;
     const height = window.innerHeight;
+    if (width < 740) {
+      const homeOn = active === "home" || active === "copy";
+      for (const plate of plates) {
+        plate.style.opacity = "0";
+        plate.style.pointerEvents = "none";
+      }
+      let cursor = 78;
+      if (homeOn) {
+        const stats = ["left", "paid", "burned"].map((name) => plates.find((el) => el.dataset.anchor === name));
+        const gap = 8;
+        const statW = (width - 24 - gap * 2) / 3;
+        let rowH = 0;
+        for (const plate of stats) {
+          plate.style.width = `${statW}px`;
+          rowH = Math.max(rowH, plate.offsetHeight);
+        }
+        stats.forEach((plate, index) => showPlate(plate, 12 + index * (statW + gap), cursor, statW));
+        cursor += rowH + 12;
+      }
+      for (const plate of plates) {
+        if (plate.classList.contains("plate-stat")) continue;
+        const room = plate.dataset.room;
+        const on = room === "home" ? homeOn : room === active;
+        if (!on) continue;
+        const plateW = width - 24;
+        plate.style.width = `${plateW}px`;
+        const plateH = plate.offsetHeight;
+        const top = plate.dataset.anchor === "hero"
+          ? Math.max(cursor, height - plateH - 14)
+          : Math.min(cursor + 24, Math.max(88, (height - plateH) / 2));
+        showPlate(plate, 12, top, plateW);
+      }
+      return;
+    }
     const vFov = (camera.fov * Math.PI) / 180;
     for (const plate of plates) {
       const anchor = anchors[plate.dataset.anchor];
@@ -389,15 +443,23 @@ export function mountChamber() {
       const x = (projected.x * 0.5 + 0.5) * width;
       const y = (-projected.y * 0.5 + 0.5) * height;
       const px = (anchor.userData.h / (2 * Math.tan(vFov / 2) * dist)) * height;
-      const plateW = Math.min(width - 28, Math.max(width < 740 ? 280 : 200, (anchor.userData.w / anchor.userData.h) * px));
-      const half = plateW / 2;
-      const clampedX = Math.min(width - half - 10, Math.max(half + 10, x));
-      const clampedY = Math.min(height - 36, Math.max(72, y));
+      let plateW = Math.min(width - 28, Math.max(width < 740 ? 280 : 200, (anchor.userData.w / anchor.userData.h) * px));
+      const emptyLine = plate.classList.contains("is-empty") || plate.querySelector(".space-line:not([hidden])");
+      if (emptyLine) plateW = Math.min(width - 40, width < 740 ? width - 28 : 920);
       plate.style.width = `${plateW}px`;
-      plate.style.minHeight = `${Math.max(72, px)}px`;
+      plate.style.minHeight = "0px";
+      plate.style.left = "0px";
+      plate.style.top = "0px";
+      const plateH = Math.max(plate.offsetHeight, 72);
+      const half = plateW / 2;
+      const halfH = plateH / 2;
+      const clampedX = Math.min(width - half - 12, Math.max(half + 12, x));
+      const topLimit = 64 + halfH;
+      const bottomLimit = Math.max(topLimit, height - 16 - halfH);
+      const clampedY = Math.min(bottomLimit, Math.max(topLimit, y));
       plate.style.transform = `translate(-50%, -50%) translate(${clampedX}px, ${clampedY}px)`;
       plate.style.opacity = projected.z < 1 ? "1" : "0";
-      plate.style.pointerEvents = "auto";
+      plate.style.pointerEvents = "none";
     }
   }
 
@@ -432,7 +494,7 @@ export function mountChamber() {
       lookTarget.lerpVectors(anim.fromLook, anim.toLook, e);
       orbit.yaw = anim.fromYaw * (1 - e);
       orbit.pitch = anim.fromPitch * (1 - e);
-      camera.lookAt(lookTarget);
+      aim();
       if (k === 1) {
         anim = null;
         canvas.dataset.settled = "1";

@@ -1,8 +1,6 @@
 import { safeImage, searchCoins, showVolume, sortCoins } from "./board.js";
+import { mountChamber } from "./chamber.js";
 import { DASH, formatAge, formatCap, formatPct, formatSol, pctClass } from "./format.js";
-
-const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const page = document.body.dataset.page;
 
 function showToast() {
   const el = document.querySelector(".toast");
@@ -30,12 +28,7 @@ async function copyUrl() {
     document.execCommand("copy");
     area.remove();
   }
-  const mark = document.querySelector(".mark-stage .socket-mark");
-  if (mark && !reduced) {
-    mark.classList.remove("settle");
-    void mark.offsetWidth;
-    mark.classList.add("settle");
-  }
+  window.dispatchEvent(new CustomEvent("socket:focus", { detail: "copy" }));
   showToast();
 }
 
@@ -89,6 +82,16 @@ function renderRows(state) {
   });
   const count = document.querySelector("[data-count]");
   if (count) count.textContent = `${state.coins.length} live`;
+  const empty = document.querySelector("[data-empty-line]");
+  const plate = document.querySelector(".plate-floor");
+  if (empty) {
+    empty.hidden = filtered.length !== 0;
+    empty.textContent = filtered.length === 0
+      ? (state.coins.length === 0 ? "The floor is clear." : "Nothing matches that.")
+      : "";
+  }
+  plate?.classList.toggle("is-empty", filtered.length === 0);
+  window.dispatchEvent(new CustomEvent("socket:coins", { detail: filtered }));
   body.replaceChildren();
   if (filtered.length === 0) {
     const tr = document.createElement("tr");
@@ -161,13 +164,14 @@ function coinRow(coin, volume, isNew) {
   return tr;
 }
 
-if (page === "home") {
-  document.querySelector(".copy")?.addEventListener("click", copyUrl);
+document.querySelector(".copy")?.addEventListener("click", copyUrl);
+
+if (document.querySelector("[data-left]") || document.querySelector("[data-status-line]")) {
   pollStatus();
   window.setInterval(pollStatus, 60_000);
 }
 
-if (page === "floor") {
+if (document.querySelector("[data-rows]")) {
   const state = { coins: [], sort: "new", query: "", seen: null };
   const draw = () => renderRows(state);
   const commit = (coins) => {
@@ -203,3 +207,5 @@ if (page === "floor") {
   poll();
   window.setInterval(poll, 30_000);
 }
+
+if (document.querySelector("#chamber")) mountChamber();

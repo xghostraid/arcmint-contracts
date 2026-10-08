@@ -1,5 +1,4 @@
-Copyright 2017 The Bodoni Moda Project Authors (https://github.com/indestructible-type/Bodoni), with Reserved Font Name "Bodoni Moda".
-Copyright 2018 The Manrope Project Authors (https://github.com/sharanda/manrope).
+Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans), with Reserved Font Name "Instrument Sans".
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 

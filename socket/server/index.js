@@ -50,6 +50,7 @@ const TYPES = {
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
+  ".png": "image/png",
   ".woff2": "font/woff2",
   ".txt": "text/plain; charset=utf-8",
   ".md": "text/plain; charset=utf-8",
@@ -358,16 +359,19 @@ async function route(req, res, db) {
     sendHtml(res, 200, renderPreview(status()));
     return;
   }
-  if (pathname === "/") {
-    sendHtml(res, 200, renderHome({ status: status(), mcpUrl: `${publicOrigin(req)}/mcp` }));
-    return;
-  }
-  if (pathname === "/floor") {
-    sendHtml(res, 200, renderFloor({ status: status(), coins: listLiveCoins(db) }));
-    return;
-  }
-  if (pathname === "/burns") {
-    sendHtml(res, 200, renderBurns({ status: status(), burns: listBurns(db) }));
+  if (pathname === "/" || pathname === "/floor" || pathname === "/burns") {
+    const scene = {
+      status: status(),
+      mcpUrl: `${publicOrigin(req)}/mcp`,
+      coins: listLiveCoins(db),
+      burns: listBurns(db),
+    };
+    const html = pathname === "/floor"
+      ? renderFloor({ ...scene, title: "The floor · Socket" })
+      : pathname === "/burns"
+        ? renderBurns(scene)
+        : renderHome(scene);
+    sendHtml(res, 200, html);
     return;
   }
   if (pathname.startsWith("/coin/")) {

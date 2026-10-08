@@ -23,54 +23,42 @@ export function esc(value) {
     .replaceAll("'", "&#39;");
 }
 
-function socketMark({ label = "" } = {}) {
-  const labelled = label
-    ? `role="img" aria-label="${esc(label)}"`
-    : `aria-hidden="true"`;
-  return `<svg class="socket-mark" viewBox="0 0 200 280" ${labelled}>
-    <rect x="52" y="58" width="120" height="132" fill="#17202b"/>
-    <rect class="face" x="36" y="42" width="120" height="132" fill="#b68b4c"/>
-    <rect class="pin" x="70" y="14" width="14" height="46" fill="#b68b4c"/>
-    <rect class="pin" x="112" y="14" width="14" height="46" fill="#b68b4c"/>
-    <circle cx="96" cy="112" r="30" fill="#f7f4ee"/>
-    <path d="M96 174 L96 224 L122 258" fill="none" stroke="#17202b" stroke-width="3"/>
-  </svg>`;
-}
-
-function nav(page, status) {
+function nav(page, status, linked = false) {
   const line = status.display.marquee;
   const on = status.launchesOn;
   const floor = page === "floor" ? ` aria-current="page"` : "";
   const burns = page === "burns" ? ` aria-current="page"` : "";
+  const homeLink = linked ? ` data-view-link="home"` : "";
+  const floorLink = linked ? ` data-view-link="floor"` : "";
+  const burnsLink = linked ? ` data-view-link="burns"` : "";
   return `<header class="nav">
-    <a class="brand${on ? " led-on" : ""}" href="/" data-led title="${on ? "Launches on" : "Launches paused"}">
-      ${socketMark()}
-      <span>Socket</span>
-    </a>
+    <a class="brand" href="/"${homeLink} data-led title="${on ? "Launches on" : "Launches paused"}">Socket</a>
     <p class="status-line" data-status-line>${esc(line)}</p>
     <nav class="nav-links" aria-label="Pages">
-      <a href="/floor"${floor}>Floor</a>
-      <a href="/burns"${burns}>Burns</a>
+      <a href="/floor"${floor}${floorLink}>Floor</a>
+      <a href="/burns"${burns}${burnsLink}>Burns</a>
     </nav>
   </header>`;
 }
 
-function shell({ status, title, page, main }) {
+function shell({ status, title, page, main, scene = false }) {
+  const view = page === "floor" || page === "burns" ? page : "home";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="description" content="Socket is a private ChatGPT connector for pump.fun. This server is the read path.">
-<meta name="theme-color" content="#e6eef2">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Socket is a private ChatGPT connector for pump.fun.">
+<meta name="theme-color" content="#07080c">
 <title>${esc(title)}</title>
 <link rel="icon" href="/assets/favicon.svg">
 <link rel="stylesheet" href="/assets/site.css">
 </head>
-<body class="${esc(page)}" data-page="${esc(page)}">
+<body class="${scene ? "chamber" : esc(page)}" data-page="${esc(page)}"${scene ? ` data-view="${view}" data-focus="${view}"` : ""}>
 <a class="skip" href="#main">Skip to content</a>
-${nav(page, status)}
+${scene ? `<canvas id="chamber"></canvas><img class="still" src="/assets/chamber-still.png" alt="Machined socket" hidden>` : ""}
+${scene ? "" : nav(page, status)}
 ${main}
 <div class="toast" role="status" hidden>${esc(TOAST_TEXT)}</div>
 <script type="module" src="/assets/site.js"></script>
@@ -96,30 +84,90 @@ function figure(label, value, attrs, sub = "") {
   </article>`;
 }
 
-export function renderHome({ status, mcpUrl }) {
+function seed(value) {
+  return JSON.stringify(value).replaceAll("<", "\\u003c");
+}
+
+function renderChamber({ status, title, page, mcpUrl, coins = [], burns = [] }) {
   const pause = status.launchesOn ? "" : "Paused";
-  const main = `<main id="main" class="stage">
-    <div class="lead">
-      <p class="kicker">Private connector</p>
-      <h1>pump.fun,<br><em>plugged</em> into ChatGPT.</h1>
-      <div class="url-row">
-        <div class="slot" id="mcp-url" data-mcp-url="${esc(mcpUrl)}">${esc(mcpUrl)}</div>
-        <button class="copy" type="button" aria-describedby="chatgpt-path">Copy</button>
-      </div>
-      <p class="path" id="chatgpt-path">${esc(CHATGPT_PATH)}</p>
-      <div class="figures" aria-live="polite">
-        ${figure("Left today", status.display.leftToday, `data-left`, pause)}
-        ${figure("Sol paid", status.display.paid, `data-paid`)}
-        ${figure("Burned", status.display.burned, `data-burned`)}
-      </div>
-      <p class="split-line">${esc(SPLIT_LINE)}</p>
-      <a class="floor-link" href="/floor">See the floor</a>
+  const vol = showVolume(coins);
+  const volHead = `<th data-vol${vol ? "" : " hidden"}>24h volume</th>`;
+  const burnBody = burns.length
+    ? `<div class="tape-head"><span>When</span><span>SOL</span><span>Tokens</span><span>Burn</span></div>
+      ${burns.map((burn) => `<div class="tape-row">
+        <span>${esc(formatWhen(burn.at))}</span>
+        <span>${esc(formatSol(burn.sol))}</span>
+        <span>${esc(formatTokens(burn.tokens))}</span>
+        <span>${sigLink(burn.burnSig)}</span>
+      </div>`).join("")}`
+    : `<p class="space-line">No burns yet.</p>`;
+  const main = `${nav(page, status, true)}
+<div class="hud" id="main">
+  <section class="plate plate-hero" data-room="home" data-anchor="hero">
+    <p class="kicker">Private connector</p>
+    <h1>From the chat<br>to the curve.</h1>
+    <div class="url-row">
+      <div class="slot" id="mcp-url" data-mcp-url="${esc(mcpUrl)}">${esc(mcpUrl)}</div>
+      <button class="copy" type="button" aria-describedby="chatgpt-path">Copy</button>
     </div>
-    <div class="mark-stage">
-      ${socketMark({ label: "Socket" })}
+    <p class="path" id="chatgpt-path">${esc(CHATGPT_PATH)}</p>
+    <p class="split-line">${esc(SPLIT_LINE)}</p>
+    <a class="floor-link" href="/floor" data-view-link="floor">See the floor</a>
+  </section>
+  <section class="plate plate-stat" data-room="home" data-anchor="left">
+    ${figure("Left today", status.display.leftToday, "data-left", pause)}
+  </section>
+  <section class="plate plate-stat" data-room="home" data-anchor="paid">
+    ${figure("Sol paid", status.display.paid, "data-paid")}
+  </section>
+  <section class="plate plate-stat" data-room="home" data-anchor="burned">
+    ${figure("Burned", status.display.burned, "data-burned")}
+  </section>
+  <section class="plate plate-floor${coins.length ? "" : " is-empty"}" data-room="floor" data-anchor="floor">
+    <div class="tools">
+      <label class="srch">
+        <span class="sr-only">Search coins</span>
+        <input class="search" type="search" placeholder="Name, ticker, or mint" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="chips" role="group" aria-label="Sort">
+        <button type="button" class="chip" data-sort="top" aria-pressed="false">Top</button>
+        <button type="button" class="chip" data-sort="new" aria-pressed="true">New</button>
+        <button type="button" class="chip" data-sort="paid" aria-pressed="false">Most paid</button>
+      </div>
     </div>
-  </main>`;
-  return shell({ status, title: "Socket", page: "home", main });
+    <p class="space-line" data-empty-line${coins.length ? " hidden" : ""}>${coins.length ? "" : "The floor is clear."}</p>
+    <p class="count" data-count>${coins.length} live</p>
+    <div class="board-scroll">
+      <table class="board">
+        <caption class="sr-only">Live coins</caption>
+        <thead>
+          <tr>
+            <th>Coin</th>
+            <th>Market cap</th>
+            <th>Since launch</th>
+            ${volHead}
+            <th>Paid to creator</th>
+            <th>Age</th>
+          </tr>
+        </thead>
+        <tbody data-rows>
+          ${boardRows(coins, vol)}
+        </tbody>
+      </table>
+    </div>
+    <p class="board-note">Refreshes every 30 seconds. Volume stays off this board until a figure exists.</p>
+  </section>
+  <section class="plate plate-burns" data-room="burns" data-anchor="burns">
+    <div class="tape">${burnBody}</div>
+    <p class="tape-foot">${esc(RESERVE_RULE)}</p>
+  </section>
+</div>
+<script type="application/json" id="coin-seed">${seed(coins.map((coin) => ({ mint: coin.mint, name: coin.name, ticker: coin.ticker })))}</script>`;
+  return shell({ status, title, page, main, scene: true });
+}
+
+export function renderHome(props) {
+  return renderChamber({ ...props, title: "Socket", page: "home" });
 }
 
 function boardRows(coins, vol) {
@@ -147,48 +195,8 @@ function boardRows(coins, vol) {
   }).join("");
 }
 
-export function renderFloor({ status, coins }) {
-  const vol = showVolume(coins);
-  const volHead = `<th data-vol${vol ? "" : " hidden"}>24h volume</th>`;
-  const main = `<main id="main" class="board-wrap">
-    <div class="board-head">
-      <div>
-        <h1>The <em>floor</em></h1>
-        <p class="count" data-count>${coins.length} live</p>
-      </div>
-      <div class="tools">
-        <label class="srch">
-          <span class="sr-only">Search coins</span>
-          <input class="search" type="search" placeholder="Name, ticker, or mint" autocomplete="off" spellcheck="false">
-        </label>
-        <div class="chips" role="group" aria-label="Sort">
-          <button type="button" class="chip" data-sort="top" aria-pressed="false">Top</button>
-          <button type="button" class="chip" data-sort="new" aria-pressed="true">New</button>
-          <button type="button" class="chip" data-sort="paid" aria-pressed="false">Most paid</button>
-        </div>
-      </div>
-    </div>
-    <div class="board-scroll">
-      <table class="board">
-        <caption class="sr-only">Live coins</caption>
-        <thead>
-          <tr>
-            <th>Coin</th>
-            <th>Market cap</th>
-            <th>Since launch</th>
-            ${volHead}
-            <th>Paid to creator</th>
-            <th>Age</th>
-          </tr>
-        </thead>
-        <tbody data-rows>
-          ${boardRows(coins, vol)}
-        </tbody>
-      </table>
-    </div>
-    <p class="board-note">Refreshes every 30 seconds. Volume stays off this board until a figure exists.</p>
-  </main>`;
-  return shell({ status, title: "The floor · Socket", page: "floor", main });
+export function renderFloor(props) {
+  return renderChamber({ ...props, title: "The floor · Socket", page: "floor" });
 }
 
 function eventRows(events) {
@@ -214,7 +222,6 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
       : "Socket reads a Solana contract address, 32 to 44 characters.";
     const shown = address.length > 80 ? `${address.slice(0, 80)}\u2026` : address;
     const main = `<main id="main" class="sheet missing">
-      ${socketMark()}
       <h1>${valid ? "Not in the <em>book</em>." : "Not a <em>mint</em>."}</h1>
       <p class="lede">${esc(lede)}</p>
       <div class="slot">${esc(shown)}</div>
@@ -233,7 +240,7 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
   const src = safeImage(coin.image);
   const face = src
     ? `<div class="face"><img alt="" src="${esc(src)}"></div>`
-    : `<div class="face">${socketMark()}</div>`;
+    : `<div class="face"></div>`;
   const curve = coin.graduated ? "Graduated" : "On the curve";
   const wallet = coin.wallet ? shorten(coin.wallet) : "No wallet stored";
   const burnLink = burnsAttributed
@@ -266,28 +273,8 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
   };
 }
 
-export function renderBurns({ status, burns }) {
-  const rows = burns.length
-    ? `<div class="tape-head"><span>When</span><span>SOL</span><span>Tokens</span><span>Burn</span></div>
-      ${burns.map((burn) => `<div class="tape-row">
-        <span>${esc(formatWhen(burn.at))}</span>
-        <span>${esc(formatSol(burn.sol))}</span>
-        <span>${esc(formatTokens(burn.tokens))}</span>
-        <span>${sigLink(burn.burnSig)}</span>
-      </div>`).join("")}`
-    : `<p class="empty-line">No burns yet.</p>`;
-  const main = `<main id="main" class="sheet burns-sheet">
-    <div class="burn-top">
-      <h1>Burn <em>tape</em></h1>
-      <article class="figure figure-side">
-        <p class="figure-label">Burned</p>
-        <p class="figure-num" data-value="${esc(status.display.burned)}">${esc(status.display.burned)}</p>
-      </article>
-    </div>
-    <div class="tape">${rows}</div>
-    <p class="tape-foot">${esc(RESERVE_RULE)}</p>
-  </main>`;
-  return shell({ status, title: "Burn tape · Socket", page: "burns", main });
+export function renderBurns(props) {
+  return renderChamber({ ...props, title: "Burns · Socket", page: "burns" });
 }
 
 export function renderPreview(status) {

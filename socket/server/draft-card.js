@@ -9,39 +9,38 @@ export function renderDraftCard(origin) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Draft card</title>
 <style>
-  @font-face { font-family: "Bodoni Moda"; font-style: normal; font-weight: 500 800; font-display: swap; src: url("${origin}/assets/fonts/bodoni-moda.woff2") format("woff2"); }
-  @font-face { font-family: "Bodoni Moda"; font-style: italic; font-weight: 500 800; font-display: swap; src: url("${origin}/assets/fonts/bodoni-moda-italic.woff2") format("woff2"); }
-  @font-face { font-family: Manrope; font-style: normal; font-weight: 400 700; font-display: swap; src: url("${origin}/assets/fonts/manrope.woff2") format("woff2"); }
-  :root { color-scheme: light; }
+  @font-face { font-family: "Instrument Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("${origin}/assets/fonts/instrument-sans.woff2") format("woff2"); }
+  @font-face { font-family: "Instrument Sans"; font-style: italic; font-weight: 400 700; font-display: swap; src: url("${origin}/assets/fonts/instrument-sans-italic.woff2") format("woff2"); }
+  :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: #e6eef2; color: #17202b; font-family: Manrope, "Helvetica Neue", sans-serif; }
-  .card { width: min(560px, 100%); margin: 0 auto; padding: 18px 16px 28px; }
-  .kicker, label span, .fee-key, .bytes, .hint { font-family: Manrope, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #17202b; }
-  h1 { margin: 4px 0 14px; font-family: "Bodoni Moda", Didot, serif; font-weight: 600; font-size: 48px; line-height: 0.88; letter-spacing: -0.045em; color: #17202b; }
-  h1 em { font-style: italic; font-weight: 560; color: inherit; }
-  .stage { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; max-height: 360px; margin: 0 auto 8px; overflow: hidden; border: 1px solid #17202b; background: #f7f4ee; cursor: pointer; }
-  .stage.hot { outline: 1px solid #b68b4c; outline-offset: -2px; }
+  body { margin: 0; background: #07080c; color: #e7e2d6; font-family: "Instrument Sans", "Helvetica Neue", sans-serif; }
+  .card { width: min(560px, 100%); margin: 0 auto; padding: 18px 16px 28px; background: rgba(16, 19, 24, 0.92); border: 1px solid rgba(186, 196, 206, 0.34); }
+  .kicker, label span, .fee-key, .bytes, .hint { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(231, 226, 214, 0.72); }
+  h1 { margin: 4px 0 14px; font-weight: 560; font-size: 48px; line-height: 0.92; letter-spacing: -0.045em; color: #f3ecdf; }
+  h1 em { font-style: italic; font-weight: 480; }
+  .stage { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; max-height: 360px; margin: 0 auto 8px; overflow: hidden; border: 1px solid rgba(186, 196, 206, 0.34); background: #101318; cursor: pointer; }
+  .stage.hot { outline: 1px solid #f3ecdf; outline-offset: -2px; }
   .stage input { position: absolute; width: 1px; height: 1px; opacity: 0; }
   .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .stage img[hidden] { display: none; }
-  .socket-mark { width: 42%; height: auto; }
+  .socket-mark { width: 46%; height: auto; }
   .stage.has-image .socket-mark, .stage.has-image .hint { display: none; }
   .hint { margin: 8px 0 0; }
   .bytes, .status { margin: 8px 0 0; text-align: center; font-variant-numeric: tabular-nums; }
-  .status { font-family: Manrope, sans-serif; font-size: 13px; color: #17202b; }
-  .status.bad { border-left: 3px solid #b68b4c; padding-left: 8px; }
+  .status { font-size: 14px; color: #f3ecdf; }
+  .status.bad { border-left: 3px solid #f3ecdf; padding-left: 8px; }
   label { display: block; margin-top: 12px; }
   label span { display: block; margin-bottom: 6px; }
-  input[type="text"], input[type="url"], textarea { width: 100%; border: 1px solid #17202b; padding: 12px 14px; background: #e6eef2; color: #17202b; font: 15px/1.4 Manrope, sans-serif; }
+  input[type="text"], input[type="url"], textarea { width: 100%; border: 1px solid rgba(186, 196, 206, 0.34); padding: 12px 14px; background: #07080c; color: #f3ecdf; font: 15px/1.4 "Instrument Sans", sans-serif; }
   textarea { min-height: 72px; resize: vertical; }
-  .fee { display: flex; height: 8px; margin-top: 16px; background: #17202b; }
-  .fee-you { width: 50%; background: #b68b4c; }
-  .fee-them { width: 50%; background: #17202b; }
+  .fee { display: flex; height: 3px; margin-top: 16px; background: #1a1e24; }
+  .fee-you { width: 50%; background: #f3ecdf; }
+  .fee-them { width: 50%; background: #3a424c; }
   .fee-key { display: flex; justify-content: space-between; margin: 8px 0 0; }
-  .paused { margin: 16px 0 0; color: #17202b; font-family: "Bodoni Moda", Didot, serif; font-style: italic; font-weight: 560; font-size: 28px; letter-spacing: -0.03em; }
-  .covered { margin: 14px 0 0; color: #17202b; }
-  .lock { margin: 8px 0 0; max-width: 46ch; color: #17202b; font-size: 14px; line-height: 1.45; }
-  .issues { margin: 8px 0 0; color: #17202b; font-family: Manrope, sans-serif; font-size: 12px; border-left: 3px solid #b68b4c; padding-left: 8px; }
+  .paused { margin: 16px 0 0; color: #f3ecdf; font-style: italic; font-weight: 480; font-size: 28px; letter-spacing: -0.03em; }
+  .covered { margin: 14px 0 0; color: #e7e2d6; }
+  .lock { margin: 8px 0 0; max-width: 46ch; color: rgba(231, 226, 214, 0.78); font-size: 14px; line-height: 1.45; }
+  .issues { margin: 8px 0 0; color: #f3ecdf; font-size: 12px; border-left: 3px solid #f3ecdf; padding-left: 8px; }
   .issues:empty { display: none; }
 </style>
 </head>
@@ -51,13 +50,12 @@ export function renderDraftCard(origin) {
   <h1>Your <em>coin</em></h1>
   <label class="stage" id="stage">
     <input id="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
-    <svg class="socket-mark" viewBox="0 0 200 280" aria-hidden="true">
-      <rect x="52" y="58" width="120" height="132" fill="#17202b"/>
-      <rect x="36" y="42" width="120" height="132" fill="#b68b4c"/>
-      <rect x="70" y="14" width="14" height="46" fill="#b68b4c"/>
-      <rect x="112" y="14" width="14" height="46" fill="#b68b4c"/>
-      <circle cx="96" cy="112" r="30" fill="#f7f4ee"/>
-      <path d="M96 174 L96 224 L122 258" fill="none" stroke="#17202b" stroke-width="3"/>
+    <svg class="socket-mark" viewBox="0 0 200 200" aria-hidden="true">
+      <circle cx="100" cy="96" r="62" fill="none" stroke="#8e98a1" stroke-width="3"/>
+      <circle cx="100" cy="96" r="46" fill="none" stroke="#f3ecdf" stroke-width="1.2"/>
+      <circle cx="84" cy="84" r="7" fill="none" stroke="#8e98a1" stroke-width="2"/>
+      <circle cx="116" cy="84" r="7" fill="none" stroke="#8e98a1" stroke-width="2"/>
+      <path d="M100 158 L100 186" fill="none" stroke="#6a727a" stroke-width="3"/>
     </svg>
     <img id="face" alt="" hidden>
     <span class="hint">PNG, JPEG, GIF, WebP</span>

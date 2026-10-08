@@ -195,7 +195,9 @@ test("http read path, empty screens, and mcp tools", async () => {
 
     const home = await get(app.base, "/");
     assert.equal(home.res.status, 200);
-    assert.match(home.text, /plugged/);
+    assert.match(home.text, /From the chat/);
+    assert.match(home.text, /to the curve/);
+    assert.equal(/plugged/i.test(home.text), false);
     assert.ok(home.text.includes(TOAST_TEXT));
     assert.ok(home.text.includes(CHATGPT_PATH));
     assert.ok(home.text.includes(SPLIT_LINE));
@@ -207,7 +209,9 @@ test("http read path, empty screens, and mcp tools", async () => {
     assert.equal(home.text.includes("balanceSol"), false);
     assert.equal(/d97757|4ade80|86efac|0c0f0d|gradient|marquee|Geist|Source Serif|Doto/i.test(home.text), false);
     assert.ok(home.text.includes("status-line"));
-    assert.ok(home.text.includes("#e6eef2") || home.text.includes("site.css"));
+    assert.ok(home.text.includes("#07080c"));
+    assert.ok(home.text.includes("site.css"));
+    assert.equal(/bodoni|b68b4c|e6eef2/i.test(home.text), false);
 
     const floor = await get(app.base, "/floor");
     assert.ok(floor.text.includes("The floor is clear."));

@@ -1,0 +1,7 @@
+Latin subsets, served with the site so the pages do not call a font CDN.
+Each face is under the SIL Open Font License, Version 1.1 (see OFL.md).
+
+Source Serif 4 — Copyright 2014–2023 Adobe, with Reserved Font Name “Source”.
+Inter — Copyright 2016 The Inter Project Authors.
+Geist Mono — Copyright 2024 Vercel, Inc. and contributors.
+Doto — Copyright 2024 The Doto Project Authors.

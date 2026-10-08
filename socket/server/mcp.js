@@ -1,10 +1,55 @@
 import { PING_TEXT } from "../shared/copy.js";
 import { formatSol } from "../public/format.js";
 import { getLiveCoin } from "./db.js";
+import { DRAFT_CARD_URI, renderDraftCard } from "./draft-card.js";
+import { IMAGE_URL_MAX_BYTES } from "./picture.js";
+import { buildQuote, panelText, quoteText } from "./quote.js";
 
 export const PROTOCOL = "2025-03-26";
 const SUPPORTED = new Set(["2025-03-26", "2025-06-18", "2024-11-05"]);
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const DRAFT_FIELDS = {
+  name: { type: "string", maxLength: 32, description: "Coin name, at most 32 characters." },
+  ticker: {
+    type: "string",
+    maxLength: 10,
+    pattern: "^[A-Za-z0-9]+$",
+    description: "Ticker kept as typed. Letters and numbers only, at most 10.",
+  },
+  description: { type: "string", maxLength: 400, description: "Description, at most 400 characters." },
+  x: { type: "string", description: "https URL on x.com or twitter.com." },
+  website: { type: "string", description: "https website URL." },
+  wallet: {
+    type: "string",
+    minLength: 32,
+    maxLength: 44,
+    description: "Solana address. 50% of creator fees lock to it.",
+  },
+  picture_id: {
+    type: "string",
+    description: "Id the draft card returns after upload, pic_ plus 16 hex characters. Do not invent one.",
+  },
+  image_url: {
+    type: "string",
+    description: `Direct https image URL, up to ${IMAGE_URL_MAX_BYTES} bytes, when the draft card iframe does not render. Socket does not fetch this URL.`,
+  },
+};
+
+const DRAFT_SCHEMA = {
+  type: "object",
+  properties: DRAFT_FIELDS,
+  additionalProperties: false,
+};
+
+const READ_ONLY = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
+
+const CARD_META = { ui: { resourceUri: DRAFT_CARD_URI } };
 
 export const TOOLS = [
   {
@@ -15,12 +60,21 @@ export const TOOLS = [
       properties: {},
       additionalProperties: false,
     },
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
+    annotations: READ_ONLY,
+  },
+  {
+    name: "quote_launch",
+    description: "Read-only quote for a draft coin. Returns that launches are paused, the locked 50/50 split, whether a picture is present, and how many launches are left today and this hour. Does not launch and does not read a signer balance. If the draft card iframe does not render, pass image_url (https, up to 15 MB). Do not invent a picture_id.",
+    inputSchema: DRAFT_SCHEMA,
+    annotations: READ_ONLY,
+    _meta: CARD_META,
+  },
+  {
+    name: "open_picture_panel",
+    description: "Open the draft card so the user can drop a PNG, JPEG, GIF, or WebP. The card shrinks it to 4,000,000 bytes and stores it for 24 hours. If this host does not show the iframe, ask for a direct https image URL up to 15 MB and pass it as image_url. Do not invent a picture_id. Does not launch a coin.",
+    inputSchema: DRAFT_SCHEMA,
+    annotations: READ_ONLY,
+    _meta: CARD_META,
   },
   {
     name: "coin_status",
@@ -38,12 +92,7 @@ export const TOOLS = [
       required: ["address"],
       additionalProperties: false,
     },
-    annotations: {
-      readOnlyHint: true,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
+    annotations: READ_ONLY,
   },
 ];
 
@@ -73,10 +122,21 @@ function toolResult(text, isError = false) {
   return result;
 }
 
+function quoteToolResult(db, args, textFn) {
+  const quote = buildQuote(db, args);
+  return {
+    content: [{ type: "text", text: textFn(quote) }],
+    structuredContent: quote,
+    _meta: CARD_META,
+  };
+}
+
 function callTool(db, params) {
   const name = params?.name;
   const args = params?.arguments && typeof params.arguments === "object" ? params.arguments : {};
   if (name === "ping") return toolResult(PING_TEXT);
+  if (name === "quote_launch") return quoteToolResult(db, args, quoteText);
+  if (name === "open_picture_panel") return quoteToolResult(db, args, panelText);
   if (name === "coin_status") {
     const address = typeof args.address === "string" ? args.address.trim() : "";
     if (!BASE58.test(address)) {
@@ -91,7 +151,8 @@ function callTool(db, params) {
   return toolResult("Unknown tool.", true);
 }
 
-export function handleMcpMessage(db, message) {
+export function handleMcpMessage(db, message, options = {}) {
+  const origin = typeof options.origin === "string" && options.origin ? options.origin : "http://127.0.0.1:4173";
   if (!message || typeof message !== "object" || Array.isArray(message)) {
     return { type: "error", status: 400, body: rpcError(null, -32600, "Invalid Request") };
   }
@@ -114,15 +175,51 @@ export function handleMcpMessage(db, message) {
       type: "result",
       body: rpcResult(id, {
         protocolVersion,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: {
+          tools: { listChanged: false },
+          resources: { listChanged: false },
+        },
         serverInfo: { name: "Socket", version: "0.1.0" },
-        instructions: `${PING_TEXT} Tools available: ping, coin_status.`,
+        instructions: `${PING_TEXT} Tools: ping, quote_launch, open_picture_panel, coin_status. There is no launch tool. If the draft card does not render, pass image_url.`,
       }),
     };
   }
   if (method === "ping") return { type: "result", body: rpcResult(id, {}) };
   if (method === "tools/list") return { type: "result", body: rpcResult(id, { tools: TOOLS }) };
   if (method === "tools/call") return { type: "result", body: rpcResult(id, callTool(db, params)) };
+  if (method === "resources/list") {
+    return {
+      type: "result",
+      body: rpcResult(id, {
+        resources: [
+          {
+            uri: DRAFT_CARD_URI,
+            name: "Socket draft card",
+            description: "Draft coin card. Picture, name, ticker, and the locked 50/50 fee split. Launches stay paused.",
+            mimeType: "text/html;profile=mcp-app",
+          },
+        ],
+      }),
+    };
+  }
+  if (method === "resources/read") {
+    const uri = params?.uri;
+    if (uri !== DRAFT_CARD_URI) {
+      return { type: "result", body: rpcError(id, -32002, "Resource not found") };
+    }
+    return {
+      type: "result",
+      body: rpcResult(id, {
+        contents: [
+          {
+            uri: DRAFT_CARD_URI,
+            mimeType: "text/html;profile=mcp-app",
+            text: renderDraftCard(origin),
+          },
+        ],
+      }),
+    };
+  }
   return { type: "result", body: rpcError(id, -32601, "Method not found") };
 }
 

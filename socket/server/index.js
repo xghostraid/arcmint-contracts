@@ -2,9 +2,12 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { coinEvents, getLiveCoin, listBurns, listLiveCoins, openDb } from "./db.js";
-import { renderBurns, renderCoin, renderFloor, renderHome, renderNotFound } from "./html.js";
+import { coinEvents, getLiveCoin, getPicture, listBurns, listLiveCoins, openDb, storePicture } from "./db.js";
+import { renderDraftCard } from "./draft-card.js";
+import { renderBurns, renderCoin, renderFloor, renderHome, renderNotFound, renderPreview } from "./html.js";
 import { handleMcpMessage, sseBody, wantsSse } from "./mcp.js";
+import { PICTURE_MAX_BYTES, sniffImage } from "./picture.js";
+import { buildQuote } from "./quote.js";
 import { publicStatus } from "./status.js";
 
 const PUBLIC_DIR = path.resolve(fileURLToPath(new URL("../public/", import.meta.url)));
@@ -22,6 +25,26 @@ const CSP = [
   "form-action 'none'",
   "frame-ancestors 'none'",
 ].join("; ");
+
+const CARD_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline'",
+  "font-src 'self'",
+  "img-src 'self' data: blob: https:",
+  "script-src 'unsafe-inline'",
+  "connect-src 'self'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'self'",
+].join("; ");
+
+const API_CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "content-type, accept",
+};
+
+const PICTURE_ID = /^pic_[a-f0-9]{16}$/;
 
 const TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -56,22 +79,36 @@ function sendHtml(res, status, html) {
   send(res, status, "text/html; charset=utf-8", html, { "cache-control": "no-store" });
 }
 
-function readBody(req, limit) {
+function readBodyBuffer(req, limit) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let settled = false;
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
     req.on("data", (chunk) => {
+      if (settled) return;
       size += chunk.length;
       if (size > limit) {
-        reject(Object.assign(new Error("too big"), { status: 413 }));
-        req.destroy();
+        fail(Object.assign(new Error("too big"), { status: 413, code: "size" }));
         return;
       }
       chunks.push(chunk);
     });
-    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", reject);
+    req.on("end", () => {
+      if (settled) return;
+      settled = true;
+      resolve(Buffer.concat(chunks));
+    });
+    req.on("error", fail);
   });
+}
+
+function readBody(req, limit) {
+  return readBodyBuffer(req, limit).then((buf) => buf.toString("utf8"));
 }
 
 function publicOrigin(req) {
@@ -149,7 +186,7 @@ async function route(req, res, db) {
       sendJson(res, 400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
       return;
     }
-    const out = handleMcpMessage(db, message);
+    const out = handleMcpMessage(db, message, { origin: publicOrigin(req) });
     const cors = { "access-control-allow-origin": "*" };
     if (out.type === "notification") {
       send(res, 202, "text/plain; charset=utf-8", "", cors);
@@ -168,6 +205,77 @@ async function route(req, res, db) {
       "mcp-protocol-version": "2025-03-26",
       ...cors,
     });
+    return;
+  }
+
+  if (pathname === "/api/picture" || pathname === "/api/quote") {
+    if (req.method === "OPTIONS") {
+      send(res, 204, "text/plain; charset=utf-8", "", API_CORS);
+      return;
+    }
+  }
+
+  if (pathname === "/api/picture") {
+    if (req.method !== "POST") {
+      send(res, 405, "text/plain; charset=utf-8", "method", { allow: "POST", ...API_CORS });
+      return;
+    }
+    let bytes;
+    try {
+      bytes = await readBodyBuffer(req, PICTURE_MAX_BYTES);
+    } catch (err) {
+      if (err.code === "size") {
+        sendJson(res, 400, { ok: false, stored: false, error: "size" }, API_CORS);
+        req.destroy();
+        return;
+      }
+      throw err;
+    }
+    const mime = sniffImage(bytes);
+    if (!mime) {
+      sendJson(res, 400, { ok: false, stored: false, error: "format" }, API_CORS);
+      return;
+    }
+    try {
+      const stored = storePicture(db, { bytes, mime });
+      sendJson(res, 200, {
+        ok: true,
+        stored: true,
+        id: stored.id,
+        expiresAt: stored.expiresAt,
+        size: stored.size,
+        mime: stored.mime,
+      }, API_CORS);
+    } catch {
+      sendJson(res, 500, { ok: false, stored: false, error: "upload failed" }, API_CORS);
+    }
+    return;
+  }
+
+  if (pathname === "/api/quote") {
+    if (req.method !== "POST") {
+      send(res, 405, "text/plain; charset=utf-8", "method", { allow: "POST", ...API_CORS });
+      return;
+    }
+    let raw;
+    try {
+      raw = await readBody(req, 100_000);
+    } catch (err) {
+      if (err.status === 413) {
+        sendJson(res, 400, { ok: false, error: "size" }, API_CORS);
+        return;
+      }
+      throw err;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw || "{}");
+    } catch {
+      sendJson(res, 400, { ok: false, error: "format" }, API_CORS);
+      return;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) parsed = {};
+    sendJson(res, 200, buildQuote(db, parsed), API_CORS);
     return;
   }
 
@@ -213,6 +321,20 @@ async function route(req, res, db) {
     return;
   }
 
+  if (pathname === "/api/img") {
+    const id = url.searchParams.get("id") || "";
+    const row = PICTURE_ID.test(id) ? getPicture(db, id) : null;
+    if (!row) {
+      send(res, 404, "text/plain; charset=utf-8", "missing", { "cache-control": "no-store", ...API_CORS });
+      return;
+    }
+    send(res, 200, row.mime, Buffer.from(row.bytes), {
+      "cache-control": "private, max-age=60",
+      ...API_CORS,
+    });
+    return;
+  }
+
   if (pathname === "/api/burns") {
     const burns = listBurns(db);
     const snap = status();
@@ -224,6 +346,18 @@ async function route(req, res, db) {
     return;
   }
 
+  if (pathname === "/card") {
+    send(res, 200, "text/html; charset=utf-8", renderDraftCard(publicOrigin(req)), {
+      "cache-control": "no-store",
+      "content-security-policy": CARD_CSP,
+      "x-frame-options": "SAMEORIGIN",
+    });
+    return;
+  }
+  if (pathname === "/preview/draft") {
+    sendHtml(res, 200, renderPreview(status()));
+    return;
+  }
   if (pathname === "/") {
     sendHtml(res, 200, renderHome({ status: status(), mcpUrl: `${publicOrigin(req)}/mcp` }));
     return;

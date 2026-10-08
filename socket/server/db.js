@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -50,6 +51,21 @@ CREATE INDEX IF NOT EXISTS idx_coins_created ON coins (created_at);
 CREATE INDEX IF NOT EXISTS idx_coins_live ON coins (status, live);
 CREATE INDEX IF NOT EXISTS idx_burns_at ON burns (at);
 CREATE INDEX IF NOT EXISTS idx_burns_mint ON burns (mint);
+
+CREATE TABLE IF NOT EXISTS pictures (
+  id TEXT PRIMARY KEY,
+  sha256 TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  bytes BLOB NOT NULL,
+  size INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  CHECK (size > 0),
+  CHECK (mime IN ('image/png', 'image/jpeg', 'image/gif', 'image/webp'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_pictures_sha ON pictures (sha256);
+CREATE INDEX IF NOT EXISTS idx_pictures_expires ON pictures (expires_at);
 `;
 
 export function openDb(dbPath) {
@@ -249,6 +265,46 @@ export function sumBurnSol(db) {
 export function sumBurnTokens(db) {
   const rows = db.prepare(`SELECT tokens FROM burns`).all();
   return rows.reduce((sum, row) => sum + BigInt(row.tokens), 0n).toString();
+}
+
+const PICTURE_TTL_MS = 24 * 60 * 60 * 1000;
+
+export function deleteExpiredPictures(db, now = new Date()) {
+  db.prepare(`DELETE FROM pictures WHERE expires_at <= ?`).run(now.toISOString());
+}
+
+export function getPicture(db, id, now = new Date()) {
+  if (!id) return null;
+  const row = db.prepare(`SELECT * FROM pictures WHERE id = ?`).get(id);
+  if (!row || Date.parse(row.expires_at) <= now.getTime()) return null;
+  return row;
+}
+
+export function storePicture(db, { bytes, mime }, now = new Date()) {
+  deleteExpiredPictures(db, now);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const existing = db.prepare(`
+    SELECT id, expires_at, mime, size FROM pictures
+    WHERE sha256 = ?
+    ORDER BY expires_at DESC
+  `).get(sha256);
+  if (existing && Date.parse(existing.expires_at) > now.getTime()) {
+    return {
+      id: existing.id,
+      expiresAt: existing.expires_at,
+      size: existing.size,
+      mime: existing.mime,
+      deduped: true,
+    };
+  }
+  const id = `pic_${randomBytes(8).toString("hex")}`;
+  const createdAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + PICTURE_TTL_MS).toISOString();
+  db.prepare(`
+    INSERT INTO pictures (id, sha256, mime, bytes, size, created_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(id, sha256, mime, bytes, bytes.length, createdAt, expiresAt);
+  return { id, expiresAt, size: bytes.length, mime, deduped: false };
 }
 
 export function countLaunchesSince(db, isoStart) {

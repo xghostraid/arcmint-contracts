@@ -703,8 +703,92 @@ tr.new { animation: row-in 1.6s ease; }
   .copy { width: 100%; }
   h1 { font-size: 40px; }
   .lcd-num { font-size: 32px; }
-  .nav { padding: 0 12px; gap: 8px; }
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    height: auto;
+    min-height: 56px;
+    padding: 10px 12px 12px;
+    gap: 8px 12px;
+    overflow: visible;
+  }
+  .marquee {
+    flex: 1 0 100%;
+    order: 3;
+    overflow: visible;
+    height: auto;
+    min-height: 28px;
+    align-items: stretch;
+  }
+  .marquee-track {
+    width: 100%;
+    animation: none;
+    transform: none;
+  }
+  .mq {
+    display: block;
+    width: 100%;
+    padding: 7px 12px;
+    white-space: normal;
+    line-height: 1.45;
+  }
+  .marquee .mq + .mq { display: none; }
   .tape-head, .tape-row { grid-template-columns: 1fr 1fr; }
+}
+
+.preview-sheet { width: min(760px, calc(100% - 32px)); }
+.preview-note { margin: 0 0 16px; max-width: 52ch; }
+.card-frame {
+  display: block;
+  width: min(560px, 100%);
+  height: 1280px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--paper, #f3eee3);
+  box-shadow: 0 16px 40px rgba(70, 40, 20, 0.12);
+}
+.url-quote { margin-top: 28px; }
+.url-quote label, .host-block { display: block; margin-top: 12px; }
+.url-quote span, .host-block span {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted, #8a877f);
+}
+.url-quote input {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(#e3daca, #d8cebd);
+  box-shadow: inset 0 2px 5px rgba(50, 30, 10, 0.18);
+  color: var(--ink);
+  font: 15px/1.4 var(--sans, Inter, sans-serif);
+}
+.ask {
+  margin-top: 14px;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: #1c1916;
+  color: #f3eee3;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+#host-log, #quote-out {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 @media (prefers-reduced-motion: reduce) {

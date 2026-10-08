@@ -331,6 +331,28 @@ export function renderBurns({ status, burns }) {
   return shell({ status, title: "Burn tape · Socket", page: "burns", main });
 }
 
+export function renderPreview(status) {
+  const main = `<main id="main" class="sheet preview-sheet">
+    <p class="kicker">Local preview</p>
+    <h1>Draft <em>card</em></h1>
+    <p class="preview-note">This page stands in for the ChatGPT iframe. The form calls quote_launch with an image URL.</p>
+    <iframe id="card-frame" class="card-frame" src="/card" title="Draft card"></iframe>
+    <form id="url-quote" class="url-quote">
+      <label><span>Image URL</span><input id="image-url" name="image_url" type="url" inputmode="url" placeholder="https://" autocomplete="off"></label>
+      <label><span>Name</span><input id="quote-name" name="name" type="text" maxlength="32" autocomplete="off"></label>
+      <label><span>Ticker</span><input id="quote-ticker" name="ticker" type="text" maxlength="10" autocomplete="off"></label>
+      <label><span>Wallet</span><input id="quote-wallet" name="wallet" type="text" maxlength="44" spellcheck="false" autocomplete="off"></label>
+      <button id="ask" class="ask" type="submit">Ask quote_launch</button>
+    </form>
+    <p class="host-block"><span>quote_launch</span></p>
+    <pre id="quote-out"></pre>
+    <p class="host-block"><span>Host log</span></p>
+    <pre id="host-log"></pre>
+    <script src="/assets/preview.js"></script>
+  </main>`;
+  return shell({ status, title: "Draft preview · Socket", page: "preview", main });
+}
+
 export function renderNotFound(status) {
   const main = `<main id="main" class="sheet missing">
     <h1>No such <em>page</em>.</h1>

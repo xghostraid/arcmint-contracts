@@ -8,6 +8,7 @@ import {
   CylinderGeometry,
   DirectionalLight,
   FogExp2,
+  GridHelper,
   Group,
   Mesh,
   MeshPhysicalMaterial,
@@ -25,7 +26,7 @@ import {
 
 const POSES = {
   home: { pos: [0.2, 0.38, 5.55], look: [0, 0.02, 0] },
-  floor: { pos: [0.02, 0.58, -4.15], look: [0, 0.22, -6.7] },
+  floor: { pos: [1.35, 1.02, 4.7], look: [0.02, 0.08, 0.1] },
   burns: { pos: [0.15, -1.85, 3.35], look: [0, -3.05, -0.2] },
   copy: { pos: [-1.15, 0.48, 2.85], look: [-1.85, 0.28, 0.85] },
 };
@@ -178,11 +179,19 @@ export function mountChamber() {
   rim.position.set(-4.5, 1.4, -3.2);
   scene.add(key, rim, new AmbientLight(0x1c2836, 0.42));
 
-  const groundMat = new MeshStandardMaterial({ color: 0x101318, roughness: 0.9, metalness: 0.55 });
-  const ground = new Mesh(new CircleGeometry(22, 96), groundMat);
+  const groundMat = new MeshStandardMaterial({ color: 0x12171e, roughness: 0.84, metalness: 0.62 });
+  const ground = new Mesh(new CircleGeometry(90, 128), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -1.38;
   scene.add(ground);
+  const floorGrid = new GridHelper(80, 20, 0x6d7c8a, 0x44515c);
+  floorGrid.position.y = -1.36;
+  const gridMats = Array.isArray(floorGrid.material) ? floorGrid.material : [floorGrid.material];
+  for (const mat of gridMats) {
+    mat.transparent = true;
+    mat.opacity = 0.05;
+  }
+  scene.add(floorGrid);
   const lower = new Mesh(new CircleGeometry(9, 72), new MeshStandardMaterial({ color: 0x141820, roughness: 0.78, metalness: 0.62 }));
   lower.rotation.x = -Math.PI / 2;
   lower.position.set(0, -3.22, -0.2);
@@ -275,8 +284,14 @@ export function mountChamber() {
   }
 
   function aim() {
-    const bias = window.innerWidth < 740 && (view === "home" || view === "copy") ? -0.78 : 0;
-    camera.lookAt(lookTarget.x, lookTarget.y + bias, lookTarget.z);
+    if (window.innerWidth < 740 && (view === "home" || view === "copy")) {
+      const offset = camera.position.clone().sub(lookTarget);
+      const dist = offset.length();
+      camera.position.copy(lookTarget).add(offset.normalize().multiplyScalar(dist + 2.4));
+      camera.lookAt(lookTarget.x, lookTarget.y - 1.05, lookTarget.z);
+      return;
+    }
+    camera.lookAt(lookTarget);
   }
 
   function go(next, { intro = false } = {}) {
@@ -389,41 +404,52 @@ export function mountChamber() {
     plate.style.pointerEvents = "none";
   }
 
+  function socketBand() {
+    instrument.getWorldPosition(tmp);
+    const projected = tmp.clone().project(camera);
+    const sy = (-projected.y * 0.5 + 0.5) * window.innerHeight;
+    return { top: sy - 86, bottom: sy + 100 };
+  }
+
+  function stackPlate(plate, top, plateW) {
+    plate.style.width = `${plateW}px`;
+    plate.style.minHeight = "0px";
+    const h = Math.max(plate.offsetHeight, 1);
+    showPlate(plate, 12, top, plateW);
+    return h;
+  }
+
   function placePlates() {
     const active = document.body.dataset.focus || view;
     const width = window.innerWidth;
     const height = window.innerHeight;
     if (width < 740) {
       const homeOn = active === "home" || active === "copy";
+      const navBottom = document.querySelector(".nav")?.getBoundingClientRect().bottom ?? 76;
       for (const plate of plates) {
         plate.style.opacity = "0";
         plate.style.pointerEvents = "none";
       }
-      let cursor = 78;
+      const plateW = width - 24;
       if (homeOn) {
-        const stats = ["left", "paid", "burned"].map((name) => plates.find((el) => el.dataset.anchor === name));
-        const gap = 8;
-        const statW = (width - 24 - gap * 2) / 3;
-        let rowH = 0;
-        for (const plate of stats) {
-          plate.style.width = `${statW}px`;
-          rowH = Math.max(rowH, plate.offsetHeight);
+        const band = socketBand();
+        const clearBottom = Math.max(navBottom + 8, band.bottom);
+        let cursor = clearBottom + 12;
+        for (const name of ["left", "paid", "burned"]) {
+          const plate = plates.find((el) => el.dataset.anchor === name);
+          cursor += stackPlate(plate, cursor, plateW) + 8;
         }
-        stats.forEach((plate, index) => showPlate(plate, 12 + index * (statW + gap), cursor, statW));
-        cursor += rowH + 12;
-      }
-      for (const plate of plates) {
-        if (plate.classList.contains("plate-stat")) continue;
-        const room = plate.dataset.room;
-        const on = room === "home" ? homeOn : room === active;
-        if (!on) continue;
-        const plateW = width - 24;
-        plate.style.width = `${plateW}px`;
-        const plateH = plate.offsetHeight;
-        const top = plate.dataset.anchor === "hero"
-          ? Math.max(cursor, height - plateH - 14)
-          : Math.min(cursor + 24, Math.max(88, (height - plateH) / 2));
-        showPlate(plate, 12, top, plateW);
+        const hero = plates.find((el) => el.dataset.anchor === "hero");
+        stackPlate(hero, cursor, plateW);
+      } else {
+        const plate = plates.find((el) => el.dataset.room === active);
+        if (plate) {
+          plate.style.width = `${plateW}px`;
+          const h = plate.offsetHeight;
+          const band = socketBand();
+          const top = Math.max(navBottom + 12, Math.min(band.bottom + 12, height - h - 12));
+          showPlate(plate, 12, top, plateW);
+        }
       }
       return;
     }
@@ -434,6 +460,19 @@ export function mountChamber() {
       const on = room === "home" ? (active === "home" || active === "copy") : room === active;
       if (!anchor || !on) {
         plate.style.opacity = "0";
+        plate.style.pointerEvents = "none";
+        continue;
+      }
+      if (plate.dataset.anchor === "floor" && plate.classList.contains("is-empty")) {
+        const plateW = Math.min(width - 48, 840);
+        plate.style.width = `${plateW}px`;
+        plate.style.minHeight = "0px";
+        plate.style.left = "0px";
+        plate.style.top = "0px";
+        const plateH = Math.max(plate.offsetHeight, 64);
+        const y = Math.min(height - plateH / 2 - 28, height * 0.74);
+        plate.style.transform = `translate(-50%, -50%) translate(${width * 0.62}px, ${y}px)`;
+        plate.style.opacity = "1";
         plate.style.pointerEvents = "none";
         continue;
       }
@@ -480,6 +519,10 @@ export function mountChamber() {
       const a = elapsed * 0.11;
       key.position.set(Math.cos(a) * 5.4, 3.3, Math.sin(a) * 5.4);
       rim.position.set(-Math.cos(a) * 4.2, 1.1, -Math.sin(a) * 3.6);
+    }
+    const gridTarget = view === "floor" ? 0.34 : 0.06;
+    for (const mat of gridMats) {
+      mat.opacity += (gridTarget - mat.opacity) * (reduced ? 1 : 0.08);
     }
     if (!dragging) {
       orbit.yaw += orbit.vy;

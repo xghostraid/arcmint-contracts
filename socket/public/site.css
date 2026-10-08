@@ -180,6 +180,14 @@ h1 em { font-style: italic; font-weight: 480; }
   font-size: 14px;
   line-height: 1.45;
 }
+.preview-sheet { overflow: visible; padding-top: 8px; }
+.preview-sheet h1 {
+  display: block;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  padding: 0.14em 0.08em 0.04em 0.02em;
+  overflow: visible;
+}
 .floor-link {
   display: inline-block;
   margin-top: 14px;
@@ -431,18 +439,40 @@ pre {
 }
 
 @media (max-width: 740px) {
-  .nav { flex-wrap: wrap; padding: 14px 14px 6px; gap: 8px 16px; }
-  .status-line { flex-basis: 100%; order: 3; font-size: 14px; }
+  .nav {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 12px 14px 10px;
+    background: #07080c;
+  }
+  .status-line { flex-basis: 100%; order: 3; font-size: 14px; line-height: 1.35; }
   .nav-links { margin-left: 0; }
-  h1 { font-size: 40px; }
+  .plate-hero { padding: 8px 12px 8px; }
+  .plate-hero h1 { font-size: 30px; line-height: 1.02; }
+  .plate-hero .url-row { margin-top: 8px; flex-direction: row; }
+  .plate-hero .path, .plate-hero .split-line { font-size: 14px; line-height: 1.35; margin-top: 6px; }
   .slot, .path, .split-line { font-size: 15px; }
-  .figure-num { font-size: 32px; }
-  .plate-stat { padding: 8px 6px 10px; }
-  .plate-stat .figure-num { font-size: 22px; }
-  .plate-stat .figure-label { font-size: 9px; letter-spacing: 0.06em; }
+  .plate-stat { padding: 8px 12px 10px; overflow: visible; }
+  .plate-stat .figure {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: baseline;
+  }
+  .plate-stat .figure-label { font-size: 12px; letter-spacing: 0.12em; }
+  .plate-stat .figure-num { grid-column: 2; grid-row: 1 / span 2; font-size: 28px; }
+  .plate-stat .figure-sub {
+    grid-column: 1;
+    margin-top: 2px;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+  }
   .figures { grid-template-columns: 1fr; }
   .url-row { flex-direction: column; }
   .copy { min-height: 44px; }
+  .preview-sheet h1 { font-size: 40px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

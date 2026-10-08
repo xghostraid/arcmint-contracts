@@ -285,7 +285,7 @@ export function renderLivePreview(status) {
     <iframe id="card-frame" class="card-frame live" src="/card/live" title="Live card"></iframe>
     <p class="host-block"><span>launch_coin</span></p>
     <pre id="refusal"></pre>
-    <script src="/assets/live-preview.js"></script>
+    <script type="module" src="/assets/live-preview.js"></script>
   </main>`;
   return shell({ status, title: "Live preview · Socket", page: "preview", main });
 }

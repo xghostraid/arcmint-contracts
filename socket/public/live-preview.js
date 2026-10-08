@@ -1,5 +1,20 @@
 const out = document.querySelector("#refusal");
+const frame = document.querySelector("#card-frame");
 const key = "preview-paused-launch";
+
+function fit() {
+  const doc = frame && frame.contentDocument;
+  if (!doc) return;
+  frame.style.height = `${doc.documentElement.scrollHeight}px`;
+}
+
+if (frame) {
+  await new Promise((resolve) => {
+    if (frame.contentDocument && frame.contentDocument.readyState === "complete") resolve();
+    else frame.addEventListener("load", () => resolve(), { once: true });
+  });
+  fit();
+}
 
 async function call(id) {
   const res = await fetch("/mcp", {

@@ -399,7 +399,7 @@ body.chamber-fallback[data-focus="burns"] .plate[data-room="burns"] { display: f
 .figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
 .launcher span { letter-spacing: 0.12em; text-transform: uppercase; font-size: 11px; color: var(--quiet); }
 .card-frame { width: 100%; height: 820px; border: 1px solid var(--line); background: #07080c; margin-top: 16px; }
-.card-frame.live { height: 760px; }
+.card-frame.live { height: 1180px; }
 #refusal { margin: 8px 0 0; white-space: pre-wrap; color: var(--filament); font-size: 14px; }
 .url-quote { display: grid; gap: 10px; margin-top: 16px; }
 .url-quote label span, .host-block span {

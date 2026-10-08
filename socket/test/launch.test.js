@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -142,6 +142,9 @@ test("the live card shows the local confirmed coin", async () => {
     const previewHtml = await preview.text();
     assert.equal(preview.status, 200);
     assert.ok(previewHtml.includes('src="/card/live"'));
+    assert.ok(previewHtml.includes('type="module" src="/assets/live-preview.js"'));
+    const previewJs = readFileSync(new URL("../public/live-preview.js", import.meta.url), "utf8");
+    assert.ok(previewJs.includes("scrollHeight"));
     assert.ok(previewHtml.includes("Live <em>card</em>"));
     assert.equal(previewHtml.includes(">Launch<"), false);
 

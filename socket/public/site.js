@@ -30,34 +30,25 @@ async function copyUrl() {
     document.execCommand("copy");
     area.remove();
   }
-  const plug = document.querySelector(".plug-stage .plug");
-  if (plug) {
-    plug.classList.add("plug--hot");
-    window.setTimeout(() => plug.classList.remove("plug--hot"), reduced ? 200 : 900);
+  const mark = document.querySelector(".mark-stage .socket-mark");
+  if (mark && !reduced) {
+    mark.classList.remove("settle");
+    void mark.offsetWidth;
+    mark.classList.add("settle");
   }
   showToast();
 }
 
-function setDot(el, text) {
+function setFigure(el, text) {
   if (!el || el.dataset.value === text) return;
   el.dataset.value = text;
-  el.replaceChildren();
-  const split = text.indexOf(".");
-  if (split === -1) {
-    el.textContent = text;
-    return;
-  }
-  el.append(document.createTextNode(text.slice(0, split)));
-  const dot = document.createElement("span");
-  dot.className = "dot";
-  dot.textContent = text.slice(split);
-  el.append(dot);
+  el.textContent = text;
 }
 
 function applyStatus(status) {
-  setDot(document.querySelector("[data-left]"), status.display.leftToday);
-  setDot(document.querySelector("[data-paid]"), status.display.paid);
-  setDot(document.querySelector("[data-burned]"), status.display.burned);
+  setFigure(document.querySelector("[data-left]"), status.display.leftToday);
+  setFigure(document.querySelector("[data-paid]"), status.display.paid);
+  setFigure(document.querySelector("[data-burned]"), status.display.burned);
   const pause = document.querySelector("[data-pause]");
   if (pause) pause.textContent = status.launchesOn ? "" : "Paused";
   const led = document.querySelector("[data-led]");
@@ -66,13 +57,8 @@ function applyStatus(status) {
     led.title = status.launchesOn ? "Launches on" : "Launches paused";
   }
   const line = status.display.marquee;
-  const marquee = document.querySelector("[data-marquee]");
-  if (marquee && marquee.getAttribute("aria-label") !== line) {
-    marquee.setAttribute("aria-label", line);
-    marquee.querySelectorAll(".mq").forEach((node) => {
-      node.textContent = line;
-    });
-  }
+  const statusLine = document.querySelector("[data-status-line]");
+  if (statusLine && statusLine.textContent !== line) statusLine.textContent = line;
   document.body.dataset.statusReady = "1";
 }
 
@@ -110,6 +96,7 @@ function renderRows(state) {
     const td = document.createElement("td");
     td.colSpan = volume ? 6 : 5;
     const title = document.createElement("span");
+    title.className = "empty-line";
     title.textContent = state.coins.length === 0 ? "The floor is clear." : "Nothing matches that.";
     const hint = document.createElement("span");
     hint.className = "hint";

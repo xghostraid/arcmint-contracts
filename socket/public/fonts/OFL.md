@@ -1,4 +1,5 @@
-Copyright 2014 - 2023 Adobe (http://www.adobe.com/), with Reserved Font Name ‘Source’. All Rights Reserved. Source is a trademark of Adobe in the United States and/or other countries.
+Copyright 2017 The Bodoni Moda Project Authors (https://github.com/indestructible-type/Bodoni), with Reserved Font Name "Bodoni Moda".
+Copyright 2018 The Manrope Project Authors (https://github.com/sharanda/manrope).
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 

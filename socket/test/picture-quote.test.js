@@ -229,7 +229,8 @@ test("picture upload, quote, and the draft card", async () => {
     assert.ok(html.includes("You 50%"));
     assert.ok(html.includes("approve launch_coin"));
     assert.ok(html.includes("ui/update-model-context"));
-    assert.ok(html.includes(`${app.base}/assets/fonts/source-serif.woff2`));
+    assert.ok(html.includes(`${app.base}/assets/fonts/bodoni-moda.woff2`));
+    assert.equal(/d97757|4ade80|86efac|0c0f0d|gradient|Geist|Source Serif|Doto/i.test(html), false);
     assert.ok(html.includes('id="covered" hidden'));
 
     const card = await fetch(`${app.base}/card`);

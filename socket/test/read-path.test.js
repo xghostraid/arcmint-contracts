@@ -205,6 +205,9 @@ test("http read path, empty screens, and mcp tools", async () => {
     assert.equal(home.text.includes("75%"), false);
     assert.equal(home.text.includes("launch_coin"), false);
     assert.equal(home.text.includes("balanceSol"), false);
+    assert.equal(/d97757|4ade80|86efac|0c0f0d|gradient|marquee|Geist|Source Serif|Doto/i.test(home.text), false);
+    assert.ok(home.text.includes("status-line"));
+    assert.ok(home.text.includes("#e6eef2") || home.text.includes("site.css"));
 
     const floor = await get(app.base, "/floor");
     assert.ok(floor.text.includes("The floor is clear."));

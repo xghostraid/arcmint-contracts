@@ -9,40 +9,40 @@ export function renderDraftCard(origin) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Draft card</title>
 <style>
-  @font-face { font-family: "Source Serif 4"; font-style: normal; font-weight: 520 640; font-display: swap; src: url("${origin}/assets/fonts/source-serif.woff2") format("woff2"); }
-  @font-face { font-family: "Source Serif 4"; font-style: italic; font-weight: 560; font-display: swap; src: url("${origin}/assets/fonts/source-serif-italic.woff2") format("woff2"); }
-  @font-face { font-family: Inter; font-style: normal; font-weight: 400 600; font-display: swap; src: url("${origin}/assets/fonts/inter.woff2") format("woff2"); }
-  @font-face { font-family: "Geist Mono"; font-style: normal; font-weight: 400 500; font-display: swap; src: url("${origin}/assets/fonts/geist-mono.woff2") format("woff2"); }
+  @font-face { font-family: "Bodoni Moda"; font-style: normal; font-weight: 500 800; font-display: swap; src: url("${origin}/assets/fonts/bodoni-moda.woff2") format("woff2"); }
+  @font-face { font-family: "Bodoni Moda"; font-style: italic; font-weight: 500 800; font-display: swap; src: url("${origin}/assets/fonts/bodoni-moda-italic.woff2") format("woff2"); }
+  @font-face { font-family: Manrope; font-style: normal; font-weight: 400 700; font-display: swap; src: url("${origin}/assets/fonts/manrope.woff2") format("woff2"); }
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: #f3eee3; color: #1c1916; font-family: Inter, "Helvetica Neue", sans-serif; }
+  body { margin: 0; background: #e6eef2; color: #17202b; font-family: Manrope, "Helvetica Neue", sans-serif; }
   .card { width: min(560px, 100%); margin: 0 auto; padding: 18px 16px 28px; }
-  .kicker, label span, .fee-key, .bytes { font-family: "Geist Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #8a877f; }
-  h1 { margin: 4px 0 14px; font-family: "Source Serif 4", Georgia, serif; font-weight: 640; font-size: 42px; line-height: 0.92; letter-spacing: -0.03em; }
-  h1 em { font-style: italic; font-weight: 560; color: #d97757; }
-  .stage { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; max-height: 360px; margin: 0 auto 8px; overflow: hidden; border-radius: 22px; background: radial-gradient(120% 80% at 30% 20%, #f7f3ea, #e4dccb); box-shadow: inset 0 0 0 1px rgba(60,40,20,.08), 0 12px 28px rgba(70,40,20,.08); cursor: pointer; }
-  .stage.hot { box-shadow: inset 0 0 0 2px #d97757; }
+  .kicker, label span, .fee-key, .bytes, .hint { font-family: Manrope, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #17202b; }
+  h1 { margin: 4px 0 14px; font-family: "Bodoni Moda", Didot, serif; font-weight: 600; font-size: 48px; line-height: 0.88; letter-spacing: -0.045em; color: #17202b; }
+  h1 em { font-style: italic; font-weight: 560; color: inherit; }
+  .stage { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; max-height: 360px; margin: 0 auto 8px; overflow: hidden; border: 1px solid #17202b; background: #f7f4ee; cursor: pointer; }
+  .stage.hot { outline: 1px solid #b68b4c; outline-offset: -2px; }
   .stage input { position: absolute; width: 1px; height: 1px; opacity: 0; }
   .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .stage img[hidden] { display: none; }
-  .plug { width: 38%; height: auto; }
-  .stage.has-image .plug, .stage.has-image .hint { display: none; }
-  .hint { margin: 8px 0 0; color: #8a877f; font-family: "Geist Mono", monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
-  .bytes, .status { margin: 8px 0 0; text-align: center; }
-  .status { font-family: "Geist Mono", ui-monospace, monospace; font-size: 13px; color: #1c1916; }
-  .status.bad { color: #b9542f; }
+  .socket-mark { width: 42%; height: auto; }
+  .stage.has-image .socket-mark, .stage.has-image .hint { display: none; }
+  .hint { margin: 8px 0 0; }
+  .bytes, .status { margin: 8px 0 0; text-align: center; font-variant-numeric: tabular-nums; }
+  .status { font-family: Manrope, sans-serif; font-size: 13px; color: #17202b; }
+  .status.bad { border-left: 3px solid #b68b4c; padding-left: 8px; }
   label { display: block; margin-top: 12px; }
   label span { display: block; margin-bottom: 6px; }
-  input[type="text"], input[type="url"], textarea { width: 100%; border: 0; border-radius: 12px; padding: 12px 14px; background: linear-gradient(#e3daca, #d8cebd); box-shadow: inset 0 2px 5px rgba(50,30,10,.18); color: #1c1916; font: 15px/1.4 Inter, sans-serif; }
+  input[type="text"], input[type="url"], textarea { width: 100%; border: 1px solid #17202b; padding: 12px 14px; background: #e6eef2; color: #17202b; font: 15px/1.4 Manrope, sans-serif; }
   textarea { min-height: 72px; resize: vertical; }
-  .fee { display: flex; height: 16px; margin-top: 16px; overflow: hidden; border-radius: 999px; background: #1c1916; }
-  .fee-you { width: 50%; background: #4ade80; }
-  .fee-them { width: 50%; background: #1c1916; }
-  .fee-key { display: flex; justify-content: space-between; margin: 6px 0 0; }
-  .paused { margin: 14px 0 0; color: #b9542f; font-family: "Source Serif 4", Georgia, serif; font-style: italic; font-size: 22px; }
-  .covered { margin: 14px 0 0; color: #1c1916; }
-  .lock { margin: 8px 0 0; max-width: 46ch; color: #3a342c; font-size: 14px; line-height: 1.45; }
-  .issues { margin: 8px 0 0; color: #b9542f; font-family: "Geist Mono", monospace; font-size: 12px; }
+  .fee { display: flex; height: 8px; margin-top: 16px; background: #17202b; }
+  .fee-you { width: 50%; background: #b68b4c; }
+  .fee-them { width: 50%; background: #17202b; }
+  .fee-key { display: flex; justify-content: space-between; margin: 8px 0 0; }
+  .paused { margin: 16px 0 0; color: #17202b; font-family: "Bodoni Moda", Didot, serif; font-style: italic; font-weight: 560; font-size: 28px; letter-spacing: -0.03em; }
+  .covered { margin: 14px 0 0; color: #17202b; }
+  .lock { margin: 8px 0 0; max-width: 46ch; color: #17202b; font-size: 14px; line-height: 1.45; }
+  .issues { margin: 8px 0 0; color: #17202b; font-family: Manrope, sans-serif; font-size: 12px; border-left: 3px solid #b68b4c; padding-left: 8px; }
+  .issues:empty { display: none; }
 </style>
 </head>
 <body>
@@ -51,14 +51,13 @@ export function renderDraftCard(origin) {
   <h1>Your <em>coin</em></h1>
   <label class="stage" id="stage">
     <input id="file" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
-    <svg class="plug" viewBox="0 0 320 430" aria-hidden="true">
-      <rect x="78" y="8" width="164" height="118" rx="18" fill="#e9e2d4"/>
-      <rect x="116" y="40" width="24" height="52" rx="5" fill="#1c1916"/>
-      <rect x="180" y="40" width="24" height="52" rx="5" fill="#1c1916"/>
-      <rect x="121" y="46" width="14" height="78" rx="2" fill="#d4ae5a"/>
-      <rect x="185" y="46" width="14" height="78" rx="2" fill="#d4ae5a"/>
-      <rect x="68" y="112" width="184" height="206" rx="46" fill="#d97757"/>
-      <ellipse cx="160" cy="206" rx="54" ry="64" fill="#f3eee3"/>
+    <svg class="socket-mark" viewBox="0 0 200 280" aria-hidden="true">
+      <rect x="52" y="58" width="120" height="132" fill="#17202b"/>
+      <rect x="36" y="42" width="120" height="132" fill="#b68b4c"/>
+      <rect x="70" y="14" width="14" height="46" fill="#b68b4c"/>
+      <rect x="112" y="14" width="14" height="46" fill="#b68b4c"/>
+      <circle cx="96" cy="112" r="30" fill="#f7f4ee"/>
+      <path d="M96 174 L96 224 L122 258" fill="none" stroke="#17202b" stroke-width="3"/>
     </svg>
     <img id="face" alt="" hidden>
     <span class="hint">PNG, JPEG, GIF, WebP</span>

@@ -114,8 +114,8 @@ export function shorten(value, head = 4, tail = 4) {
 }
 
 export function marqueeLine(status) {
-  const state = status.launchesOn ? "LAUNCHES ON" : "LAUNCHES PAUSED";
+  const state = status.launchesOn ? "Launches on" : "Launches paused";
   const paid = formatSol(status.paidToCreatorsSol);
   const burned = formatTokens(status.tokensBurned);
-  return `${state}  ·  ${status.coins} COINS  ·  ${paid} SOL PAID  ·  ${burned} BURNED`;
+  return `${state} · ${status.coins} coins · ${paid} SOL paid · ${burned} burned`;
 }

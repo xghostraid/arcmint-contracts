@@ -23,48 +23,17 @@ export function esc(value) {
     .replaceAll("'", "&#39;");
 }
 
-function dotHtml(text) {
-  const value = String(text);
-  const split = value.indexOf(".");
-  if (split === -1) return esc(value);
-  return `${esc(value.slice(0, split))}<span class="dot">${esc(value.slice(split))}</span>`;
-}
-
-function plugSvg({ gid = "plug", label = "" } = {}) {
+function socketMark({ label = "" } = {}) {
   const labelled = label
     ? `role="img" aria-label="${esc(label)}"`
     : `aria-hidden="true"`;
-  return `<svg class="plug" viewBox="0 0 320 430" ${labelled}>
-    <defs>
-      <linearGradient id="${gid}-clay" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#e7a088"/>
-        <stop offset="0.45" stop-color="#d97757"/>
-        <stop offset="1" stop-color="#b9542f"/>
-      </linearGradient>
-      <linearGradient id="${gid}-brass" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#f3dd9a"/>
-        <stop offset="0.45" stop-color="#d4ae5a"/>
-        <stop offset="1" stop-color="#8d6a32"/>
-      </linearGradient>
-      <linearGradient id="${gid}-plate" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#f7f3ea"/>
-        <stop offset="1" stop-color="#e4dccb"/>
-      </linearGradient>
-    </defs>
-    <path class="cord" d="M160 318 C160 352 214 346 198 392" fill="none" stroke="#2c2420" stroke-width="16" stroke-linecap="round"/>
-    <path class="charge" d="M160 318 C160 352 214 346 198 392" fill="none" stroke="#4ade80" stroke-width="5" stroke-linecap="round"/>
-    <rect x="78" y="8" width="164" height="118" rx="18" fill="url(#${gid}-plate)" stroke="#d9d0c0"/>
-    <circle cx="108" cy="28" r="5" fill="#c9bfae"/>
-    <circle cx="212" cy="28" r="5" fill="#c9bfae"/>
-    <path d="M103 28 H113 M207 28 H217" stroke="#6d6458" stroke-width="1.4"/>
-    <rect x="116" y="40" width="24" height="52" rx="5" fill="#1c1916"/>
-    <rect x="180" y="40" width="24" height="52" rx="5" fill="#1c1916"/>
-    <rect class="prong" x="121" y="46" width="14" height="78" rx="2" fill="url(#${gid}-brass)"/>
-    <rect class="prong" x="185" y="46" width="14" height="78" rx="2" fill="url(#${gid}-brass)"/>
-    <rect x="68" y="112" width="184" height="206" rx="46" fill="url(#${gid}-clay)"/>
-    <ellipse cx="128" cy="156" rx="34" ry="16" fill="#fff" opacity="0.28"/>
-    <ellipse cx="160" cy="206" rx="54" ry="64" fill="#f3eee3"/>
-    <rect x="92" y="248" width="136" height="7" rx="3" fill="#b9542f" opacity="0.45"/>
+  return `<svg class="socket-mark" viewBox="0 0 200 280" ${labelled}>
+    <rect x="52" y="58" width="120" height="132" fill="#17202b"/>
+    <rect class="face" x="36" y="42" width="120" height="132" fill="#b68b4c"/>
+    <rect class="pin" x="70" y="14" width="14" height="46" fill="#b68b4c"/>
+    <rect class="pin" x="112" y="14" width="14" height="46" fill="#b68b4c"/>
+    <circle cx="96" cy="112" r="30" fill="#f7f4ee"/>
+    <path d="M96 174 L96 224 L122 258" fill="none" stroke="#17202b" stroke-width="3"/>
   </svg>`;
 }
 
@@ -74,16 +43,11 @@ function nav(page, status) {
   const floor = page === "floor" ? ` aria-current="page"` : "";
   const burns = page === "burns" ? ` aria-current="page"` : "";
   return `<header class="nav">
-    <a class="mark" href="/">
-      <span class="led${on ? " led-on" : ""}" data-led title="${on ? "Launches on" : "Launches paused"}"></span>
+    <a class="brand${on ? " led-on" : ""}" href="/" data-led title="${on ? "Launches on" : "Launches paused"}">
+      ${socketMark()}
       <span>Socket</span>
     </a>
-    <div class="marquee" data-marquee aria-label="${esc(line)}">
-      <div class="marquee-track">
-        <span class="mq" aria-hidden="true">${esc(line)}</span>
-        <span class="mq" aria-hidden="true">${esc(line)}</span>
-      </div>
-    </div>
+    <p class="status-line" data-status-line>${esc(line)}</p>
     <nav class="nav-links" aria-label="Pages">
       <a href="/floor"${floor}>Floor</a>
       <a href="/burns"${burns}>Burns</a>
@@ -99,7 +63,7 @@ function shell({ status, title, page, main }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <meta name="description" content="Socket is a private ChatGPT connector for pump.fun. This server is the read path.">
-<meta name="theme-color" content="#f3eee3">
+<meta name="theme-color" content="#e6eef2">
 <title>${esc(title)}</title>
 <link rel="icon" href="/assets/favicon.svg">
 <link rel="stylesheet" href="/assets/site.css">
@@ -121,14 +85,13 @@ function sigLink(sig) {
   return `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(shorten(sig, 6, 6))}</a>`;
 }
 
-function lcd(label, value, attrs, sub = "") {
-  const word = /[A-Za-z]/.test(value) ? " lcd-word" : "";
+function figure(label, value, attrs, sub = "") {
   const pause = sub
-    ? `<p class="lcd-sub" data-pause>${esc(sub)}</p>`
-    : `<p class="lcd-sub"${attrs.includes("data-left") ? " data-pause" : ""}></p>`;
-  return `<article class="lcd">
-    <p class="lcd-label">${esc(label)}</p>
-    <p class="lcd-num${word}" ${attrs} data-value="${esc(value)}">${dotHtml(value)}</p>
+    ? `<p class="figure-sub" data-pause>${esc(sub)}</p>`
+    : `<p class="figure-sub"${attrs.includes("data-left") ? " data-pause" : ""}></p>`;
+  return `<article class="figure">
+    <p class="figure-label">${esc(label)}</p>
+    <p class="figure-num" ${attrs} data-value="${esc(value)}">${esc(value)}</p>
     ${pause}
   </article>`;
 }
@@ -139,25 +102,21 @@ export function renderHome({ status, mcpUrl }) {
     <div class="lead">
       <p class="kicker">Private connector</p>
       <h1>pump.fun,<br><em>plugged</em> into ChatGPT.</h1>
-      <div class="housing">
-        <span class="screw tl" aria-hidden="true"></span>
-        <span class="screw tr" aria-hidden="true"></span>
-        <span class="screw bl" aria-hidden="true"></span>
-        <span class="screw br" aria-hidden="true"></span>
+      <div class="url-row">
         <div class="slot" id="mcp-url" data-mcp-url="${esc(mcpUrl)}">${esc(mcpUrl)}</div>
         <button class="copy" type="button" aria-describedby="chatgpt-path">Copy</button>
       </div>
       <p class="path" id="chatgpt-path">${esc(CHATGPT_PATH)}</p>
-      <div class="lcds" aria-live="polite">
-        ${lcd("Left today", status.display.leftToday, `data-left`, pause)}
-        ${lcd("Sol paid", status.display.paid, `data-paid`)}
-        ${lcd("Burned", status.display.burned, `data-burned`)}
+      <div class="figures" aria-live="polite">
+        ${figure("Left today", status.display.leftToday, `data-left`, pause)}
+        ${figure("Sol paid", status.display.paid, `data-paid`)}
+        ${figure("Burned", status.display.burned, `data-burned`)}
       </div>
       <p class="split-line">${esc(SPLIT_LINE)}</p>
       <a class="floor-link" href="/floor">See the floor</a>
     </div>
-    <div class="plug-stage">
-      ${plugSvg({ gid: "home", label: "Vinyl plug seated in the wall socket" })}
+    <div class="mark-stage">
+      ${socketMark({ label: "Socket" })}
     </div>
   </main>`;
   return shell({ status, title: "Socket", page: "home", main });
@@ -165,7 +124,7 @@ export function renderHome({ status, mcpUrl }) {
 
 function boardRows(coins, vol) {
   if (coins.length === 0) {
-    return `<tr class="empty-row"><td colspan="${vol ? 6 : 5}"><span>The floor is clear.</span><span class="hint">No live coins yet.</span></td></tr>`;
+    return `<tr class="empty-row"><td colspan="${vol ? 6 : 5}"><span class="empty-line">The floor is clear.</span><span class="hint">No live coins yet.</span></td></tr>`;
   }
   return coins.map((coin) => {
     const href = `/coin/${encodeURIComponent(coin.mint)}`;
@@ -255,7 +214,7 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
       : "Socket reads a Solana contract address, 32 to 44 characters.";
     const shown = address.length > 80 ? `${address.slice(0, 80)}\u2026` : address;
     const main = `<main id="main" class="sheet missing">
-      ${plugSvg({ gid: "miss" })}
+      ${socketMark()}
       <h1>${valid ? "Not in the <em>book</em>." : "Not a <em>mint</em>."}</h1>
       <p class="lede">${esc(lede)}</p>
       <div class="slot">${esc(shown)}</div>
@@ -274,7 +233,7 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
   const src = safeImage(coin.image);
   const face = src
     ? `<div class="face"><img alt="" src="${esc(src)}"></div>`
-    : `<div class="face">${plugSvg({ gid: "coin" })}</div>`;
+    : `<div class="face">${socketMark()}</div>`;
   const curve = coin.graduated ? "Graduated" : "On the curve";
   const wallet = coin.wallet ? shorten(coin.wallet) : "No wallet stored";
   const burnLink = burnsAttributed
@@ -290,10 +249,10 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
     <div class="fee" aria-hidden="true"><span class="fee-you"></span><span class="fee-them"></span></div>
     <p class="fee-key"><span>You 50%</span><span>Recipient 50%</span></p>
     <p class="launcher"><span>Launcher</span> ${esc(wallet)}</p>
-    <div class="lcds lcds-coin">
-      ${lcd("Paid to creator", formatSol(coin.paidToCreatorSol), "")}
-      ${lcd("Age", formatAge(coin.createdAt, now), "")}
-      ${lcd("Curve", curve, "")}
+    <div class="figures figures-coin">
+      ${figure("Paid to creator", formatSol(coin.paidToCreatorSol), "")}
+      ${figure("Age", formatAge(coin.createdAt, now), "")}
+      ${figure("Curve", curve, "")}
     </div>
     <div class="tape">
       <div class="tape-head"><span>When</span><span>Event</span><span>Amount</span><span>Signature</span></div>
@@ -316,13 +275,13 @@ export function renderBurns({ status, burns }) {
         <span>${esc(formatTokens(burn.tokens))}</span>
         <span>${sigLink(burn.burnSig)}</span>
       </div>`).join("")}`
-    : `<p class="tape-empty">No burns yet.</p>`;
+    : `<p class="empty-line">No burns yet.</p>`;
   const main = `<main id="main" class="sheet burns-sheet">
     <div class="burn-top">
       <h1>Burn <em>tape</em></h1>
-      <article class="lcd lcd-compact">
-        <p class="lcd-label">Burned</p>
-        <p class="lcd-num" data-value="${esc(status.display.burned)}">${dotHtml(status.display.burned)}</p>
+      <article class="figure figure-side">
+        <p class="figure-label">Burned</p>
+        <p class="figure-num" data-value="${esc(status.display.burned)}">${esc(status.display.burned)}</p>
       </article>
     </div>
     <div class="tape">${rows}</div>

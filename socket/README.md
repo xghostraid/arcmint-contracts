@@ -1,4 +1,4 @@
-# Socket
+# promptfun.fun
 
 Read path, pictures, quotes, and a paused `launch_coin`. Coins, burns, pictures, and launch jobs live in a local SQLite file (no Postgres on this machine, no secrets). MCP exposes `ping`, `quote_launch`, `open_picture_panel`, `launch_coin`, `coin_status`, and `list_wallet_coins`.
 
@@ -8,7 +8,7 @@ A payout watcher runs once a minute. It would push creator fees once a coin has 
 
 The desk proves a Solana address with a signature over a nonce. It is not a custody wallet and not a ChatGPT login. The connector stays no sign-in. A wallet may launch 5 times an hour and 20 a day, inside the global cap of 30 an hour and 200 a day. `list_wallet_coins` returns that wallet’s coins, paid SOL, and its failed jobs only.
 
-A new launch cannot use a name or ticker that impersonates Socket. There is no house token. Fee addresses have to be ordinary wallets. Public `/api/status` does not include signer balance or secret flags. `/api/ops` answers whether one launch can be paid, and it stays behind the cron secret. A low float raises “The float cannot cover one launch.”
+A new launch cannot use a name or ticker that impersonates promptfun.fun. There is no house token. Fee addresses have to be ordinary wallets. Public `/api/status` does not include signer balance or secret flags. `/api/ops` answers whether one launch can be paid, and it stays behind the cron secret. A low float raises “The float cannot cover one launch.”
 
 ```bash
 npm start

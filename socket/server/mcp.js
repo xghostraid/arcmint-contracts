@@ -35,7 +35,7 @@ const DRAFT_FIELDS = {
   },
   image_url: {
     type: "string",
-    description: `Direct https image URL, up to ${IMAGE_URL_MAX_BYTES} bytes, when the draft card iframe does not render. Socket does not fetch this URL.`,
+    description: `Direct https image URL, up to ${IMAGE_URL_MAX_BYTES} bytes, when the draft card iframe does not render. promptfun.fun does not fetch this URL.`,
   },
 };
 
@@ -72,7 +72,7 @@ const LAUNCH_SCHEMA = {
 export const TOOLS = [
   {
     name: "ping",
-    description: "Check that Socket is connected. Returns the fee split and that launches are paused. Does not launch a coin.",
+    description: "Check that promptfun.fun is connected. Returns the fee split and that launches are paused. Does not launch a coin.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -108,7 +108,7 @@ export const TOOLS = [
   },
   {
     name: "coin_status",
-    description: "Read a coin Socket has confirmed. Pass the Solana mint as address. Returns the pump.fun link, the locked 50/50 creator-fee split, and SOL paid to the creator wallet.",
+    description: "Read a coin promptfun.fun has confirmed. Pass the Solana mint as address. Returns the pump.fun link, the locked 50/50 creator-fee split, and SOL paid to the creator wallet.",
     inputSchema: {
       type: "object",
       properties: {
@@ -189,7 +189,7 @@ function callTool(db, params) {
     }
     const coin = getLiveCoin(db, address);
     if (!coin) {
-      return toolResult(`${address} is not in Socket's book. The floor only lists coins this connector has confirmed.`);
+      return toolResult(`${address} is not in promptfun.fun's book. The floor only lists coins this connector has confirmed.`);
     }
     return { ...toolResult(coinStatusText(coin)), _meta: LIVE_META };
   }
@@ -240,7 +240,7 @@ export function handleMcpMessage(db, message, options = {}) {
           tools: { listChanged: false },
           resources: { listChanged: false },
         },
-        serverInfo: { name: "Socket", version: "0.1.0" },
+        serverInfo: { name: "promptfun.fun", version: "0.1.0" },
         instructions: `${PING_TEXT} Tools: ping, quote_launch, open_picture_panel, launch_coin, coin_status, list_wallet_coins. launch_coin refuses while launches are paused and does not send a transaction. list_wallet_coins needs a signature over a nonce. The connector stays no sign-in. If the draft card does not render, pass image_url.`,
       }),
     };
@@ -255,13 +255,13 @@ export function handleMcpMessage(db, message, options = {}) {
         resources: [
           {
             uri: DRAFT_CARD_URI,
-            name: "Socket draft card",
+            name: "promptfun.fun draft card",
             description: "Draft coin card. Picture, name, ticker, and the locked 50/50 fee split. Launches stay paused.",
             mimeType: "text/html;profile=mcp-app",
           },
           {
             uri: LIVE_CARD_URI,
-            name: "Socket live card",
+            name: "promptfun.fun live card",
             description: "Confirmed coin. Picture and name are locked, with the contract address, pump.fun link, SOL paid, and fees not yet pushed.",
             mimeType: "text/html;profile=mcp-app",
           },

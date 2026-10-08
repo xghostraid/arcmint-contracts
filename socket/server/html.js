@@ -10,7 +10,7 @@ import {
   pctClass,
   shorten,
 } from "../public/format.js";
-import { CHATGPT_PATH, DESK_EMPTY, RESERVE_RULE, SPLIT_LINE, TOAST_TEXT } from "../shared/copy.js";
+import { BRAND, CHATGPT_PATH, DESK_EMPTY, RESERVE_RULE, SPLIT_LINE, TOAST_TEXT } from "../shared/copy.js";
 
 const SIG = /^[1-9A-HJ-NP-Za-km-z]{64,128}$/;
 
@@ -33,7 +33,7 @@ function nav(page, status, linked = false) {
   const floorLink = linked ? ` data-view-link="floor"` : "";
   const burnsLink = linked ? ` data-view-link="burns"` : "";
   return `<header class="nav">
-    <a class="brand" href="/"${homeLink} data-led title="${on ? "Launches on" : "Launches paused"}">Socket</a>
+    <a class="brand" href="/"${homeLink} data-led title="${on ? "Launches on" : "Launches paused"}">${esc(BRAND)}</a>
     <p class="status-line" data-status-line>${esc(line)}</p>
     <nav class="nav-links" aria-label="Pages">
       <a href="/floor"${floor}${floorLink}>Floor</a>
@@ -51,7 +51,7 @@ function shell({ status, title, page, main, scene = false }) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
-<meta name="description" content="Socket is a private ChatGPT connector for pump.fun.">
+<meta name="description" content="${esc(BRAND)} is a private ChatGPT connector for pump.fun.">
 <meta name="theme-color" content="#07080c">
 <title>${esc(title)}</title>
 <link rel="icon" href="/assets/favicon.svg">
@@ -169,7 +169,7 @@ function renderChamber({ status, title, page, mcpUrl, coins = [], burns = [] }) 
 }
 
 export function renderHome(props) {
-  return renderChamber({ ...props, title: "Socket", page: "home" });
+  return renderChamber({ ...props, title: BRAND, page: "home" });
 }
 
 function boardRows(coins, vol) {
@@ -198,7 +198,7 @@ function boardRows(coins, vol) {
 }
 
 export function renderFloor(props) {
-  return renderChamber({ ...props, title: "The floor · Socket", page: "floor" });
+  return renderChamber({ ...props, title: `The floor · ${BRAND}`, page: "floor" });
 }
 
 function eventRows(events) {
@@ -220,8 +220,8 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
   if (!coin) {
     const valid = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
     const lede = valid
-      ? "This mint has no Socket launch. The floor only lists coins this connector has confirmed."
-      : "Socket reads a Solana contract address, 32 to 44 characters.";
+      ? `This mint has no ${BRAND} launch. The floor only lists coins this connector has confirmed.`
+      : `${BRAND} reads a Solana contract address, 32 to 44 characters.`;
     const shown = address.length > 80 ? `${address.slice(0, 80)}\u2026` : address;
     const main = `<main id="main" class="sheet missing">
       <h1>${valid ? "Not in the <em>book</em>." : "Not a <em>mint</em>."}</h1>
@@ -233,7 +233,7 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
       statusCode: 404,
       html: shell({
         status,
-        title: valid ? "Not in the book · Socket" : "Not a mint · Socket",
+        title: valid ? `Not in the book · ${BRAND}` : `Not a mint · ${BRAND}`,
         page: "coin",
         main,
       }),
@@ -271,12 +271,12 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
   </main>`;
   return {
     statusCode: 200,
-    html: shell({ status, title: `${coin.name} · Socket`, page: "coin", main }),
+    html: shell({ status, title: `${coin.name} · ${BRAND}`, page: "coin", main }),
   };
 }
 
 export function renderBurns(props) {
-  return renderChamber({ ...props, title: "Burns · Socket", page: "burns" });
+  return renderChamber({ ...props, title: `Burns · ${BRAND}`, page: "burns" });
 }
 
 function deskRows(desk) {
@@ -323,7 +323,7 @@ export function renderDesk({ status, mcpUrl, desk = null, preview = false, signe
   ${body}
   <p class="desk-corner">${esc(mcpUrl)}</p>
 </main>`;
-  return shell({ status, title: "Desk · Socket", page: "desk", main, scene: true });
+  return shell({ status, title: `Desk · ${BRAND}`, page: "desk", main, scene: true });
 }
 
 export function renderLivePreview(status) {
@@ -336,7 +336,7 @@ export function renderLivePreview(status) {
     <pre id="refusal"></pre>
     <script type="module" src="/assets/live-preview.js"></script>
   </main>`;
-  return shell({ status, title: "Live preview · Socket", page: "preview", main });
+  return shell({ status, title: `Live preview · ${BRAND}`, page: "preview", main });
 }
 
 export function renderPreview(status) {
@@ -358,13 +358,13 @@ export function renderPreview(status) {
     <pre id="host-log"></pre>
     <script src="/assets/preview.js"></script>
   </main>`;
-  return shell({ status, title: "Draft preview · Socket", page: "preview", main });
+  return shell({ status, title: `Draft preview · ${BRAND}`, page: "preview", main });
 }
 
 export function renderNotFound(status) {
   const main = `<main id="main" class="sheet missing">
     <h1>No such <em>page</em>.</h1>
-    <a class="floor-link" href="/">Back to Socket</a>
+    <a class="floor-link" href="/">Back to ${esc(BRAND)}</a>
   </main>`;
-  return shell({ status, title: "Not found · Socket", page: "missing", main });
+  return shell({ status, title: `Not found · ${BRAND}`, page: "missing", main });
 }

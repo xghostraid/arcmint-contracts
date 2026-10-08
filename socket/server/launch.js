@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { launchLimit } from "./desk.js";
+import { BRAND } from "../shared/copy.js";
 import { DRAFT_CARD_URI } from "./draft-card.js";
 import { getLaunchByKey, insertLaunch, markLaunch } from "./db.js";
 import { buildQuote } from "./quote.js";
@@ -34,7 +35,7 @@ function presentLaunch(row) {
   const paused = row.error === "paused";
   let text = "Launch failed.";
   if (paused) text = "Launches are paused.";
-  else if (row.error === "blocked") text = "That name cannot impersonate Socket.";
+  else if (row.error === "blocked") text = `That name cannot impersonate ${BRAND}.`;
   else if (row.error === "wallet") text = "That fee address is not an ordinary wallet.";
   else if (row.error === "wallet-hourly") text = "This wallet is at its hourly launch cap.";
   else if (row.error === "wallet-daily") text = "This wallet is at its daily launch cap.";

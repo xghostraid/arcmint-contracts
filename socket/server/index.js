@@ -460,7 +460,7 @@ async function route(req, res, db, env = process.env) {
       burns: listBurns(db),
     };
     const html = pathname === "/floor"
-      ? renderFloor({ ...scene, title: "The floor · Socket" })
+      ? renderFloor({ ...scene, title: "The floor · promptfun.fun" })
       : pathname === "/burns"
         ? renderBurns(scene)
         : renderHome(scene);
@@ -516,6 +516,6 @@ if (isDirect) {
   const timer = setInterval(tick, 60_000);
   if (typeof timer.unref === "function") timer.unref();
   server.listen(port, host, () => {
-    console.log(`Socket read path http://${host}:${port}`);
+    console.log(`promptfun.fun http://${host}:${port}`);
   });
 }

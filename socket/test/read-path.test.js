@@ -244,7 +244,7 @@ test("http read path, empty screens, and mcp tools", async () => {
     assert.equal(init.res.status, 200);
     assert.match(init.res.headers.get("content-type"), /text\/event-stream/);
     assert.match(init.text, /^event: message/);
-    assert.equal(init.json.result.serverInfo.name, "Socket");
+    assert.equal(init.json.result.serverInfo.name, "promptfun.fun");
     assert.equal(init.json.result.protocolVersion, "2025-03-26");
 
     const tools = await postMcp(app.base, { jsonrpc: "2.0", id: 2, method: "tools/list" }, "application/json");
@@ -267,7 +267,7 @@ test("http read path, empty screens, and mcp tools", async () => {
       method: "tools/call",
       params: { name: "coin_status", arguments: { address: MINT } },
     });
-    assert.match(missing.json.result.content[0].text, /not in Socket's book/);
+    assert.match(missing.json.result.content[0].text, /not in promptfun\.fun's book/);
     assert.equal(missing.json.result.isError, undefined);
 
     const noted = await postMcp(app.base, { jsonrpc: "2.0", method: "notifications/initialized" });

@@ -1,5 +1,5 @@
 import { getPicture } from "./db.js";
-import { impersonatesSocket } from "./names.js";
+import { impersonatesPromptfun } from "./names.js";
 import { IMAGE_URL_MAX_BYTES } from "./picture.js";
 import { isOrdinaryWallet } from "./solana.js";
 import { publicStatus } from "./status.js";
@@ -62,7 +62,7 @@ export function buildQuote(db, raw = {}, now = new Date()) {
 
   let name = nameRaw && nameRaw.length <= 32 ? nameRaw : null;
   if (nameRaw && nameRaw.length > 32) issues.push({ field: "name", error: "size" });
-  else if (name && impersonatesSocket(name)) {
+  else if (name && impersonatesPromptfun(name)) {
     issues.push({ field: "name", error: "blocked" });
     name = null;
   }
@@ -70,7 +70,7 @@ export function buildQuote(db, raw = {}, now = new Date()) {
   let ticker = tickerRaw && /^[A-Za-z0-9]{1,10}$/.test(tickerRaw) ? tickerRaw : null;
   if (tickerRaw && tickerRaw.length > 10) issues.push({ field: "ticker", error: "size" });
   else if (tickerRaw && !ticker) issues.push({ field: "ticker", error: "format" });
-  else if (ticker && impersonatesSocket(ticker)) {
+  else if (ticker && impersonatesPromptfun(ticker)) {
     issues.push({ field: "ticker", error: "blocked" });
     ticker = null;
   }

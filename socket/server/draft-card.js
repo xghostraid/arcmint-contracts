@@ -72,7 +72,7 @@ export function renderDraftCard(origin) {
   <div class="fee" aria-hidden="true"><span class="fee-you"></span><span class="fee-them"></span></div>
   <p class="fee-key"><span>You 50%</span><span>Recipient 50%</span></p>
   <p class="paused" id="paused">Launches are paused.</p>
-  <p class="covered" id="covered" hidden>Creation fee covered by Socket · about 0.012 SOL</p>
+  <p class="covered" id="covered" hidden>Creation fee covered by promptfun.fun · about 0.012 SOL</p>
   <p class="lock">Nothing is on chain until you approve launch_coin. The split cannot be changed after that.</p>
   <p class="issues" id="issues"></p>
 </main>
@@ -191,7 +191,7 @@ function pushContext(quote) {
     jsonrpc: "2.0",
     method: "ui/update-model-context",
     params: {
-      content: [{ type: "text", text: "Socket draft. " + picture + ". Launches are paused. 50% wallet / 50% published recipient." }],
+      content: [{ type: "text", text: "promptfun.fun draft. " + picture + ". Launches are paused. 50% wallet / 50% published recipient." }],
       structuredContent: draft,
     },
   });
@@ -306,7 +306,7 @@ window.addEventListener("message", (event) => {
       id: msg.id,
       result: {
         protocolVersion: "2025-03-26",
-        appInfo: { name: "Socket draft", version: "0.1.0" },
+        appInfo: { name: "promptfun.fun draft", version: "0.1.0" },
         capabilities: {},
       },
     });

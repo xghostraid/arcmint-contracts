@@ -56,37 +56,45 @@ async function start(env = process.env) {
   };
 }
 
-test("a blocked name cannot impersonate Socket", async () => {
+test("a blocked name cannot impersonate promptfun.fun", async () => {
   const app = await start();
   try {
     const owner = keypair();
     const now = new Date("2026-10-08T12:00:00.000Z");
     const blocked = launchCoin(app.db, {
-      name: "Socket",
+      name: "promptfun.fun",
       ticker: "LAMP",
       wallet: owner.wallet,
-      idempotency_key: "block-socket-name",
+      idempotency_key: "block-promptfun-name",
     }, { now });
     assert.equal(blocked.structuredContent.error, "blocked");
     assert.equal(blocked.structuredContent.status, "failed");
-    assert.equal(blocked.content[0].text, "That name cannot impersonate Socket.");
+    assert.equal(blocked.content[0].text, "That name cannot impersonate promptfun.fun.");
     assert.equal(blocked.isError, true);
 
     const leet = launchCoin(app.db, {
-      name: "$S0CKET coin",
+      name: "Pr0mptfun coin",
       ticker: "LAMP",
       wallet: owner.wallet,
-      idempotency_key: "block-socket-leet",
+      idempotency_key: "block-promptfun-leet",
     }, { now });
     assert.equal(leet.structuredContent.error, "blocked");
 
     const ticker = launchCoin(app.db, {
       name: "Chamber Lamp",
-      ticker: "SOCKET",
+      ticker: "PROMPTFUN",
       wallet: owner.wallet,
-      idempotency_key: "block-socket-ticker",
+      idempotency_key: "block-promptfun-ticker",
     }, { now });
     assert.equal(ticker.structuredContent.error, "blocked");
+
+    const oldBrand = launchCoin(app.db, {
+      name: "Socket",
+      ticker: "LAMP",
+      wallet: owner.wallet,
+      idempotency_key: "old-brand-not-blocked",
+    }, { now });
+    assert.equal(oldBrand.structuredContent.error, "paused");
 
     const allowed = buildQuote(app.db, {
       name: "Chamber Lamp",

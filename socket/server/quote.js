@@ -1,6 +1,7 @@
 import { getPicture } from "./db.js";
 import { IMAGE_URL_MAX_BYTES } from "./picture.js";
 import { publicStatus } from "./status.js";
+import { treasuryCanPay } from "./treasury.js";
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const PICTURE_ID = /^pic_[a-f0-9]{16}$/;
@@ -109,11 +110,12 @@ export function buildQuote(db, raw = {}, now = new Date()) {
   const picturePresent = Boolean(pictureId || imageUrl);
   const pictureSource = pictureId ? "picture_id" : imageUrl ? "image_url" : null;
   const status = publicStatus(db, now);
+  const canPay = treasuryCanPay();
 
   return {
-    canPay: false,
+    canPay,
     launchesOn: false,
-    paused: true,
+    paused: !canPay,
     userPercent: 50,
     recipientPercent: 50,
     holderBalance: null,

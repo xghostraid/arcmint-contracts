@@ -206,8 +206,11 @@ test("picture upload, quote, and the draft card", async () => {
 
     const listed = await postMcp(app.base, rpc(4, "tools/list"));
     const names = listed.json.result.tools.map((tool) => tool.name);
-    assert.deepEqual(names, ["ping", "quote_launch", "open_picture_panel", "coin_status"]);
-    assert.equal(names.includes("launch_coin"), false);
+    assert.deepEqual(names, ["ping", "quote_launch", "open_picture_panel", "launch_coin", "coin_status"]);
+    const launchTool = listed.json.result.tools.find((tool) => tool.name === "launch_coin");
+    assert.equal(launchTool.annotations.readOnlyHint, false);
+    assert.equal(launchTool.annotations.idempotentHint, true);
+    assert.equal(launchTool._meta.ui.resourceUri, DRAFT_CARD_URI);
     const quoteTool = listed.json.result.tools.find((tool) => tool.name === "quote_launch");
     assert.equal(quoteTool.annotations.readOnlyHint, true);
     assert.equal(quoteTool.annotations.openWorldHint, false);
@@ -253,6 +256,11 @@ test("picture upload, quote, and the draft card", async () => {
 
     const launched = await postMcp(app.base, rpc(8, "tools/call", { name: "launch_coin", arguments: {} }));
     assert.equal(launched.json.result.isError, true);
+    assert.equal(launched.json.result.content[0].text, "Launches are paused.");
+    assert.deepEqual(launched.json.result.structuredContent.states, ["received", "quoted", "failed"]);
+    assert.equal(launched.json.result.structuredContent.error, "paused");
+    assert.equal(launched.json.result.structuredContent.userPercent, 50);
+    assert.equal(launched.json.result.structuredContent.recipientPercent, 50);
 
     const init = await postMcp(app.base, rpc(9, "initialize", { protocolVersion: "2025-03-26" }));
     assert.equal(init.json.result.capabilities.resources.listChanged, false);

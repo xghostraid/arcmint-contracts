@@ -1,7 +1,9 @@
 import { PING_TEXT } from "../shared/copy.js";
 import { formatSol } from "../public/format.js";
-import { getLiveCoin } from "./db.js";
+import { getLiveCoin, latestLiveRow, toLiveView } from "./db.js";
 import { DRAFT_CARD_URI, renderDraftCard } from "./draft-card.js";
+import { launchCoin } from "./launch.js";
+import { LIVE_CARD_URI, renderLiveCard } from "./live-card.js";
 import { IMAGE_URL_MAX_BYTES } from "./picture.js";
 import { buildQuote, panelText, quoteText } from "./quote.js";
 
@@ -50,6 +52,21 @@ const READ_ONLY = {
 };
 
 const CARD_META = { ui: { resourceUri: DRAFT_CARD_URI } };
+const LIVE_META = { ui: { resourceUri: LIVE_CARD_URI } };
+
+const LAUNCH_SCHEMA = {
+  type: "object",
+  properties: {
+    ...DRAFT_FIELDS,
+    idempotency_key: {
+      type: "string",
+      minLength: 8,
+      maxLength: 128,
+      description: "Optional key. The same key returns the same launch and does not create a second coin.",
+    },
+  },
+  additionalProperties: false,
+};
 
 export const TOOLS = [
   {
@@ -74,6 +91,18 @@ export const TOOLS = [
     description: "Open the draft card so the user can drop a PNG, JPEG, GIF, or WebP. The card shrinks it to 4,000,000 bytes and stores it for 24 hours. If this host does not show the iframe, ask for a direct https image URL up to 15 MB and pass it as image_url. Do not invent a picture_id. Does not launch a coin.",
     inputSchema: DRAFT_SCHEMA,
     annotations: READ_ONLY,
+    _meta: CARD_META,
+  },
+  {
+    name: "launch_coin",
+    description: "Lock creator fees at 50% to the named wallet and 50% to the published recipient, then launch on pump.fun. Refuses when a launch key is missing or the balance cannot cover one launch, about 0.012 SOL, and the card says launches are paused. Does not return a signer balance. Does not send a mainnet transaction from this build. The same idempotency_key returns the same result. If the draft card does not render, pass image_url. Do not invent a picture_id.",
+    inputSchema: LAUNCH_SCHEMA,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
     _meta: CARD_META,
   },
   {
@@ -146,8 +175,9 @@ function callTool(db, params) {
     if (!coin) {
       return toolResult(`${address} is not in Socket's book. The floor only lists coins this connector has confirmed.`);
     }
-    return toolResult(coinStatusText(coin));
+    return { ...toolResult(coinStatusText(coin)), _meta: LIVE_META };
   }
+  if (name === "launch_coin") return launchCoin(db, args);
   return toolResult("Unknown tool.", true);
 }
 
@@ -180,7 +210,7 @@ export function handleMcpMessage(db, message, options = {}) {
           resources: { listChanged: false },
         },
         serverInfo: { name: "Socket", version: "0.1.0" },
-        instructions: `${PING_TEXT} Tools: ping, quote_launch, open_picture_panel, coin_status. There is no launch tool. If the draft card does not render, pass image_url.`,
+        instructions: `${PING_TEXT} Tools: ping, quote_launch, open_picture_panel, launch_coin, coin_status. launch_coin refuses while launches are paused and does not send a transaction. If the draft card does not render, pass image_url.`,
       }),
     };
   }
@@ -198,27 +228,47 @@ export function handleMcpMessage(db, message, options = {}) {
             description: "Draft coin card. Picture, name, ticker, and the locked 50/50 fee split. Launches stay paused.",
             mimeType: "text/html;profile=mcp-app",
           },
+          {
+            uri: LIVE_CARD_URI,
+            name: "Socket live card",
+            description: "Confirmed coin. Picture and name are locked, with the contract address, pump.fun link, SOL paid, and fees not yet pushed.",
+            mimeType: "text/html;profile=mcp-app",
+          },
         ],
       }),
     };
   }
   if (method === "resources/read") {
     const uri = params?.uri;
-    if (uri !== DRAFT_CARD_URI) {
-      return { type: "result", body: rpcError(id, -32002, "Resource not found") };
+    if (uri === DRAFT_CARD_URI) {
+      return {
+        type: "result",
+        body: rpcResult(id, {
+          contents: [
+            {
+              uri: DRAFT_CARD_URI,
+              mimeType: "text/html;profile=mcp-app",
+              text: renderDraftCard(origin),
+            },
+          ],
+        }),
+      };
     }
-    return {
-      type: "result",
-      body: rpcResult(id, {
-        contents: [
-          {
-            uri: DRAFT_CARD_URI,
-            mimeType: "text/html;profile=mcp-app",
-            text: renderDraftCard(origin),
-          },
-        ],
-      }),
-    };
+    if (uri === LIVE_CARD_URI) {
+      return {
+        type: "result",
+        body: rpcResult(id, {
+          contents: [
+            {
+              uri: LIVE_CARD_URI,
+              mimeType: "text/html;profile=mcp-app",
+              text: renderLiveCard(origin, toLiveView(latestLiveRow(db))),
+            },
+          ],
+        }),
+      };
+    }
+    return { type: "result", body: rpcError(id, -32002, "Resource not found") };
   }
   return { type: "result", body: rpcError(id, -32601, "Method not found") };
 }

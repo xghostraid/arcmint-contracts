@@ -26,12 +26,14 @@ CREATE TABLE IF NOT EXISTS coins (
   change_24h_pct REAL,
   volume_24h_usd REAL,
   paid_to_creator_sol REAL NOT NULL DEFAULT 0,
+  pending_fee_sol REAL NOT NULL DEFAULT 0,
   graduated INTEGER NOT NULL DEFAULT 0,
   launch_sig TEXT,
   live INTEGER NOT NULL DEFAULT 0,
   CHECK (user_bps = 5000 AND recipient_bps = 5000),
   CHECK (status IN ('received', 'quoted', 'submitted', 'confirmed', 'failed')),
   CHECK (paid_to_creator_sol >= 0),
+  CHECK (pending_fee_sol >= 0),
   CHECK (live IN (0, 1)),
   CHECK (graduated IN (0, 1))
 );
@@ -66,6 +68,31 @@ CREATE TABLE IF NOT EXISTS pictures (
 
 CREATE INDEX IF NOT EXISTS idx_pictures_sha ON pictures (sha256);
 CREATE INDEX IF NOT EXISTS idx_pictures_expires ON pictures (expires_at);
+
+CREATE TABLE IF NOT EXISTS launches (
+  id TEXT PRIMARY KEY,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  ticker TEXT NOT NULL,
+  description TEXT,
+  website TEXT,
+  x_url TEXT,
+  wallet TEXT,
+  picture_id TEXT,
+  image_url TEXT,
+  user_bps INTEGER NOT NULL DEFAULT 5000,
+  recipient_bps INTEGER NOT NULL DEFAULT 5000,
+  status TEXT NOT NULL,
+  error TEXT,
+  states TEXT NOT NULL,
+  mint TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK (user_bps = 5000 AND recipient_bps = 5000),
+  CHECK (status IN ('received', 'quoted', 'submitted', 'confirmed', 'failed'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_launches_status ON launches (status);
 `;
 
 export function openDb(dbPath) {
@@ -77,6 +104,10 @@ export function openDb(dbPath) {
   if (dbPath !== ":memory:") db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA busy_timeout = 3000;");
   db.exec(SCHEMA);
+  const coinCols = db.prepare("PRAGMA table_info(coins)").all();
+  if (!coinCols.some((col) => col.name === "pending_fee_sol")) {
+    db.exec("ALTER TABLE coins ADD COLUMN pending_fee_sol REAL NOT NULL DEFAULT 0");
+  }
   return db;
 }
 
@@ -91,12 +122,12 @@ INSERT INTO coins (
   mint, name, ticker, image, description, website, x_url, wallet, recipient,
   user_bps, recipient_bps, status, error, created_at,
   market_cap_usd, market_cap_sol, since_launch_pct, change_24h_pct, volume_24h_usd,
-  paid_to_creator_sol, graduated, launch_sig, live
+  paid_to_creator_sol, pending_fee_sol, graduated, launch_sig, live
 ) VALUES (
   ?, ?, ?, ?, ?, ?, ?, ?, ?,
   ?, ?, ?, ?, ?,
   ?, ?, ?, ?, ?,
-  ?, ?, ?, ?
+  ?, ?, ?, ?, ?
 )`;
 
 export function insertCoin(db, input) {
@@ -121,6 +152,7 @@ export function insertCoin(db, input) {
     input.change24hPct ?? null,
     input.volume24hUsd ?? null,
     input.paidToCreatorSol ?? 0,
+    input.pendingFeeSol ?? 0,
     input.graduated ? 1 : 0,
     input.launchSig ?? null,
     input.live ? 1 : 0,
@@ -313,4 +345,90 @@ export function countLaunchesSince(db, isoStart) {
     WHERE created_at >= ? AND status IN ('submitted', 'confirmed')
   `).get(isoStart);
   return Number(row.n);
+}
+
+const BASE58_MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+export const LOCAL_MINT = `SoCk${"1".repeat(38)}12`;
+const LOCAL_WALLET = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
+
+export function latestLiveRow(db) {
+  return db.prepare(`
+    SELECT * FROM coins
+    WHERE status = 'confirmed' AND live = 1
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).get() || null;
+}
+
+export function toLiveView(row) {
+  if (!row) return null;
+  return {
+    ...toPublicCoin(row),
+    pendingFeeSol: Number(row.pending_fee_sol ?? 0),
+  };
+}
+
+export function getLaunchByKey(db, key) {
+  return db.prepare(`SELECT * FROM launches WHERE idempotency_key = ?`).get(key) || null;
+}
+
+export function insertLaunch(db, input, now) {
+  const stamp = now.toISOString();
+  db.prepare(`
+    INSERT INTO launches (
+      id, idempotency_key, name, ticker, description, website, x_url, wallet,
+      picture_id, image_url, user_bps, recipient_bps, status, error, states,
+      mint, created_at, updated_at
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, 5000, 5000, 'received', NULL, 'received',
+      NULL, ?, ?
+    )
+  `).run(
+    input.id,
+    input.idempotencyKey,
+    input.name,
+    input.ticker,
+    input.description ?? null,
+    input.website ?? null,
+    input.x ?? null,
+    input.wallet ?? null,
+    input.pictureId ?? null,
+    input.imageUrl ?? null,
+    stamp,
+    stamp,
+  );
+}
+
+export function markLaunch(db, id, { status, error = null, states, mint = null }, now) {
+  db.prepare(`
+    UPDATE launches
+    SET status = ?, error = ?, states = ?, mint = ?, updated_at = ?
+    WHERE id = ?
+  `).run(status, error, states, mint, now.toISOString(), id);
+}
+
+export function seedLocalCoin(db) {
+  if (!BASE58_MINT.test(LOCAL_MINT) || !BASE58_MINT.test(LOCAL_WALLET)) {
+    throw new Error("bad local coin");
+  }
+  const existing = db.prepare(`SELECT mint FROM coins WHERE mint = ?`).get(LOCAL_MINT);
+  if (existing) return false;
+  insertCoin(db, {
+    mint: LOCAL_MINT,
+    name: "Chamber Lamp",
+    ticker: "LAMP",
+    image: "/assets/seed-face.png",
+    description: "Local confirmed coin for the live card.",
+    wallet: LOCAL_WALLET,
+    recipient: "published recipient",
+    status: "confirmed",
+    createdAt: "2026-10-08T12:00:00.000Z",
+    paidToCreatorSol: 0.0123,
+    pendingFeeSol: 0.0012,
+    marketCapSol: 28,
+    live: true,
+  });
+  return true;
 }

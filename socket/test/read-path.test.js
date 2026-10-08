@@ -105,7 +105,7 @@ test("schema is coins, burns, and pictures, split locked at 50/50", () => {
   const names = db.prepare(`
     SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite%'
   `).all().map((row) => row.name).sort();
-  assert.deepEqual(names, ["burns", "coins", "pictures"]);
+  assert.deepEqual(names, ["burns", "coins", "launches", "pictures"]);
   const cols = db.prepare("PRAGMA table_info(coins)").all().map((col) => col.name);
   for (const banned of ["private_key", "secret", "signer", "treasury_key"]) {
     assert.equal(cols.includes(banned), false);
@@ -206,6 +206,7 @@ test("http read path, empty screens, and mcp tools", async () => {
     assert.equal(home.text.includes("Diamond Paws"), false);
     assert.equal(home.text.includes("75%"), false);
     assert.equal(home.text.includes("launch_coin"), false);
+    assert.equal(home.text.includes("/preview/live"), false);
     assert.equal(home.text.includes("balanceSol"), false);
     assert.equal(/d97757|4ade80|86efac|0c0f0d|gradient|marquee|Geist|Source Serif|Doto/i.test(home.text), false);
     assert.ok(home.text.includes("status-line"));
@@ -248,8 +249,7 @@ test("http read path, empty screens, and mcp tools", async () => {
 
     const tools = await postMcp(app.base, { jsonrpc: "2.0", id: 2, method: "tools/list" }, "application/json");
     assert.equal(tools.res.headers.get("content-type").includes("application/json"), true);
-    assert.deepEqual(tools.json.result.tools.map((tool) => tool.name), ["ping", "quote_launch", "open_picture_panel", "coin_status"]);
-    assert.equal(tools.json.result.tools.some((tool) => tool.name === "launch_coin"), false);
+    assert.deepEqual(tools.json.result.tools.map((tool) => tool.name), ["ping", "quote_launch", "open_picture_panel", "launch_coin", "coin_status"]);
 
     const ping = await postMcp(app.base, {
       jsonrpc: "2.0",

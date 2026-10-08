@@ -2,9 +2,10 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { coinEvents, getLiveCoin, getPicture, listBurns, listLiveCoins, openDb, storePicture } from "./db.js";
+import { coinEvents, getLiveCoin, getPicture, latestLiveRow, listBurns, listLiveCoins, openDb, seedLocalCoin, storePicture, toLiveView } from "./db.js";
 import { renderDraftCard } from "./draft-card.js";
-import { renderBurns, renderCoin, renderFloor, renderHome, renderNotFound, renderPreview } from "./html.js";
+import { renderBurns, renderCoin, renderFloor, renderHome, renderLivePreview, renderNotFound, renderPreview } from "./html.js";
+import { renderLiveCard } from "./live-card.js";
 import { handleMcpMessage, sseBody, wantsSse } from "./mcp.js";
 import { PICTURE_MAX_BYTES, sniffImage } from "./picture.js";
 import { buildQuote } from "./quote.js";
@@ -355,8 +356,20 @@ async function route(req, res, db) {
     });
     return;
   }
+  if (pathname === "/card/live") {
+    send(res, 200, "text/html; charset=utf-8", renderLiveCard(publicOrigin(req), toLiveView(latestLiveRow(db))), {
+      "cache-control": "no-store",
+      "content-security-policy": CARD_CSP,
+      "x-frame-options": "SAMEORIGIN",
+    });
+    return;
+  }
   if (pathname === "/preview/draft") {
     sendHtml(res, 200, renderPreview(status()));
+    return;
+  }
+  if (pathname === "/preview/live") {
+    sendHtml(res, 200, renderLivePreview(status()));
     return;
   }
   if (pathname === "/" || pathname === "/floor" || pathname === "/burns") {
@@ -409,6 +422,7 @@ if (isDirect) {
   const port = Number(process.env.PORT || 4173);
   const host = process.env.HOST || "127.0.0.1";
   const server = createServer();
+  seedLocalCoin(server.db);
   server.listen(port, host, () => {
     console.log(`Socket read path http://${host}:${port}`);
   });

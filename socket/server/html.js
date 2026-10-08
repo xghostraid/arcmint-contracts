@@ -277,6 +277,19 @@ export function renderBurns(props) {
   return renderChamber({ ...props, title: "Burns · Socket", page: "burns" });
 }
 
+export function renderLivePreview(status) {
+  const main = `<main id="main" class="sheet preview-sheet">
+    <p class="kicker">Local preview</p>
+    <h1>Live <em>card</em></h1>
+    <p class="preview-note">Picture and name stay locked. The line under the card is what launch_coin returns while the treasury cannot pay.</p>
+    <iframe id="card-frame" class="card-frame live" src="/card/live" title="Live card"></iframe>
+    <p class="host-block"><span>launch_coin</span></p>
+    <pre id="refusal"></pre>
+    <script src="/assets/live-preview.js"></script>
+  </main>`;
+  return shell({ status, title: "Live preview · Socket", page: "preview", main });
+}
+
 export function renderPreview(status) {
   const main = `<main id="main" class="sheet preview-sheet">
     <p class="kicker">Local preview</p>

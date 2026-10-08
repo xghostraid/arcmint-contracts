@@ -111,6 +111,22 @@ CREATE TABLE IF NOT EXISTS fee_ledger (
 
 CREATE INDEX IF NOT EXISTS idx_fee_ledger_mint ON fee_ledger (mint, kind);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_fee_ledger_sig ON fee_ledger (signature) WHERE signature IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS nonces (
+  nonce TEXT PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  CHECK (used IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  wallet TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_nonces_wallet ON nonces (wallet);
 `;
 
 export function openDb(dbPath) {
@@ -365,10 +381,40 @@ export function countLaunchesSince(db, isoStart) {
   return Number(row.n);
 }
 
+export function countWalletLaunchesSince(db, wallet, isoStart) {
+  const row = db.prepare(`
+    SELECT COUNT(*) AS n FROM coins
+    WHERE wallet = ? AND created_at >= ? AND status IN ('submitted', 'confirmed')
+  `).get(wallet, isoStart);
+  return Number(row.n);
+}
+
+export function walletCoins(db, wallet) {
+  return db.prepare(`
+    SELECT * FROM coins
+    WHERE wallet = ? AND status = 'confirmed'
+    ORDER BY created_at DESC
+  `).all(wallet).map(toPublicCoin);
+}
+
+export function walletFailedJobs(db, wallet) {
+  return db.prepare(`
+    SELECT id, name, ticker, error, created_at FROM launches
+    WHERE wallet = ? AND status = 'failed'
+    ORDER BY created_at DESC
+  `).all(wallet).map((row) => ({
+    id: row.id,
+    name: row.name,
+    ticker: row.ticker,
+    error: row.error,
+    at: row.created_at,
+  }));
+}
+
 const BASE58_MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 export const LOCAL_MINT = `SoCk${"1".repeat(38)}12`;
-const LOCAL_WALLET = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
+export const LOCAL_WALLET = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
 
 export function latestLiveRow(db) {
   return db.prepare(`

@@ -206,7 +206,7 @@ test("picture upload, quote, and the draft card", async () => {
 
     const listed = await postMcp(app.base, rpc(4, "tools/list"));
     const names = listed.json.result.tools.map((tool) => tool.name);
-    assert.deepEqual(names, ["ping", "quote_launch", "open_picture_panel", "launch_coin", "coin_status"]);
+    assert.deepEqual(names, ["ping", "quote_launch", "open_picture_panel", "launch_coin", "coin_status", "list_wallet_coins"]);
     const launchTool = listed.json.result.tools.find((tool) => tool.name === "launch_coin");
     assert.equal(launchTool.annotations.readOnlyHint, false);
     assert.equal(launchTool.annotations.idempotentHint, true);

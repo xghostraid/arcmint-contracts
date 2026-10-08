@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { launchLimit } from "./desk.js";
 import { DRAFT_CARD_URI } from "./draft-card.js";
 import { getLaunchByKey, insertLaunch, markLaunch } from "./db.js";
 import { buildQuote } from "./quote.js";
@@ -33,6 +34,9 @@ function presentLaunch(row) {
   const paused = row.error === "paused";
   let text = "Launch failed.";
   if (paused) text = "Launches are paused.";
+  else if (row.error === "wallet-hourly") text = "This wallet is at its hourly launch cap.";
+  else if (row.error === "wallet-daily") text = "This wallet is at its daily launch cap.";
+  else if (row.error === "hourly" || row.error === "daily") text = "The launch cap is full.";
   else if (row.status === "quoted") text = "No mainnet transaction is sent from this build.";
   return {
     content: [{ type: "text", text }],
@@ -82,7 +86,11 @@ export function launchCoin(db, raw = {}, options = {}) {
     let states = "received,quoted";
     markLaunch(db, id, { status: "quoted", error: null, states, mint: null }, now);
 
-    if (!canPay) {
+    const cap = launchLimit(db, quote.wallet, now);
+    if (cap) {
+      states = "received,quoted,failed";
+      markLaunch(db, id, { status: "failed", error: cap, states, mint: null }, now);
+    } else if (!canPay) {
       states = "received,quoted,failed";
       markLaunch(db, id, { status: "failed", error: "paused", states, mint: null }, now);
     } else if (quote.issues.length) {

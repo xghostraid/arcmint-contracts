@@ -105,7 +105,7 @@ test("schema is coins, burns, and pictures, split locked at 50/50", () => {
   const names = db.prepare(`
     SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite%'
   `).all().map((row) => row.name).sort();
-  assert.deepEqual(names, ["burns", "coins", "fee_ledger", "launches", "pictures"]);
+  assert.deepEqual(names, ["burns", "coins", "fee_ledger", "launches", "nonces", "pictures", "sessions"]);
   const cols = db.prepare("PRAGMA table_info(coins)").all().map((col) => col.name);
   for (const banned of ["private_key", "secret", "signer", "treasury_key"]) {
     assert.equal(cols.includes(banned), false);
@@ -249,7 +249,7 @@ test("http read path, empty screens, and mcp tools", async () => {
 
     const tools = await postMcp(app.base, { jsonrpc: "2.0", id: 2, method: "tools/list" }, "application/json");
     assert.equal(tools.res.headers.get("content-type").includes("application/json"), true);
-    assert.deepEqual(tools.json.result.tools.map((tool) => tool.name), ["ping", "quote_launch", "open_picture_panel", "launch_coin", "coin_status"]);
+    assert.deepEqual(tools.json.result.tools.map((tool) => tool.name), ["ping", "quote_launch", "open_picture_panel", "launch_coin", "coin_status", "list_wallet_coins"]);
 
     const ping = await postMcp(app.base, {
       jsonrpc: "2.0",

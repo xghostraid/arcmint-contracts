@@ -1,6 +1,7 @@
 import { PING_TEXT } from "../shared/copy.js";
 import { formatSol } from "../public/format.js";
 import { getLiveCoin, latestLiveRow, toLiveView } from "./db.js";
+import { proveWallet } from "./desk.js";
 import { DRAFT_CARD_URI, renderDraftCard } from "./draft-card.js";
 import { launchCoin } from "./launch.js";
 import { LIVE_CARD_URI, renderLiveCard } from "./live-card.js";
@@ -123,6 +124,21 @@ export const TOOLS = [
     },
     annotations: READ_ONLY,
   },
+  {
+    name: "list_wallet_coins",
+    description: "Read coins whose locked creator-fee address is this wallet, the SOL paid to it, and failed launch jobs for that wallet only. Pass a nonce and a signature of that nonce. The signature proves the address. It is not a custody wallet and not a ChatGPT login. The connector stays no sign-in.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        wallet: { type: "string", minLength: 32, maxLength: 44 },
+        nonce: { type: "string", minLength: 16, maxLength: 128 },
+        signature: { type: "string", minLength: 64, maxLength: 128 },
+      },
+      required: ["wallet", "nonce", "signature"],
+      additionalProperties: false,
+    },
+    annotations: READ_ONLY,
+  },
 ];
 
 function rpcResult(id, result) {
@@ -178,6 +194,21 @@ function callTool(db, params) {
     return { ...toolResult(coinStatusText(coin)), _meta: LIVE_META };
   }
   if (name === "launch_coin") return launchCoin(db, args);
+  if (name === "list_wallet_coins") {
+    const proved = proveWallet(db, args);
+    if (!proved.ok) return toolResult("That signature was rejected.", true);
+    const { wallet, paidSol, coins, failed } = proved.desk;
+    const lines = [
+      `${wallet}`,
+      `Paid to this wallet: ${paidSol} SOL.`,
+      coins.length ? coins.map((coin) => `${coin.name} (${coin.ticker}) ${coin.mint} paid ${coin.paidToCreatorSol} SOL`).join("\n") : "No confirmed coins.",
+      failed.length ? `Failed jobs: ${failed.map((job) => `${job.ticker} ${job.error}`).join(", ")}` : "No failed jobs.",
+    ];
+    return {
+      content: [{ type: "text", text: lines.join("\n") }],
+      structuredContent: proved.desk,
+    };
+  }
   return toolResult("Unknown tool.", true);
 }
 
@@ -210,7 +241,7 @@ export function handleMcpMessage(db, message, options = {}) {
           resources: { listChanged: false },
         },
         serverInfo: { name: "Socket", version: "0.1.0" },
-        instructions: `${PING_TEXT} Tools: ping, quote_launch, open_picture_panel, launch_coin, coin_status. launch_coin refuses while launches are paused and does not send a transaction. If the draft card does not render, pass image_url.`,
+        instructions: `${PING_TEXT} Tools: ping, quote_launch, open_picture_panel, launch_coin, coin_status, list_wallet_coins. launch_coin refuses while launches are paused and does not send a transaction. list_wallet_coins needs a signature over a nonce. The connector stays no sign-in. If the draft card does not render, pass image_url.`,
       }),
     };
   }

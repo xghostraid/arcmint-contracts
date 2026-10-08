@@ -2,9 +2,10 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { coinEvents, getLiveCoin, getPicture, latestLiveRow, listBurns, listLiveCoins, openDb, seedLocalCoin, storePicture, toLiveView } from "./db.js";
+import { issueNonce, proveWallet, sessionWallet, walletDesk } from "./desk.js";
+import { coinEvents, getLiveCoin, getPicture, latestLiveRow, listBurns, listLiveCoins, LOCAL_WALLET, openDb, seedLocalCoin, storePicture, toLiveView } from "./db.js";
 import { renderDraftCard } from "./draft-card.js";
-import { renderBurns, renderCoin, renderFloor, renderHome, renderLivePreview, renderNotFound, renderPreview } from "./html.js";
+import { renderBurns, renderCoin, renderDesk, renderFloor, renderHome, renderLivePreview, renderNotFound, renderPreview } from "./html.js";
 import { renderLiveCard } from "./live-card.js";
 import { watchPayouts } from "./payout.js";
 import { handleMcpMessage, sseBody, wantsSse } from "./mcp.js";
@@ -112,6 +113,16 @@ function readBodyBuffer(req, limit) {
 
 function readBody(req, limit) {
   return readBodyBuffer(req, limit).then((buf) => buf.toString("utf8"));
+}
+
+function readCookie(req, name) {
+  const raw = req.headers.cookie || "";
+  for (const part of raw.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return "";
 }
 
 function publicOrigin(req) {
@@ -282,6 +293,38 @@ async function route(req, res, db) {
     return;
   }
 
+  if (pathname === "/api/desk/nonce" || pathname === "/api/desk/verify") {
+    if (req.method !== "POST") {
+      send(res, 405, "text/plain; charset=utf-8", "method", { allow: "POST" });
+      return;
+    }
+    let parsed = {};
+    try {
+      parsed = JSON.parse(await readBody(req, 16_000) || "{}");
+    } catch {
+      sendJson(res, 400, { ok: false, error: "rejected" });
+      return;
+    }
+    const wallet = typeof parsed.wallet === "string" ? parsed.wallet.trim() : "";
+    if (!BASE58.test(wallet)) {
+      sendJson(res, 400, { ok: false, error: "rejected" });
+      return;
+    }
+    if (pathname === "/api/desk/nonce") {
+      sendJson(res, 200, issueNonce(db, wallet));
+      return;
+    }
+    const proved = proveWallet(db, parsed, new Date(), { session: true });
+    if (!proved.ok) {
+      sendJson(res, 401, { ok: false, error: "rejected" });
+      return;
+    }
+    sendJson(res, 200, { ok: true, wallet: proved.desk.wallet }, {
+      "set-cookie": `socket_desk=${proved.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200`,
+    });
+    return;
+  }
+
   if (req.method !== "GET" && req.method !== "HEAD") {
     send(res, 405, "text/plain; charset=utf-8", "method", { allow: "GET" });
     return;
@@ -371,6 +414,33 @@ async function route(req, res, db) {
   }
   if (pathname === "/preview/live") {
     sendHtml(res, 200, renderLivePreview(status()));
+    return;
+  }
+  if (pathname === "/api/desk") {
+    const wallet = sessionWallet(db, readCookie(req, "socket_desk"));
+    if (!wallet) {
+      sendJson(res, 401, { ok: false, error: "rejected" });
+      return;
+    }
+    sendJson(res, 200, walletDesk(db, wallet));
+    return;
+  }
+  if (pathname === "/desk" || pathname === "/preview/desk" || pathname === "/preview/desk/empty") {
+    const preview = pathname.startsWith("/preview/desk");
+    const emptyPreview = pathname === "/preview/desk/empty";
+    const wallet = preview
+      ? (emptyPreview ? null : LOCAL_WALLET)
+      : sessionWallet(db, readCookie(req, "socket_desk"));
+    const page = renderDesk({
+      status: status(),
+      mcpUrl: `${publicOrigin(req)}/mcp`,
+      desk: emptyPreview
+        ? { wallet: LOCAL_WALLET, coins: [], failed: [], paidSol: 0 }
+        : (wallet ? walletDesk(db, wallet) : { wallet: "", coins: [], failed: [], paidSol: 0 }),
+      preview,
+      signedOut: !preview && !wallet,
+    });
+    sendHtml(res, 200, page);
     return;
   }
   if (pathname === "/" || pathname === "/floor" || pathname === "/burns") {

@@ -10,7 +10,7 @@ import {
   pctClass,
   shorten,
 } from "../public/format.js";
-import { CHATGPT_PATH, RESERVE_RULE, SPLIT_LINE, TOAST_TEXT } from "../shared/copy.js";
+import { CHATGPT_PATH, DESK_EMPTY, RESERVE_RULE, SPLIT_LINE, TOAST_TEXT } from "../shared/copy.js";
 
 const SIG = /^[1-9A-HJ-NP-Za-km-z]{64,128}$/;
 
@@ -28,6 +28,7 @@ function nav(page, status, linked = false) {
   const on = status.launchesOn;
   const floor = page === "floor" ? ` aria-current="page"` : "";
   const burns = page === "burns" ? ` aria-current="page"` : "";
+  const desk = page === "desk" ? ` aria-current="page"` : "";
   const homeLink = linked ? ` data-view-link="home"` : "";
   const floorLink = linked ? ` data-view-link="floor"` : "";
   const burnsLink = linked ? ` data-view-link="burns"` : "";
@@ -37,6 +38,7 @@ function nav(page, status, linked = false) {
     <nav class="nav-links" aria-label="Pages">
       <a href="/floor"${floor}${floorLink}>Floor</a>
       <a href="/burns"${burns}${burnsLink}>Burns</a>
+      <a href="/desk"${desk}>Desk</a>
     </nav>
   </header>`;
 }
@@ -275,6 +277,53 @@ export function renderCoin({ status, address, coin, events, burnsAttributed, now
 
 export function renderBurns(props) {
   return renderChamber({ ...props, title: "Burns · Socket", page: "burns" });
+}
+
+function deskRows(desk) {
+  if (!desk.coins.length) {
+    return `<p class="desk-empty">${esc(DESK_EMPTY)}</p>`;
+  }
+  const rows = desk.coins.map((coin) => {
+    const face = coin.image
+      ? `<img src="${esc(coin.image)}" alt="">`
+      : "";
+    return `<a class="desk-row" href="${esc(`/coin/${coin.mint}`)}">
+      <span class="desk-coin"><span class="desk-face">${face}</span><span class="desk-name">${esc(coin.name)}</span></span>
+      <span class="desk-ticker">${esc(coin.ticker)}</span>
+      <span>${esc(coin.userPercent)}%</span>
+      <span>${esc(formatSol(coin.paidToCreatorSol))} SOL</span>
+      <span>${esc(formatAge(coin.createdAt))}</span>
+    </a>`;
+  }).join("");
+  const failed = desk.failed.length
+    ? `<h2>Failed</h2><ul class="desk-failed">${desk.failed.map((job) => `<li>${esc(job.ticker)} · ${esc(job.error)}</li>`).join("")}</ul>`
+    : "";
+  return `<p class="paid-label">Paid to this wallet</p>
+    <p class="paid">${esc(formatSol(desk.paidSol))} SOL</p>
+    <div class="desk-head"><span>Coin</span><span>Ticker</span><span>Locked</span><span>Paid</span><span>Age</span></div>
+    ${rows}
+    ${failed}`;
+}
+
+export function renderDesk({ status, mcpUrl, desk = null, preview = false, signedOut = false }) {
+  const kicker = preview ? "Local preview" : "Desk";
+  let body;
+  if (signedOut) {
+    body = `<h1>Your <em>desk</em></h1>
+      <p class="preview-note">Sign a nonce to prove the address. This is not a custody wallet and not a ChatGPT login. The connector stays no sign-in.</p>`;
+  } else {
+    body = `<h1>Your <em>desk</em></h1>
+      <p class="desk-wallet">${esc(desk?.wallet || "")}</p>
+      ${deskRows(desk || { coins: [], failed: [] })}
+      <p class="preview-note">5 an hour · 20 a day for this wallet, inside the global cap.</p>`;
+  }
+  const main = `${nav("desk", status)}
+<main id="main" class="desk-glass">
+  <p class="kicker">${kicker}</p>
+  ${body}
+  <p class="desk-corner">${esc(mcpUrl)}</p>
+</main>`;
+  return shell({ status, title: "Desk · Socket", page: "desk", main, scene: true });
 }
 
 export function renderLivePreview(status) {

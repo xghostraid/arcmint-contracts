@@ -3,9 +3,12 @@
 // does not create one.
 export const LAUNCH_COST_SOL = 0.012;
 
-export function treasuryCanPay(env = process.env) {
+export function hasLaunchKey(env = process.env) {
   const rawKey = env && env.SOCKET_LAUNCH_KEY;
-  const hasKey = typeof rawKey === "string" && rawKey.trim().length > 0;
+  return typeof rawKey === "string" && rawKey.trim().length > 0;
+}
+
+export function treasuryCanPay(env = process.env) {
   const balance = Number(env && env.SOCKET_LAUNCH_BALANCE_SOL);
-  return hasKey && Number.isFinite(balance) && balance >= LAUNCH_COST_SOL;
+  return hasLaunchKey(env) && Number.isFinite(balance) && balance >= LAUNCH_COST_SOL;
 }

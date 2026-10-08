@@ -6,6 +6,7 @@ import { coinEvents, getLiveCoin, getPicture, latestLiveRow, listBurns, listLive
 import { renderDraftCard } from "./draft-card.js";
 import { renderBurns, renderCoin, renderFloor, renderHome, renderLivePreview, renderNotFound, renderPreview } from "./html.js";
 import { renderLiveCard } from "./live-card.js";
+import { watchPayouts } from "./payout.js";
 import { handleMcpMessage, sseBody, wantsSse } from "./mcp.js";
 import { PICTURE_MAX_BYTES, sniffImage } from "./picture.js";
 import { buildQuote } from "./quote.js";
@@ -357,7 +358,7 @@ async function route(req, res, db) {
     return;
   }
   if (pathname === "/card/live") {
-    send(res, 200, "text/html; charset=utf-8", renderLiveCard(publicOrigin(req), toLiveView(latestLiveRow(db))), {
+    send(res, 200, "text/html; charset=utf-8", renderLiveCard(publicOrigin(req), toLiveView(db, latestLiveRow(db))), {
       "cache-control": "no-store",
       "content-security-policy": CARD_CSP,
       "x-frame-options": "SAMEORIGIN",
@@ -423,6 +424,16 @@ if (isDirect) {
   const host = process.env.HOST || "127.0.0.1";
   const server = createServer();
   seedLocalCoin(server.db);
+  const tick = () => {
+    try {
+      watchPayouts(server.db);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  tick();
+  const timer = setInterval(tick, 60_000);
+  if (typeof timer.unref === "function") timer.unref();
   server.listen(port, host, () => {
     console.log(`Socket read path http://${host}:${port}`);
   });

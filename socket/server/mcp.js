@@ -262,7 +262,7 @@ export function handleMcpMessage(db, message, options = {}) {
             {
               uri: LIVE_CARD_URI,
               mimeType: "text/html;profile=mcp-app",
-              text: renderLiveCard(origin, toLiveView(latestLiveRow(db))),
+              text: renderLiveCard(origin, toLiveView(db, latestLiveRow(db))),
             },
           ],
         }),

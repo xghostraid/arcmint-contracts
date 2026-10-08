@@ -93,6 +93,24 @@ CREATE TABLE IF NOT EXISTS launches (
 );
 
 CREATE INDEX IF NOT EXISTS idx_launches_status ON launches (status);
+
+CREATE TABLE IF NOT EXISTS fee_ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mint TEXT NOT NULL,
+  amount_sol REAL NOT NULL,
+  signature TEXT,
+  at TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  CHECK (amount_sol > 0),
+  CHECK (kind IN ('waiting', 'payout')),
+  CHECK (
+    (kind = 'waiting' AND signature IS NULL)
+    OR (kind = 'payout' AND signature IS NOT NULL)
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_fee_ledger_mint ON fee_ledger (mint, kind);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fee_ledger_sig ON fee_ledger (signature) WHERE signature IS NOT NULL;
 `;
 
 export function openDb(dbPath) {
@@ -361,11 +379,77 @@ export function latestLiveRow(db) {
   `).get() || null;
 }
 
-export function toLiveView(row) {
+const PAYOUT_SIG = /^[1-9A-HJ-NP-Za-km-z]{64,128}$/;
+
+export function unpushedSol(db, mint) {
+  const waiting = db.prepare(`
+    SELECT COALESCE(SUM(amount_sol), 0) AS n FROM fee_ledger
+    WHERE mint = ? AND kind = 'waiting'
+  `).get(mint);
+  const paid = db.prepare(`
+    SELECT COALESCE(SUM(amount_sol), 0) AS n FROM fee_ledger
+    WHERE mint = ? AND kind = 'payout'
+  `).get(mint);
+  const open = Number(waiting.n) - Number(paid.n);
+  return open > 1e-12 ? open : 0;
+}
+
+export function insertWaitingFee(db, input) {
+  const amount = Number(input.amountSol);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("bad amount");
+  db.prepare(`
+    INSERT INTO fee_ledger (mint, amount_sol, signature, at, kind)
+    VALUES (?, ?, NULL, ?, 'waiting')
+  `).run(input.mint, amount, iso(input.at));
+}
+
+export function recordPayout(db, input) {
+  const signature = typeof input.signature === "string" ? input.signature : "";
+  if (!PAYOUT_SIG.test(signature)) throw new Error("bad signature");
+  const amount = Number(input.amountSol);
+  const open = unpushedSol(db, input.mint);
+  if (!Number.isFinite(amount) || amount <= 0 || amount - open > 1e-8) throw new Error("bad amount");
+  const at = iso(input.at);
+  db.exec("BEGIN");
+  try {
+    db.prepare(`
+      INSERT INTO fee_ledger (mint, amount_sol, signature, at, kind)
+      VALUES (?, ?, ?, ?, 'payout')
+    `).run(input.mint, amount, signature, at);
+    const current = db.prepare(`SELECT paid_to_creator_sol AS n FROM coins WHERE mint = ?`).get(input.mint);
+    const next = Math.round(((current?.n ?? 0) + amount) * 1e9) / 1e9;
+    db.prepare(`UPDATE coins SET paid_to_creator_sol = ? WHERE mint = ?`).run(next, input.mint);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
+export function listPayouts(db, mint) {
+  return db.prepare(`
+    SELECT mint, amount_sol, signature, at FROM fee_ledger
+    WHERE mint = ? AND kind = 'payout'
+    ORDER BY at ASC, id ASC
+  `).all(mint).map((row) => ({
+    mint: row.mint,
+    amountSol: row.amount_sol,
+    signature: row.signature,
+    at: row.at,
+  }));
+}
+
+export function listLiveMints(db) {
+  return db.prepare(`
+    SELECT mint FROM coins WHERE status = 'confirmed' AND live = 1
+  `).all().map((row) => row.mint);
+}
+
+export function toLiveView(db, row) {
   if (!row) return null;
   return {
     ...toPublicCoin(row),
-    pendingFeeSol: Number(row.pending_fee_sol ?? 0),
+    pendingFeeSol: unpushedSol(db, row.mint),
   };
 }
 
@@ -414,21 +498,31 @@ export function seedLocalCoin(db) {
     throw new Error("bad local coin");
   }
   const existing = db.prepare(`SELECT mint FROM coins WHERE mint = ?`).get(LOCAL_MINT);
-  if (existing) return false;
-  insertCoin(db, {
-    mint: LOCAL_MINT,
-    name: "Chamber Lamp",
-    ticker: "LAMP",
-    image: "/assets/seed-face.png",
-    description: "Local confirmed coin for the live card.",
-    wallet: LOCAL_WALLET,
-    recipient: "published recipient",
-    status: "confirmed",
-    createdAt: "2026-10-08T12:00:00.000Z",
-    paidToCreatorSol: 0.0123,
-    pendingFeeSol: 0.0012,
-    marketCapSol: 28,
-    live: true,
-  });
-  return true;
+  let created = false;
+  if (!existing) {
+    insertCoin(db, {
+      mint: LOCAL_MINT,
+      name: "Chamber Lamp",
+      ticker: "LAMP",
+      image: "/assets/seed-face.png",
+      description: "Local confirmed coin for the live card.",
+      wallet: LOCAL_WALLET,
+      recipient: "published recipient",
+      status: "confirmed",
+      createdAt: "2026-10-08T12:00:00.000Z",
+      paidToCreatorSol: 0.0123,
+      marketCapSol: 28,
+      live: true,
+    });
+    created = true;
+  }
+  const ledger = db.prepare(`SELECT COUNT(*) AS n FROM fee_ledger WHERE mint = ?`).get(LOCAL_MINT);
+  if (Number(ledger.n) === 0) {
+    insertWaitingFee(db, {
+      mint: LOCAL_MINT,
+      amountSol: 0.0012,
+      at: "2026-10-08T12:05:00.000Z",
+    });
+  }
+  return created;
 }

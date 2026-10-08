@@ -1,5 +1,6 @@
 import { DASH, formatCap, formatSol } from "../public/format.js";
 import { esc } from "./html.js";
+import { PAYOUT_MIN_SOL } from "./payout.js";
 import { SPLIT_LINE } from "../shared/copy.js";
 
 export const LIVE_CARD_URI = "ui://socket/live-card.html";
@@ -98,7 +99,7 @@ function liveBody(origin, coin) {
   <a class="pump" href="${esc(href)}">pump.fun</a>
   <p class="paid-label">paid to your wallet</p>
   <p class="paid">${esc(paid)} SOL</p>
-  <p class="pending">${esc(pending)} SOL detected, not yet pushed. Payout fires at 0.003 SOL.</p>
+  <p class="pending">${esc(pending)} SOL detected, not yet pushed. Payout fires at ${esc(formatSol(PAYOUT_MIN_SOL))} SOL.</p>
 ${capLine}  <div class="fee" aria-hidden="true"><span class="fee-you"></span><span class="fee-them"></span></div>
   <p class="fee-key"><span>You 50%</span><span>Recipient 50%</span></p>
   <p class="lock">${esc(SPLIT_LINE)}</p>`;

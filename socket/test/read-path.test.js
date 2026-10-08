@@ -105,7 +105,7 @@ test("schema is coins, burns, and pictures, split locked at 50/50", () => {
   const names = db.prepare(`
     SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite%'
   `).all().map((row) => row.name).sort();
-  assert.deepEqual(names, ["burns", "coins", "launches", "pictures"]);
+  assert.deepEqual(names, ["burns", "coins", "fee_ledger", "launches", "pictures"]);
   const cols = db.prepare("PRAGMA table_info(coins)").all().map((col) => col.name);
   for (const banned of ["private_key", "secret", "signer", "treasury_key"]) {
     assert.equal(cols.includes(banned), false);

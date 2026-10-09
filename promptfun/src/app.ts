@@ -132,8 +132,8 @@ export function createApp(config: Config): App {
         return json(res, 404, { error: "No OAuth on this server (v1 is no-sign-in)." });
       }
 
-      if (handleStatusApi(req, res, pathname, json, config, platform)) return;
-      if (await handleOpsRoutes(req, res, pathname, json, config, () => readJson(req))) return;
+      if (handleStatusApi(req, res, pathname, (status, body) => json(res, status, body), config, platform)) return;
+      if (await handleOpsRoutes(req, pathname, (status, body) => json(res, status, body), config, () => readJson(req))) return;
 
       if (handleCoinsApi(req, res, pathname, url, coins, (status, body) => json(res, status, body))) return;
 

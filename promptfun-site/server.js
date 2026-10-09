@@ -50,7 +50,18 @@ export function handler(req, res) {
   }
   readFile(file).then(
     (body) => {
-      res.writeHead(200, { ...HEADERS, "Content-Type": TYPES[extname(file)] || "application/octet-stream" });
+      const ext = extname(file);
+      const cache =
+        ext === ".html"
+          ? "no-cache, must-revalidate"
+          : ext === ".css" || ext === ".js"
+            ? "public, max-age=3600, must-revalidate"
+            : "public, max-age=86400";
+      res.writeHead(200, {
+        ...HEADERS,
+        "Content-Type": TYPES[ext] || "application/octet-stream",
+        "Cache-Control": cache,
+      });
       res.end(req.method === "HEAD" ? undefined : body);
     },
     () => {

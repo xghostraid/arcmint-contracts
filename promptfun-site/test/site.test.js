@@ -8,6 +8,20 @@ import { handler, resolvePath } from "../server.js";
 const PUBLIC = fileURLToPath(new URL("../public/", import.meta.url));
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
 const text = html.replace(/<[^>]+>/g, " ");
+const SUNNY_BG = "#fff4e0";
+
+async function listHtmlPages() {
+  const files = [];
+  for (const entry of await readdir(PUBLIC, { recursive: true })) {
+    if (entry.endsWith(".html")) files.push(entry);
+  }
+  files.sort();
+  return files;
+}
+
+async function readPublic(rel) {
+  return readFile(`${PUBLIC}${rel}`, "utf8");
+}
 
 test("brand is promptfun.fun, never the old placeholder", () => {
   assert.match(html, /<title>promptfun\.fun/);
@@ -46,6 +60,30 @@ test("Connect lists the Claude steps as Anthropic documents them", () => {
 
 test("the site is Claude-only: ChatGPT is not mentioned anywhere on the home page", () => {
   assert.doesNotMatch(html, /chatgpt/i);
+});
+
+test("every route is Sunny pop cream, not the old dark Connect mock", async () => {
+  const css = await readPublic("site.css");
+  assert.match(css, new RegExp(`--bg:\\s*${SUNNY_BG}`, "i"), "site.css must define the cream paper background");
+  assert.match(css, /body\s*\{[\s\S]*background-color:\s*var\(--bg\)/, "body must use the cream token, not a dark gradient");
+  assert.doesNotMatch(css, /body\s*\{[\s\S]*linear-gradient/i, "no full-page dark gradient on body");
+  assert.doesNotMatch(css, /Connect to Claude/i);
+
+  for (const file of await listHtmlPages()) {
+    const page = await readPublic(file);
+    const label = file.replace(/\\/g, "/");
+    assert.match(page, new RegExp(`<meta name="theme-color" content="${SUNNY_BG}">`), `${label} theme-color must be cream`);
+    assert.match(page, /<meta name="color-scheme" content="light">/, `${label} must declare light color-scheme`);
+    assert.match(page, /<link rel="stylesheet" href="\/site\.css">/, `${label} must load the Sunny pop stylesheet`);
+    assert.doesNotMatch(page, /Connect to Claude/i, `${label} still uses the old dark-mock CTA copy`);
+    assert.doesNotMatch(page, /linear-gradient/i, `${label} must not embed a dark gradient mock`);
+    assert.doesNotMatch(page, /theme-color" content="#(?:0|1[0-9a-f]{5}|17153b)/i, `${label} must not use a dark browser theme color`);
+  }
+
+  for (const file of (await readdir(PUBLIC, { recursive: true })).filter((f) => f.endsWith(".js"))) {
+    const body = await readPublic(file);
+    assert.doesNotMatch(body, /Connect to Claude/i, `${file} must not use old CTA copy`);
+  }
 });
 
 test("has every required section", () => {
@@ -269,6 +307,11 @@ test("server serves the page with strict headers and refuses traversal", async (
     assert.equal((await fetch(`${base}/docs/`)).status, 200);
     assert.equal((await fetch(`${base}/terms/`)).status, 200);
     assert.equal((await fetch(`${base}/privacy/`)).status, 200);
+    const homeHtml = await (await fetch(`${base}/`)).text();
+    assert.match(homeHtml, new RegExp(`theme-color" content="${SUNNY_BG}"`));
+    assert.doesNotMatch(homeHtml, /Connect to Claude/i);
+    assert.match((await fetch(`${base}/site.css`)).headers.get("cache-control"), /must-revalidate/);
+    assert.match((await fetch(`${base}/`)).headers.get("cache-control"), /no-cache/);
     assert.equal((await fetch(`${base}/`, { method: "POST" })).status, 405);
   } finally {
     server.close();

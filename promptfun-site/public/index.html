@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en" data-api-origin="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ebe6ff">
+<title>promptfun.fun · Say it in Claude. Approve in your wallet. Done.</title>
+<meta name="description" content="promptfun.fun connects Claude to the blockchain. Say what you want done, check a plain-language preview, approve it in your wallet and get a receipt checked against the chain. Solana first, then Ethereum, Robinhood Chain and Base. In testing, not live yet.">
+<meta property="og:title" content="promptfun.fun">
+<meta property="og:description" content="Say it in Claude. Approve in your wallet. Done.">
+<meta property="og:type" content="website">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="promptfun.fun home">
+      <img src="/favicon.svg" alt="" width="32" height="32">
+      <span>promptfun<span class="brand-tld">.fun</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="#how">How it works</a>
+      <a href="#chains">Chains</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-small" href="#connect">Add to Claude</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="deco" aria-hidden="true">
+      <img class="deco-star" src="/art/star.svg" alt="" width="64" height="64">
+      <img class="deco-squiggle" src="/art/squiggle.svg" alt="" width="120" height="40">
+      <img class="deco-blob" src="/art/blob.svg" alt="" width="150" height="150">
+      <img class="deco-coin" src="/art/coin.svg" alt="" width="72" height="72">
+      <img class="deco-dot" src="/art/dot.svg" alt="" width="26" height="26">
+    </div>
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="pill"><span class="dot" aria-hidden="true"></span>In testing · Solana first</p>
+        <h1 id="hero-title">Say it in Claude.<br>Approve in your wallet.<br><em>Done.</em></h1>
+        <p class="lede">promptfun.fun connects Claude to the blockchain. Ask for what you want, like “launch a token called Moonbeam”. You get a preview in plain words, you approve it in your wallet, and you get a receipt checked against the chain.</p>
+        <div class="cta-row">
+          <a class="btn" href="#connect">Add to Claude</a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <p class="fine">Works on the Claude Free plan. No sign-up with us. We never ask for your keys.</p>
+        <p class="fine"><span class="status status-building">Being built</span>No wallet needed to launch: promptfun.fun will pay the launch network fee and let you approve in chat.</p>
+      </div>
+
+      <figure class="demo" data-demo data-stage="5" aria-labelledby="demo-caption">
+        <div class="demo-shell">
+        <div class="demo-shadow" aria-hidden="true"></div>
+        <div class="demo-window">
+          <div class="demo-bar">
+            <span class="demo-title">Claude</span>
+            <span class="demo-tag">promptfun.fun</span>
+          </div>
+          <div class="demo-body">
+            <p class="bubble bubble-you" data-step="1">Launch a token called Moonbeam, ticker BEAM.</p>
+
+            <p class="reply" data-step="2">Here’s the preview. Check it, then approve in your wallet.</p>
+
+            <div class="card card-preview" data-step="2">
+              <div class="card-preview-top">
+                <p class="card-brand">promptfun.fun preview</p>
+                <p class="card-title">Create a new token</p>
+                <p class="card-sub">Moonbeam · BEAM</p>
+                <span class="card-badge">Checked</span>
+              </div>
+              <div class="card-preview-body">
+                <p class="card-section-label">What happens</p>
+                <ul class="card-checklist">
+                  <li>Creates a new token mint on Solana devnet.</li>
+                  <li>Mints the full supply to your wallet.</li>
+                  <li>Uses test SOL only — no real value.</li>
+                </ul>
+              </div>
+              <dl class="rows card-preview-meta">
+                <div><dt>Network</dt><dd>Solana devnet</dd></div>
+                <div><dt>Who pays</dt><dd>Your wallet</dd></div>
+                <div><dt>Est. network fee</dt><dd>0.004 test SOL</dd></div>
+              </dl>
+              <p class="card-action" aria-hidden="true"><span>Approve in your wallet →</span></p>
+            </div>
+
+            <div class="card card-wallet" data-step="3">
+              <p class="card-head"><span class="card-kicker">Your wallet</span></p>
+              <p class="card-title">Approve this action?</p>
+              <div class="confirm-buttons" aria-hidden="true">
+                <span class="c-btn c-cancel">Reject</span>
+                <span class="c-btn c-approve">Approve</span>
+              </div>
+            </div>
+
+            <div class="card card-receipt" data-step="4">
+              <p class="card-head"><span class="card-kicker">Receipt</span><span class="card-badge card-badge-ok">Confirmed onchain</span></p>
+              <p class="card-title">Moonbeam (BEAM) is live</p>
+              <p class="card-note">Read back from the chain, with a link to the public explorer.</p>
+            </div>
+          </div>
+          <div class="composer" aria-hidden="true">
+            <span class="composer-plus">+</span>
+            <span class="composer-text">Reply to Claude…</span>
+            <span class="composer-send">↑</span>
+          </div>
+        </div>
+        </div>
+        <figcaption id="demo-caption" class="demo-caption">An illustration of the flow. Nothing in this picture is a real transaction. Approving in chat with no wallet and promptfun.fun paying the fee are being built.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-title">Four steps, all inside the chat. You’re in charge of the one that matters.</h2>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-num">1</span>
+          <div class="step-art"><img src="/art/step-say.svg" alt="" width="92" height="92"></div>
+          <h3>Say it</h3>
+          <p>Tell Claude what you want done, in your own words. Claude turns it into a clear request for promptfun.fun.</p>
+        </li>
+        <li class="step">
+          <span class="step-num">2</span>
+          <div class="step-art"><img src="/art/step-preview.svg" alt="" width="92" height="92"></div>
+          <h3>See the preview</h3>
+          <p>promptfun.fun checks the request and builds the exact transaction. Then it reads it back to you in plain language: what happens, on which network, and what it costs.</p>
+        </li>
+        <li class="step step-key">
+          <span class="step-num">3</span>
+          <div class="step-art"><img src="/art/step-approve.svg" alt="" width="92" height="92"></div>
+          <h3>Approve in your wallet</h3>
+          <p>Your wallet signs the exact transaction from the preview. Nothing happens until you tap Approve, and you can always reject. Sponsored launch with no wallet is being built: promptfun.fun will pay the network fee and let you approve in chat instead.</p>
+          <span class="status status-testing">Testing on devnet</span>
+        </li>
+        <li class="step">
+          <span class="step-num">4</span>
+          <div class="step-art"><img src="/art/step-receipt.svg" alt="" width="92" height="92"></div>
+          <h3>Get the receipt</h3>
+          <p>promptfun.fun looks the transaction up on the chain and checks it matches what you approved. The receipt shows up in the same chat, and Claude only says “done” once the chain confirms it.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="chains" aria-labelledby="chains-title">
+    <div class="wrap">
+      <p class="eyebrow">Chains</p>
+      <h2 id="chains-title">Solana first. EVM chains next.</h2>
+      <p class="section-lede">We list what works today and label everything else. Nothing on this page is live on mainnet yet.</p>
+
+      <div class="chains">
+        <article class="chain chain-first">
+          <div class="chain-top" aria-hidden="true"><img src="/art/chain-solana.svg" alt="" width="560" height="74"></div>
+          <div class="chain-head">
+            <h3>Solana</h3>
+            <span class="status status-testing">In testing</span>
+          </div>
+          <p class="chain-sub">The first chain. Being tested on Solana devnet, which uses test tokens with no real value.</p>
+          <ul class="chain-list">
+            <li><span>Launch a token with your own wallet</span><span class="status status-testing">Testing on devnet</span></li>
+            <li><span>Launch with no wallet, fee paid by promptfun.fun</span><span class="status status-building">Being built</span></li>
+            <li><span>Launch on pump.fun</span><span class="status status-soon">Coming soon</span></li>
+          </ul>
+          <p class="chain-note">pump.fun only runs on Solana mainnet, so pump.fun launches arrive with mainnet.</p>
+        </article>
+
+        <article class="chain">
+          <div class="chain-top" aria-hidden="true"><img src="/art/chain-evm.svg" alt="" width="560" height="74"></div>
+          <div class="chain-head">
+            <h3>EVM chains</h3>
+            <span class="status status-soon">Coming next</span>
+          </div>
+          <p class="chain-sub">Token launches with the same say-it, approve-it flow, one chain at a time in this order.</p>
+          <ol class="chain-list chain-order">
+            <li><span><span class="order">1</span>Ethereum</span><span class="status status-soon">Coming next</span></li>
+            <li><span><span class="order">2</span>Robinhood Chain</span><span class="status status-soon">Coming soon</span></li>
+            <li><span><span class="order">3</span>Base</span><span class="status status-soon">Coming soon</span></li>
+          </ol>
+          <p class="chain-note">None of these are available yet. Each chain shows up here as working only when it works end to end.</p>
+        </article>
+      </div>
+
+      <div class="fees" id="fees" aria-labelledby="fees-title">
+        <div class="fees-head">
+          <h3 id="fees-title">Network fees</h3>
+          <p>Approximate, measured 9 Oct 2026</p>
+        </div>
+        <p class="fees-lede">Every chain charges a fee to process a transaction. It goes to the network, not to promptfun.fun. Fees rise and fall with traffic, so the preview shows the estimated fee for your exact transaction before you approve.</p>
+        <p class="fees-paid"><span class="status status-building">Being built</span><span>For token launches, promptfun.fun pays this fee for you. If you use your own wallet, your wallet pays it.</span></p>
+        <table class="fee-table">
+          <thead>
+            <tr><th scope="col">Network</th><th scope="col">Launch a token</th><th scope="col">Send ETH or SOL</th><th scope="col">Send a token</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Solana</th>
+              <td data-label="Launch a token">$0.42–0.55<span>0.0038–0.0050 SOL: rent for the Token-2022 mint with its metadata (320–560 bytes, depending on name, ticker and link length) and your token account, plus one 5,000-lamport signature</span></td>
+              <td data-label="Send ETH or SOL">under $0.001<span>5,000 lamports per signature</span></td>
+              <td data-label="Send a token">under $0.001<span>about $0.17 more if the recipient needs a token account</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Ethereum</th>
+              <td data-label="Launch a token">$0.16–0.28<span>about 550,000 gas</span></td>
+              <td data-label="Send ETH or SOL">$0.006–0.01<span>21,000 gas</span></td>
+              <td data-label="Send a token">$0.01–0.03<span>45,000–65,000 gas</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Robinhood Chain</th>
+              <td data-label="Launch a token">about $0.03<span>about 552,000 gas at 0.02 gwei</span></td>
+              <td data-label="Send ETH or SOL">about $0.001</td>
+              <td data-label="Send a token">about $0.003</td>
+            </tr>
+            <tr>
+              <th scope="row">Base</th>
+              <td data-label="Launch a token">under $0.01<span>about 550,000 gas at 0.006 gwei</span></td>
+              <td data-label="Send ETH or SOL">under $0.001</td>
+              <td data-label="Send a token">about $0.001</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="fees-note">These are network fees, not promptfun.fun fees. promptfun.fun hasn’t set its own pricing. Ethereum gas was 0.1–0.2 gwei when we measured, and busy periods can cost many times more. pump.fun charges nothing to create a coin, but Solana’s network costs still apply. While we test on Solana devnet, fees are paid in test SOL with no real value.</p>
+        <p class="fees-sources">Prices: ETH $2,503 and SOL $110 (<a href="https://www.coingecko.com/" rel="noopener noreferrer" target="_blank">CoinGecko</a>). Gas: <a href="https://etherscan.io/gastracker" rel="noopener noreferrer" target="_blank">Etherscan gas tracker</a> and each chain’s public RPC. Token launch gas was estimated for a standard OpenZeppelin ERC-20. Solana: rent from mainnet RPC for the exact account sizes, <a href="https://solana.com/docs/core/fees" rel="noopener noreferrer" target="_blank">Solana fee docs</a>, <a href="https://solana.com/docs/tokens/extensions/metadata" rel="noopener noreferrer" target="_blank">Token-2022 metadata extension</a>, <a href="https://pump.fun/docs/fees" rel="noopener noreferrer" target="_blank">pump.fun fees</a>. All checked 9 Oct 2026.</p>
+      </div>
+
+      <p class="later">Further out: swaps, payments and more. They’ll show up here once they’re real, not before.</p>
+    </div>
+  </section>
+
+  <section class="section section-connect" id="connect" aria-labelledby="connect-title">
+    <div class="wrap connect-grid">
+      <div>
+        <p class="eyebrow">Add to Claude</p>
+        <h2 id="connect-title">Add it once. Then just ask.</h2>
+        <p class="section-lede">promptfun.fun is a connector for Claude, and it works on the Free plan. It uses MCP, the open standard for giving AI assistants new abilities. There’s nothing to download and no promptfun.fun account to make.</p>
+
+        <ol class="connect-steps">
+          <li>
+            <h3>Copy the connector link</h3>
+            <div class="link-box">
+              <code class="link-slot">Posted here at launch</code>
+              <button class="btn btn-small" type="button" disabled>Copy</button>
+            </div>
+            <p class="fine">The public link isn’t out yet. It goes here the day it opens.</p>
+          </li>
+          <li>
+            <h3>Add it to Claude</h3>
+            <p>On claude.ai or in Claude Desktop, go to Customize → Connectors. Choose + Add, then Add custom connector. Name it promptfun.fun, paste the link, click Continue and then Add.</p>
+            <p class="fine">The Free plan allows one custom connector. On Team and Enterprise, an Owner adds it for the organization first, then you connect it. See “Which plans work?” below.</p>
+          </li>
+          <li>
+            <h3>Turn it on and ask</h3>
+            <p>In a chat, open + → Connectors and switch promptfun.fun on. Then say what you want. Claude shows you the preview, you approve in your wallet, and the receipt comes back in the same chat.</p>
+          </li>
+        </ol>
+        <p class="fine">Full walkthrough in the <a href="/docs">Docs</a>.</p>
+      </div>
+
+      <div class="prompts" aria-labelledby="prompts-title">
+        <p class="prompts-title" id="prompts-title">Things to say</p>
+        <ul>
+          <li><span class="q">“</span>Launch a token called Moonbeam, ticker BEAM.<span class="q">”</span></li>
+          <li><span class="q">“</span>What can promptfun.fun do right now?<span class="q">”</span></li>
+          <li><span class="q">“</span>Did my Moonbeam launch go through?<span class="q">”</span></li>
+        </ul>
+        <p class="fine">If something isn’t supported yet, promptfun.fun says so instead of guessing.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="safety" aria-labelledby="safety-title">
+    <div class="wrap">
+      <p class="eyebrow">Safety</p>
+      <h2 id="safety-title">Nothing happens until you say so. Every time.</h2>
+      <div class="safety">
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+          <h3>We never ask for your keys</h3>
+          <p>Launching won’t need a wallet, and that part is being built. If you bring your own, it signs and sends the transaction itself. We never see or store your keys or seed phrase.</p>
+        </article>
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12.5l4.5 4.5 10.5-10.5"/></svg>
+          <h3>Nothing faked</h3>
+          <p>No made-up results and no pretend success. A receipt only says “confirmed” after we read the transaction back from the chain.</p>
+        </article>
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+          <h3>You see what happens</h3>
+          <p>The preview is read from the transaction itself, not from Claude’s summary. What you approve is what goes onchain.</p>
+        </article>
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>
+          <h3>Only you can approve</h3>
+          <p>Claude can ask for an action, but only you can approve it. Each approval covers one action and nothing else.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-wrap">
+      <div>
+        <p class="eyebrow">FAQ</p>
+        <h2 id="faq-title">Before you plug it into Claude.</h2>
+        <img class="faq-art" src="/art/faq.svg" alt="" width="220" height="200">
+      </div>
+      <div class="faq">
+        <details open>
+          <summary>What is promptfun.fun?</summary>
+          <p>It’s a connector for Claude that turns what you ask for into a real onchain action. It prepares the transaction, shows you a plain-language preview, lets you approve it in your wallet and hands back a receipt checked against the chain.</p>
+        </details>
+        <details>
+          <summary>Do I need to know about crypto?</summary>
+          <p>No. You need a Claude account, and the Free plan works. promptfun.fun explains each action in plain words before you approve it.</p>
+        </details>
+        <details>
+          <summary>Do I need a wallet?</summary>
+          <p>Not to launch a token, once that part is ready. It’s being built: promptfun.fun will pay the launch network fee, and you approve in the chat. If you’d rather use your own wallet, you can. You approve on a promptfun.fun page in your wallet, and that’s how the devnet tests run today. Before launches without a wallet open, we’ll spell out exactly where your new token goes.</p>
+        </details>
+        <details>
+          <summary>Is it live?</summary>
+          <p>Not yet. Token launches on Solana are being tested on devnet, which uses test tokens with no real value, with your own wallet. Approving in chat with no wallet, with promptfun.fun paying the fee, is being built. pump.fun launches are coming, and so are Ethereum, Robinhood Chain and Base. This page says when each one opens.</p>
+        </details>
+        <details>
+          <summary>Which chains does it support?</summary>
+          <p>Solana comes first. Then EVM chains, in this order: Ethereum, Robinhood Chain and Base. The Chains section above shows the current state of each one.</p>
+        </details>
+        <details>
+          <summary>Does promptfun.fun hold my money or keys?</summary>
+          <p>It never asks for your keys or seed phrase. If you use your own wallet, your wallet signs and sends every transaction, and promptfun.fun never holds your funds.</p>
+        </details>
+        <details>
+          <summary>Can Claude do things without asking me?</summary>
+          <p>No. Claude can prepare an action, but nothing happens onchain until you approve it in the chat, or in your wallet if you use one. If you cancel, nothing is sent.</p>
+        </details>
+        <details>
+          <summary>What does it cost?</summary>
+          <p>Each chain charges a network fee. For token launches, promptfun.fun will pay it for you (being built). With your own wallet, your wallet pays it to the chain. Either way, the preview shows the estimate before you approve. As of 9 Oct 2026, launching a token cost about $0.42–0.55 on Solana and $0.16–0.28 on Ethereum. See <a href="#fees">Network fees</a> for every chain. promptfun.fun hasn’t set its own pricing.</p>
+        </details>
+        <details>
+          <summary>Which Claude plans work?</summary>
+          <p>Custom connectors work on every Claude plan: Free, Pro, Max, Team and Enterprise. The Free plan allows one custom connector, and on Team and Enterprise an Owner adds it for the organization first. Source: <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" rel="noopener noreferrer" target="_blank">Claude Help Center</a>, checked 9 Oct 2026.</p>
+        </details>
+        <details>
+          <summary>What if something goes wrong?</summary>
+          <p>You get the real status, right in the chat. If the transaction failed or you cancelled it, Claude tells you that. It never says something worked when it didn’t.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="live-stats-band" aria-labelledby="stats-title" data-live-stats data-state="loading">
+    <div class="wrap live-stats-inner">
+      <h2 id="stats-title" class="visually-hidden">Live counters</h2>
+      <div class="stat">
+        <p class="stat-label">Coins launched</p>
+        <p class="stat-value" data-stat-value="coins">…</p>
+      </div>
+      <div class="stat">
+        <p class="stat-label">Creator fees paid</p>
+        <p class="stat-value" data-stat-value="paid">…</p>
+      </div>
+      <p class="stat-note">From the public coins API when it is reachable. Shows n/a instead of guessing.</p>
+    </div>
+  </section>
+
+  <section class="section closer" aria-labelledby="closer-title">
+    <div class="wrap closer-inner">
+      <img class="closer-deco" src="/art/closer.svg" alt="" width="1100" height="420">
+      <h2 id="closer-title">Say it. Approve it. <em>Done.</em></h2>
+      <p class="section-lede">Add promptfun.fun to Claude when it opens, and tell it what you want done.</p>
+      <div class="cta-row">
+        <a class="btn" href="#connect">Add to Claude</a>
+        <a class="btn btn-ghost" href="#chains">What works today</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <nav class="footer-nav" aria-label="Legal and docs">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+    <p>In testing on Solana devnet. Not live on mainnet yet.</p>
+    <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+<script src="/stats.js" defer></script>
+</body>
+</html>

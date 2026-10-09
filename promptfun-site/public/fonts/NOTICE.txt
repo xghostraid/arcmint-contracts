@@ -1,0 +1,4 @@
+Latin subsets, served with the site so the pages do not call a font CDN.
+Each face is under the SIL Open Font License, Version 1.1 (see OFL.md).
+
+Instrument Sans — Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans).

@@ -1,0 +1,14 @@
+{
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/mcp", "destination": "https://promptfun-mcp.fly.dev/mcp" },
+    { "source": "/mcp/:path*", "destination": "https://promptfun-mcp.fly.dev/mcp/:path*" },
+    { "source": "/api/:path*", "destination": "https://promptfun-mcp.fly.dev/api/:path*" },
+    { "source": "/oauth/:path*", "destination": "https://promptfun-mcp.fly.dev/oauth/:path*" },
+    { "source": "/.well-known/:path*", "destination": "https://promptfun-mcp.fly.dev/.well-known/:path*" },
+    { "source": "/docs", "destination": "/docs/index.html" },
+    { "source": "/explore", "destination": "/explore/index.html" },
+    { "source": "/terms", "destination": "/terms/index.html" },
+    { "source": "/privacy", "destination": "/privacy/index.html" }
+  ]
+}

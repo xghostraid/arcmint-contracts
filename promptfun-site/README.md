@@ -21,7 +21,7 @@ The page only claims what works today. Status labels live in the HTML. Update th
 | Hero pill, footer | In testing · Solana first / Not live on mainnet yet | Solana mainnet opens |
 | `#chains` Solana → Launch a token | Testing on devnet | Launches work on mainnet |
 | `#chains` Solana → Launch on pump.fun | Coming soon | pump.fun launches work end to end (mainnet only) |
-| `#chains` EVM chains | Coming next / Coming soon | The first EVM chain works end to end |
+| `#chains` EVM chains, in order: Ethereum, Robinhood Chain, Base | Card "Coming next"; Ethereum "Coming next", the others "Coming soon" | Each chain works end to end. Move "Coming next" to the following chain when one ships |
 | `#connect` link box | "Posted here at launch", Copy disabled | The public connector URL exists. Put it in `.link-slot`, enable the button, and wire copy in `site.js` |
 | FAQ "Is it live?", "What does it cost?" | Not yet / no promptfun fee published | Launch, and pricing is decided |
 

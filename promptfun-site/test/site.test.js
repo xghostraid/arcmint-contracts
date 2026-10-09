@@ -52,6 +52,11 @@ test("chain claims are labelled honestly", () => {
   assert.doesNotMatch(chains, /status[^"]*live|>\s*Live\s*</i, "nothing is marked live yet");
   assert.match(chains, /pump\.fun[\s\S]*Coming soon/);
   assert.match(chains, /EVM chains[\s\S]*Coming next/);
+  const evm = chains.slice(chains.indexOf("EVM chains"));
+  const order = ["Ethereum", "Robinhood Chain", "Base"].map((name) => evm.indexOf(`</span>${name}</span>`));
+  assert.ok(order.every((i) => i > 0), "Ethereum, Robinhood Chain and Base are all listed");
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "EVM order is Ethereum, Robinhood Chain, Base");
+  assert.match(evm, /Ethereum<\/span><span class="status status-soon">Coming next/);
   assert.match(html, /Not live on mainnet/);
 });
 

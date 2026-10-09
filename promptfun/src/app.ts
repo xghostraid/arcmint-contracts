@@ -21,6 +21,7 @@ import { authenticateBearer, mcpUnauthorizedHeaders } from "./auth/mcp.js";
 import { handleOAuthRoutes } from "./auth/routes.js";
 import { PlatformStore, platformDbPath } from "./platform/store.js";
 import { handleOpsRoutes, handleStatusApi } from "./api/status.js";
+import { PayoutCron } from "./payout/cron.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = [path.resolve(here, "../public"), path.resolve(here, "../../public")].find((dir) => fs.existsSync(dir))!;
@@ -88,6 +89,7 @@ export function createApp(config: Config): App {
   const oauth = platform ? new OAuthServer(config, platform) : null;
   const service = new IntentService(config, store, pictures, platform);
   const coins = new CoinIndexService(config, store, coinStore);
+  const payoutCron = new PayoutCron(config, coinStore);
   const mcp = createMcpHandler(() => buildServer(service, coins), { legacy: "stateless" });
   const mcpNode = toNodeHandler(mcp);
   const allowedHosts = [...new Set([new URL(config.publicUrl).hostname, "localhost", "127.0.0.1", "[::1]"])];
@@ -243,12 +245,14 @@ export function createApp(config: Config): App {
           if (!process.env.PROMPTFUN_PUBLIC_URL || config.port === 0) config.publicUrl = base;
           service.startPoller();
           coins.start();
+          payoutCron.start();
           resolve(base);
         });
       }),
     close: async () => {
       service.stopPoller();
       coins.stop();
+      payoutCron.stop();
       await mcp.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       server.closeAllConnections?.();

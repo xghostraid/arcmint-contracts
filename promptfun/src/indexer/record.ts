@@ -30,6 +30,8 @@ export interface CoinRecord {
   recordedFrom: "receipt" | "chain-import";
   verified: string[];
   intentId: string | null;
+  /** Lamports paid out via permissionless distribute_creator_fees (tracked locally after cron). */
+  feePayoutAudit?: { totalLamports: string; payouts: number; lastPaidAt: string | null };
   live: LiveSnapshot;
 }
 

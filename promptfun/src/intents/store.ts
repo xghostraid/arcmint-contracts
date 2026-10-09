@@ -60,6 +60,19 @@ export class IntentStore {
     return Number(row.n);
   }
 
+  /** Confirmed sponsored token launches since `sinceMs` (global cap, getplugged-style). */
+  countSponsoredLaunchesSince(sinceMs: number): number {
+    const rows = this.db
+      .prepare("SELECT body FROM intents WHERE created_at >= ? AND status = 'confirmed'")
+      .all(sinceMs) as Array<{ body: string }>;
+    let n = 0;
+    for (const row of rows) {
+      const intent = JSON.parse(row.body) as { executionMode?: string; kind?: string };
+      if (intent.executionMode === "sponsor" && intent.kind === "launch_token") n++;
+    }
+    return n;
+  }
+
   close(): void {
     this.db.close();
   }

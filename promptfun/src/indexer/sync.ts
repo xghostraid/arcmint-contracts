@@ -26,7 +26,7 @@ export function coinFromIntent(config: Config, intent: Intent): CoinRecord | nul
     decimals: params.decimals,
     supply: params.supply,
     imageUrl: null,
-    creator: intent.built?.signer ?? "unknown",
+    creator: params.feeRecipient ?? intent.built?.signer ?? "unknown",
     launchedAt: intent.receipt.confirmedAt,
     launchTx,
     description: params.description,

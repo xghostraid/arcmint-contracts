@@ -28,6 +28,8 @@ export interface Config {
   /** Solana pubkey that receives 100% creator fees on sponsored pump.fun launches (defaults to sponsor). */
   sponsorFeeRecipient: string | null;
   enablePumpfunDevnet: boolean;
+  /** Permissionless pump.fun creator-fee payouts (sponsor pays tx fee). */
+  enablePayoutCron: boolean;
   env: NodeJS.ProcessEnv;
 }
 
@@ -64,6 +66,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     opsToken: env.PROMPTFUN_OPS_TOKEN?.trim() || null,
     sponsorFeeRecipient: env.PROMPTFUN_SPONSOR_FEE_RECIPIENT?.trim() || null,
     enablePumpfunDevnet: flag(env.PROMPTFUN_ENABLE_PUMPFUN_DEVNET),
+    enablePayoutCron: env.PROMPTFUN_ENABLE_PAYOUT_CRON === "0" ? false : flag(env.PROMPTFUN_ENABLE_PAYOUT_CRON) || flag(env.PROMPTFUN_ENABLE_SPONSORED_LAUNCHES),
     env,
   };
 }

@@ -16,6 +16,7 @@ import type { PictureService } from "../pictures/service.js";
 import type { AuthenticatedUser } from "../auth/types.js";
 import type { PlatformStore } from "../platform/store.js";
 import { assertLaunchQuota } from "../platform/quota.js";
+import { assertGlobalSponsoredLaunchQuota } from "../platform/global-quota.js";
 import { assertMonthlyBudget, monthKeyUtc, recordSponsorSpendUsd } from "../platform/budget-ledger.js";
 
 const U64_MAX = (1n << 64n) - 1n;
@@ -31,6 +32,8 @@ export interface LaunchInput {
   pictureId?: string;
   website?: string;
   x?: string;
+  /** Solana wallet that receives locked pump.fun creator fees on sponsored launches. */
+  creatorWallet?: string;
   fixedSupply?: boolean;
   venue?: "spl" | "pumpfun" | "erc20";
   idempotencyKey?: string;
@@ -179,10 +182,11 @@ export class IntentService {
     let working = intent;
     const buildOpts = this.sponsoredBuildOptions(intent);
     if ((intent.params as LaunchParams).venue === "pumpfun" && buildOpts.sponsoredPumpMint) {
-      const feeRecipient = this.config.sponsorFeeRecipient ?? sponsor;
+      const params = intent.params as LaunchParams;
+      const feeRecipient = params.feeRecipient ?? this.config.sponsorFeeRecipient ?? sponsor;
       working = {
         ...intent,
-        params: { ...(intent.params as LaunchParams), feeRecipient },
+        params: { ...params, feeRecipient },
       };
     }
     const { built } = await this.buildInternal(working, sponsor, buildOpts);
@@ -268,6 +272,14 @@ export class IntentService {
     if (chain.family === "solana" && base * 10n ** BigInt(decimals) > U64_MAX) {
       throw new IntentError("That supply is too large for Solana with these decimals. Lower the supply or the decimals.");
     }
+    let feeRecipient: string | undefined;
+    const creatorWallet = (input.creatorWallet ?? "").trim();
+    if (creatorWallet) {
+      if (chain.family !== "solana") throw new IntentError("creatorWallet is only supported on Solana.");
+      const adapter = adapterFor(chain.family);
+      if (!adapter.isAddress(creatorWallet)) throw new IntentError(`"${creatorWallet}" is not a valid Solana wallet for creator fees.`);
+      feeRecipient = creatorWallet;
+    }
     const params: LaunchParams = {
       name,
       symbol,
@@ -277,6 +289,7 @@ export class IntentService {
       metadataUri,
       ...(website ? { website } : {}),
       ...(x ? { x } : {}),
+      ...(feeRecipient ? { feeRecipient } : {}),
       fixedSupply: venue === "pumpfun" ? true : input.fixedSupply ?? true,
       venue,
     };
@@ -380,13 +393,14 @@ export class IntentService {
     if (this.config.oauthRequired && !this.caller) {
       throw new IntentError("Sign in is required for sponsored launches.", "unauthorized");
     }
-    if (this.platform && this.caller) {
-      try {
-        assertLaunchQuota(this.platform, this.caller.sub);
+    try {
+      assertGlobalSponsoredLaunchQuota(this.store);
+      if (this.platform) {
         assertMonthlyBudget(this.platform, this.config.monthlyBudgetUsd, monthKeyUtc());
-      } catch (err) {
-        throw new IntentError((err as Error).message, "quota_exceeded");
+        if (this.caller) assertLaunchQuota(this.platform, this.caller.sub);
       }
+    } catch (err) {
+      throw new IntentError((err as Error).message, "quota_exceeded");
     }
     const budget = sponsorBudgetSnapshot(this.config);
     if (!budget.sponsoredLaunchesEnabled) throw new IntentError(budget.pauseReason ?? "Sponsored launches are paused.", "sponsor_paused");
@@ -401,10 +415,11 @@ export class IntentService {
     const signed = await this.sponsorSigner.signSolanaTransaction(chain.key, intent, built, built.payload);
     const withBuilt = this.update(intent, { status: "built", built, error: null }, "confirmed_in_chat", "User confirmed launch in chat.");
     const submitted = await this.submit(withBuilt.id, signed);
-    if (this.platform && this.caller) {
-      this.platform.recordLaunchQuota(this.caller.sub);
+    if (this.platform) {
+      const sub = this.caller?.sub ?? "anonymous";
+      if (this.caller) this.platform.recordLaunchQuota(this.caller.sub);
       const usd = built.cost.usd ? Number.parseFloat(built.cost.usd) : 0.05;
-      recordSponsorSpendUsd(this.platform, this.caller.sub, Number.isFinite(usd) ? usd : 0.05, monthKeyUtc());
+      recordSponsorSpendUsd(this.platform, sub, Number.isFinite(usd) ? usd : 0.05, monthKeyUtc());
     }
     return submitted;
   }

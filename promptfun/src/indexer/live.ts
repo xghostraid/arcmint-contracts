@@ -6,6 +6,8 @@ import type { Chain } from "../chains/registry.js";
 import { connectionFor } from "../chains/solana/adapter.js";
 import { formatUnits } from "../util/amount.js";
 import type { CoinRecord, LiveSnapshot, Venue } from "./record.js";
+import { readPumpfunLive } from "../chains/solana/pump-live.js";
+import { sponsorPubkeyFromConfig } from "../sponsor/budget.js";
 
 const ERC20_ABI = [
   { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
@@ -108,6 +110,16 @@ export async function refreshLive(config: Config, chain: Chain, record: CoinReco
         reason: `Could not read holders: ${(err as Error).message}`,
         readAt,
       };
+    }
+    if (record.venue === "pumpfun" && chain.family === "solana") {
+      try {
+        const fees = await readPumpfunLive(config, chain, record, sponsorPubkeyFromConfig(config));
+        base.creatorFees = fees.creatorFees;
+        base.feeSplit = fees.feeSplit;
+      } catch (err) {
+        base.creatorFees.reason = `Could not read pump.fun fees: ${(err as Error).message}`;
+        base.feeSplit.reason = base.creatorFees.reason;
+      }
     }
     return base;
   }

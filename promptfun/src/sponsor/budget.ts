@@ -1,7 +1,22 @@
+import bs58 from "bs58";
+import { Keypair } from "@solana/web3.js";
 import type { Config } from "../config.js";
 import type { Chain } from "../chains/registry.js";
 import { isRuntimeSponsorPaused } from "../ops/runtime.js";
 import type { SponsorBudgetSnapshot } from "./types.js";
+
+export function sponsorPubkeyFromConfig(config: Config): string | null {
+  const secret = config.sponsorSecretKey?.trim();
+  if (!secret) return null;
+  try {
+    const kp = secret.startsWith("[")
+      ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(secret)))
+      : Keypair.fromSecretKey(bs58.decode(secret));
+    return kp.publicKey.toBase58();
+  } catch {
+    return null;
+  }
+}
 
 export function sponsorBudgetSnapshot(config: Config): SponsorBudgetSnapshot {
   if (config.sponsorKillSwitch || isRuntimeSponsorPaused()) {

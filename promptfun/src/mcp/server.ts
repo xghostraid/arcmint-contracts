@@ -252,6 +252,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
         fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),
         venue: z.enum(["spl", "pumpfun", "erc20"]).optional(),
+        creatorWallet: z.string().max(64).optional().describe("Solana wallet for locked pump.fun creator fees on sponsored launches. Omit to use the sponsor wallet (100% to promptfun until claim-later ships)."),
         idempotencyKey: z.string().max(64).optional(),
       }),
       annotations: READ,
@@ -377,11 +378,23 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         coins.syncIntents();
         const detail: CoinDetail | null = coins.findByIntentOrAddress(coin, chain);
         if (!detail) throw new IntentError("No indexed coin matches that id.");
+        const splitLine =
+          detail.feeSplit.recipients?.length
+            ? `Fee split (locked on chain): ${detail.feeSplit.recipients.map((r) => `${r.address.slice(0, 4)}…${r.address.slice(-4)} ${(r.shareBps / 100).toFixed(0)}%`).join(", ")}`
+            : detail.feeSplit.reason;
+        const feesLine =
+          detail.creatorFees.waiting != null
+            ? `Creator fees waiting: ${detail.creatorFees.waiting} ${detail.creatorFees.symbol}${detail.creatorFees.paid ? `; paid out so far: ${detail.creatorFees.paid} ${detail.creatorFees.symbol}` : ""}`
+            : detail.creatorFees.reason;
         const text = [
           `${detail.name} ($${detail.symbol}) on ${detail.chain.name}`,
           detail.links.explorer ? `Explorer: ${detail.links.explorer}` : null,
+          detail.links.pumpfun ? `pump.fun: ${detail.links.pumpfun}` : null,
+          splitLine,
+          feesLine,
           detail.market.reason && !detail.market.priceNative ? detail.market.reason : null,
           detail.holders.count !== null ? `Holders: ${detail.holders.exact ? detail.holders.count : `at least ${detail.holders.count}`}` : detail.holders.reason,
+          `Share on X: ${detail.share.intentUrl}`,
         ].filter(Boolean).join("\n");
         return { content: [{ type: "text", text }], structuredContent: detail as unknown as Record<string, unknown> };
       } catch (err) {

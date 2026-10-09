@@ -272,22 +272,90 @@ h1 em, h2 em {
 .section h2 { max-width: 780px; font-size: clamp(36px, 4.4vw, 58px); font-weight: 700; line-height: 1.04; letter-spacing: -0.04em; }
 .section-lede { margin: 18px 0 0; max-width: 640px; color: var(--ink-2); font-size: 18px; }
 
-/* How it works */
-.steps { list-style: none; margin: 52px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
-.step { position: relative; padding: 24px 22px 26px; border: var(--bw) solid var(--edge); border-radius: var(--radius); background: var(--paper); box-shadow: var(--sh); }
-.step-art { display: grid; place-items: center; height: 120px; margin: 0 0 18px; border: 2px solid var(--edge); border-radius: 14px; }
-.step-art img { width: 92px; height: 92px; }
-.step:nth-child(1) .step-art { background: var(--pink-soft); }
-.step:nth-child(2) .step-art { background: var(--yellow-soft); }
-.step:nth-child(3) .step-art { background: var(--paper); }
-.step:nth-child(4) .step-art { background: var(--green-soft); }
-.step-key { background: var(--yellow); }
-.step-num { position: absolute; top: 14px; left: 14px; display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--edge); border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.step h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
-.step p { margin: 8px 0 0; color: var(--ink-2); font-size: 16px; }
-.step-key p { color: var(--ink); }
-.step .status { margin-top: 12px; }
-.step-key .status-building { background: var(--paper); }
+/* How it works — getplugged-style numbered rows */
+.section-flow { background: var(--bg-2); border-top: var(--bw) solid var(--edge); border-bottom: var(--bw) solid var(--edge); }
+.flow-steps { list-style: none; margin: 44px 0 0; padding: 0; display: grid; gap: 16px; max-width: 880px; }
+.flow-step {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 18px 20px;
+  align-items: start;
+  padding: 20px 22px;
+  border: var(--bw) solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--sh-sm);
+}
+.flow-num {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--edge);
+  border-radius: 12px;
+  background: var(--bg-2);
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--sh-sm);
+}
+.flow-step:nth-child(1) .flow-num { background: var(--yellow); }
+.flow-step:nth-child(2) .flow-num { background: var(--pink); }
+.flow-step:nth-child(3) .flow-num { background: var(--blue-soft); }
+.flow-step:nth-child(4) .flow-num { background: var(--green); }
+.flow-text { margin: 0; font-size: clamp(18px, 2.2vw, 22px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; color: var(--ink); }
+.flow-text strong { font-weight: 700; color: var(--lilac-deep); }
+.flow-detail { margin: 10px 0 0; color: var(--ink-2); font-size: 16px; line-height: 1.45; }
+.flow-detail-fine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 14px; font-size: 14px; }
+.flow-detail code { padding: 2px 7px; border: 2px solid var(--edge); border-radius: 8px; background: var(--bg); font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.flow-step .status { margin-top: 12px; }
+.flow-visual {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border: 2px solid var(--edge);
+  border-radius: 16px;
+  background: var(--bg);
+}
+.flow-visual img { width: 72px; height: 72px; }
+.flow-step:nth-child(1) .flow-visual { background: var(--pink-soft); }
+.flow-step:nth-child(2) .flow-visual { background: var(--yellow-soft); }
+.flow-step:nth-child(3) .flow-visual { background: var(--blue-soft); }
+.flow-step:nth-child(4) .flow-visual { background: var(--green-soft); }
+.flow-upload-panel {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 2px solid var(--edge);
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: var(--sh-sm);
+  max-width: 420px;
+}
+.flow-upload-thumb {
+  width: 56px;
+  height: 56px;
+  border: 2px dashed var(--edge);
+  border-radius: 12px;
+  background: var(--pink-soft);
+}
+.flow-upload-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); }
+.flow-upload-sub { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.flow-upload-badge {
+  padding: 4px 10px;
+  border: 2px solid var(--edge);
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 /* Chains */
 .chains { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 48px; }
@@ -440,7 +508,8 @@ h1 em, h2 em {
   .hero-grid, .connect-grid, .faq-wrap, .docs-grid { grid-template-columns: 1fr; gap: 56px; }
   .docs-aside { position: static; }
   .live-stats-inner { grid-template-columns: 1fr 1fr; }
-  .steps, .safety { grid-template-columns: 1fr 1fr; }
+  .safety { grid-template-columns: 1fr 1fr; }
+  .flow-visual { display: none; }
   .demo { max-width: 560px; }
   .faq-art { display: none; }
 }
@@ -461,14 +530,13 @@ h1 em, h2 em {
   .demo-body { padding: 16px; }
   .section { padding: 72px 0; }
   .section h2 { font-size: clamp(32px, 8.8vw, 42px); }
-  .steps, .safety, .chains { grid-template-columns: 1fr; gap: 16px; margin-top: 36px; }
-  .step { display: grid; grid-template-columns: 96px 1fr; column-gap: 16px; padding: 16px; }
-  .step-art { grid-row: span 3; height: 96px; margin: 0; }
-  .step-art img { width: 72px; height: 72px; }
-  .step-num { top: 8px; left: 8px; width: 28px; height: 28px; font-size: 12px; }
-  .step h3 { align-self: end; font-size: 20px; }
-  .step p { font-size: 15px; }
-  .step .status { justify-self: start; }
+  .safety, .chains { grid-template-columns: 1fr; gap: 16px; margin-top: 36px; }
+  .flow-step { grid-template-columns: 44px 1fr; gap: 14px 16px; padding: 16px 18px; }
+  .flow-num { width: 40px; height: 40px; font-size: 16px; border-radius: 10px; }
+  .flow-text { font-size: 18px; }
+  .flow-detail { font-size: 15px; }
+  .flow-upload-panel { grid-template-columns: 48px 1fr; max-width: none; }
+  .flow-upload-badge { grid-column: 1 / -1; justify-self: start; }
   .tile { display: grid; grid-template-columns: 54px 1fr; column-gap: 16px; padding: 20px; }
   .tile-icon { grid-row: span 2; }
   .tile h3 { margin-top: 0; align-self: center; }

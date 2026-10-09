@@ -27,7 +27,7 @@ export function pictureHtml(publicUrl: string): string {
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>${css}</style></head>
 <body><div class="pic-wrap"><article class="pic-card" id="root"><p class="pic-title">Coin picture</p>
-<p class="pic-sub">JPEG or PNG, up to 15&nbsp;MB. EXIF is stripped before upload.</p>
+<p class="pic-sub">JPEG or PNG, up to 15&nbsp;MB. Large photos are compressed for upload; EXIF is stripped.</p>
 <img class="pic-preview" id="preview" alt="" hidden>
 <div class="pic-actions">
 <button type="button" class="btn btn-main" id="pick">Choose image</button>
@@ -68,6 +68,30 @@ export function pictureHtml(publicUrl: string): string {
     r.readAsDataURL(f);
   };
   var uploadOrigin = ${JSON.stringify(origin)};
+  var SAFE = 3.2 * 1024 * 1024;
+  function compressForProxy(file){
+    if (file.size <= SAFE) return Promise.resolve(file);
+    return new Promise(function(res, rej){
+      var img = new Image();
+      img.onload = function(){
+        var w = img.naturalWidth, h = img.naturalHeight, scale = Math.min(1, Math.sqrt(SAFE / file.size));
+        var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+        var c = document.createElement("canvas");
+        c.width = cw; c.height = ch;
+        c.getContext("2d").drawImage(img, 0, 0, cw, ch);
+        c.toBlob(function(blob){
+          if (!blob) return rej(new Error("Could not compress image."));
+          if (blob.size > SAFE && scale > 0.35) {
+            c.width = Math.round(cw * 0.75); c.height = Math.round(ch * 0.75);
+            c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+            c.toBlob(function(b2){ b2 ? res(b2) : rej(new Error("Could not compress image.")); }, "image/jpeg", 0.82);
+          } else res(blob);
+        }, file.type === "image/png" ? "image/png" : "image/jpeg", 0.88);
+      };
+      img.onerror = function(){ rej(new Error("Could not read image.")); };
+      img.src = URL.createObjectURL(file);
+    });
+  }
   saveBtn.onclick = function(){
     var f = document.getElementById("file").files && document.getElementById("file").files[0];
     if (!f && !dataUrl) return;
@@ -75,10 +99,13 @@ export function pictureHtml(publicUrl: string): string {
     saveBtn.disabled = true;
     var uploadPromise;
     if (f) {
-      uploadPromise = fetch(uploadOrigin + "/api/pictures/upload", {
-        method: "POST",
-        headers: { "Content-Type": f.type || "application/octet-stream" },
-        body: f,
+      uploadPromise = compressForProxy(f).then(function(bodyFile){
+        var ct = bodyFile.type || f.type || "application/octet-stream";
+        return fetch(uploadOrigin + "/api/pictures/upload", {
+          method: "POST",
+          headers: { "Content-Type": ct },
+          body: bodyFile,
+        });
       }).then(function(res){
         return res.json().then(function(body){ if (!res.ok) throw new Error(body.error || "Upload failed"); return body; });
       });

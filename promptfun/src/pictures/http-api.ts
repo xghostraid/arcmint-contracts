@@ -43,7 +43,8 @@ export async function handlePictureApi(
   const publicOrigin = new URL(publicUrl).origin;
   const isUpload = pathname === "/api/pictures/upload";
   const picMatch = /^\/api\/pictures\/(pic_[a-f0-9]{24})$/.exec(pathname);
-  if (!isUpload && !picMatch) return false;
+  const metaMatch = /^\/m\/(pic_[a-f0-9]{24})$/.exec(pathname);
+  if (!isUpload && !picMatch && !metaMatch) return false;
 
   applyPictureApiCors(req, res, publicOrigin);
 
@@ -62,6 +63,17 @@ export async function handlePictureApi(
     const raw = await readRawBody(req, MAX_PICTURE_BYTES);
     const saved = await pictures.saveFromRaw(ct, raw);
     sendJson(200, saved);
+    return true;
+  }
+
+  if (metaMatch && req.method === "GET") {
+    const json = pictures.getTokenMetadata(metaMatch[1]);
+    if (!json) {
+      sendJson(404, { error: "Metadata not found or expired." });
+      return true;
+    }
+    res.setHeader("Cache-Control", "public, max-age=300");
+    sendBytes(200, "application/json", json);
     return true;
   }
 

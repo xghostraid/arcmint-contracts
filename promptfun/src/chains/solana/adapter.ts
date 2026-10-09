@@ -37,6 +37,7 @@ import type { Built, Cost, Intent, LaunchParams, Receipt, Simulation, TransferPa
 import { IntentError } from "../../intents/types.js";
 import { decodeInstructions, isWalletAddress, type DecodedTx, type MintFacts } from "./decode.js";
 import { buildPumpfunLaunch, buildPumpfunLaunchSponsored } from "./pumpfun.js";
+import { SOLANA_TX_BASE64_MAX, SOLANA_TX_RAW_MAX } from "./tx-size.js";
 
 const connections = new Map<string, Connection>();
 
@@ -331,6 +332,27 @@ export const solanaAdapter: ChainAdapter = {
       instructions: compiled.instructions,
     }).compileToLegacyMessage();
     const tx = new VersionedTransaction(message);
+    let serialized: Buffer;
+    try {
+      serialized = Buffer.from(tx.serialize());
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (/too large/i.test(msg)) {
+        throw new IntentError(
+          `Solana transaction too large (max ${SOLANA_TX_RAW_MAX} raw / ${SOLANA_TX_BASE64_MAX} base64). ` +
+            "Shorten the metadata link, use a shorter coin name/symbol, or launch with a hosted picture so promptfun can use a compact metadata URL.",
+          "tx_too_large",
+        );
+      }
+      throw err;
+    }
+    if (serialized.length > SOLANA_TX_RAW_MAX || serialized.toString("base64").length > SOLANA_TX_BASE64_MAX) {
+      throw new IntentError(
+        `Solana transaction too large (${serialized.length} raw / ${serialized.toString("base64").length} base64; max ${SOLANA_TX_RAW_MAX}/${SOLANA_TX_BASE64_MAX}). ` +
+          "Shorten the metadata link, use a shorter coin name/symbol, or launch with a hosted picture so promptfun can use a compact metadata URL.",
+        "tx_too_large",
+      );
+    }
 
     const decoded = decodeInstructions(TransactionMessage.decompile(message).instructions, compiled.mints);
     compiled.check(decoded);
@@ -367,7 +389,7 @@ export const solanaAdapter: ChainAdapter = {
     const mintKp = "mintKeypair" in compiled ? (compiled as { mintKeypair: Keypair }).mintKeypair : null;
     const built: Built = {
       signer: signer.toBase58(),
-      payload: Buffer.from(tx.serialize()).toString("base64"),
+      payload: serialized.toString("base64"),
       digest: Buffer.from(message.serialize()).toString("base64"),
       steps: decoded.steps,
       simulation,

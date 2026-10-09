@@ -164,10 +164,17 @@ test("network fees are dated, sourced, and never a promptfun.fun price", () => {
   assert.doesNotMatch(flat, /waitlist|wait list/i);
 });
 
-test("the connector link is not invented before launch", () => {
-  assert.match(html, /Posted here at launch/);
-  assert.doesNotMatch(text, /https?:\/\/[^\s"]*\/mcp\b/, "no connector URL until it exists");
-  assert.match(html, /<button[^>]*disabled>Copy<\/button>/);
+test("connect section publishes the MCP URL with copy and Claude deep link", () => {
+  const connect = html.match(/<section[^>]*id="connect"[\s\S]*?<\/section>/)[0];
+  assert.match(connect, /https:\/\/promptfun\.fun\/mcp/);
+  assert.match(connect, /data-mcp-url="https:\/\/promptfun\.fun\/mcp"/);
+  assert.match(connect, /data-copy-mcp/);
+  assert.doesNotMatch(connect, /Posted here at launch/);
+  assert.doesNotMatch(connect, /<button[^>]*disabled>Copy<\/button>/);
+  assert.match(
+    connect,
+    /claude\.ai\/customize\/connectors\?modal=add-custom-connector[^"]*connectorUrl=https%3A%2F%2Fpromptfun\.fun%2Fmcp/,
+  );
 });
 
 test("the hero demo is labelled as an illustration", () => {

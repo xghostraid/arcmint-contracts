@@ -248,15 +248,18 @@
         <ol class="connect-steps">
           <li>
             <h3>Copy the connector link</h3>
-            <div class="link-box">
-              <code class="link-slot">Posted here at launch</code>
-              <button class="btn btn-small" type="button" disabled>Copy</button>
+            <div class="link-box" data-mcp-url="https://promptfun.fun/mcp">
+              <code class="link-slot" id="mcp-connector-url">https://promptfun.fun/mcp</code>
+              <button class="btn btn-small" type="button" data-copy-mcp>Copy</button>
             </div>
-            <p class="fine">The public link isn’t out yet. It goes here the day it opens.</p>
+            <p class="fine">Remote MCP endpoint on this site. Choose <strong>No sign-in</strong> in Claude unless your org uses OAuth.</p>
           </li>
           <li>
             <h3>Add it to Claude</h3>
-            <p>On claude.ai or in Claude Desktop, go to Customize → Connectors. Choose + Add, then Add custom connector. Name it promptfun.fun, paste the link, click Continue and then Add.</p>
+            <div class="connect-actions">
+              <a class="btn btn-small" href="https://claude.ai/customize/connectors?modal=add-custom-connector&amp;connectorName=promptfun.fun&amp;connectorUrl=https%3A%2F%2Fpromptfun.fun%2Fmcp" rel="noopener noreferrer" target="_blank">Open in Claude</a>
+            </div>
+            <p>Opens Claude’s add-connector dialog with the link above prefilled. Review it, then Continue and Add. You can also paste the link yourself: on claude.ai or in Claude Desktop, go to Customize → Connectors, choose + Add, then Add custom connector.</p>
             <p class="fine">The Free plan allows one custom connector. On Team and Enterprise, an Owner adds it for the organization first, then you connect it. See “Which plans work?” below.</p>
           </li>
           <li>
@@ -379,7 +382,7 @@
     <div class="wrap closer-inner">
       <img class="closer-deco" src="/art/closer.svg" alt="" width="1100" height="420">
       <h2 id="closer-title">Say it. Approve it. <em>Done.</em></h2>
-      <p class="section-lede">Add promptfun.fun to Claude when it opens, and tell it what you want done.</p>
+      <p class="section-lede">Add promptfun.fun to Claude, then tell it what you want done.</p>
       <div class="cta-row">
         <a class="btn" href="#connect">Add to Claude</a>
         <a class="btn btn-ghost" href="#chains">What works today</a>

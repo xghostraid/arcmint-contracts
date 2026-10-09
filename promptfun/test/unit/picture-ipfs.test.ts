@@ -33,7 +33,7 @@ test("picture service pins image and metadata with memory IPFS", async () => {
     website: "https://example.com",
     x: "https://x.com/test",
   });
-  assert.match(metadataUri, /^ipfs:\/\//);
+  assert.match(metadataUri, /^http:\/\/127\.0\.0\.1:9999\/m\/pic_/);
   assert.ok(metadataUri.length <= 200);
   const blobs = svc.memoryBlobs();
   assert.ok(blobs?.has(imageCid));

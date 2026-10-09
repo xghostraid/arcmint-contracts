@@ -25,11 +25,17 @@ export class PictureStore {
         mime TEXT NOT NULL,
         data BLOB NOT NULL,
         image_cid TEXT,
+        token_metadata BLOB,
         created_at INTEGER NOT NULL,
         expires_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS pictures_expires ON pictures (expires_at);
     `);
+    try {
+      this.db.exec("ALTER TABLE pictures ADD COLUMN token_metadata BLOB");
+    } catch {
+      /* column exists */
+    }
   }
 
   create(mime: string, data: Buffer, ttlMs: number): PictureRow {
@@ -57,6 +63,19 @@ export class PictureStore {
 
   setImageCid(id: string, cid: string): void {
     this.db.prepare("UPDATE pictures SET image_cid = ? WHERE id = ?").run(cid, id);
+  }
+
+  setTokenMetadata(id: string, json: Buffer): void {
+    this.db.prepare("UPDATE pictures SET token_metadata = ? WHERE id = ?").run(json, id);
+  }
+
+  getTokenMetadata(id: string): Buffer | null {
+    this.purgeExpired();
+    const row = this.db.prepare("SELECT token_metadata FROM pictures WHERE id = ?").get(id) as
+      | { token_metadata: Buffer | null }
+      | undefined;
+    if (!row?.token_metadata) return null;
+    return Buffer.from(row.token_metadata as unknown as Buffer);
   }
 
   delete(id: string): void {

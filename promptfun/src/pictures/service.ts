@@ -1,5 +1,5 @@
 import type { Config } from "../config.js";
-import { buildTokenMetadataBytes, metadataUriFromCid } from "../metadata/build.js";
+import { buildTokenMetadataBytes, hostedTokenMetadataUri } from "../metadata/build.js";
 import type { TokenMetadataFields } from "../metadata/build.js";
 import { createIpfsPinner, type IpfsPinner, MemoryIpfsPinner, usesPublicIpfsPinner } from "../ipfs/index.js";
 import { IntentError } from "../intents/types.js";
@@ -23,6 +23,10 @@ export class PictureService {
 
   memoryBlobs(): Map<string, Buffer> | null {
     return this.pinner instanceof MemoryIpfsPinner ? this.pinner.blobs : null;
+  }
+
+  getTokenMetadata(pictureId: string): Buffer | null {
+    return this.store.getTokenMetadata(pictureId);
   }
 
   async saveFromBase64(dataUrlOrB64: string): Promise<SavedPicture> {
@@ -90,21 +94,21 @@ export class PictureService {
     const imageCid = await this.ensureImagePinned(input.pictureId);
     const image = this.imageUrlForMetadata(input.pictureId, imageCid);
     const bytes = buildTokenMetadataBytes({ ...input, image });
+    this.store.setTokenMetadata(input.pictureId, bytes);
+    const metadataUri = hostedTokenMetadataUri(this.config.publicUrl, input.pictureId);
     if (usesPublicIpfsPinner(this.config)) {
-      const { cid } = await this.pinner.pin("metadata.json", bytes);
-      return { metadataUri: metadataUriFromCid(cid), imageCid };
-    }
-    if (this.catalog.enabled()) {
+      await this.pinner.pin(`${input.pictureId}.metadata.json`, bytes);
+    } else if (this.catalog.enabled()) {
       try {
-        const metadataUri = await this.catalog.publishMetadata(input.pictureId, bytes);
-        return { metadataUri, imageCid };
+        await this.catalog.publishMetadata(input.pictureId, bytes);
       } catch (err) {
         throw new IntentError((err as Error).message, "bad_request");
       }
+    } else {
+      this.assertPublicPinningConfigured();
+      await this.pinner.pin(`${input.pictureId}.metadata.json`, bytes);
     }
-    this.assertPublicPinningConfigured();
-    const { cid } = await this.pinner.pin("metadata.json", bytes);
-    return { metadataUri: metadataUriFromCid(cid), imageCid };
+    return { metadataUri, imageCid };
   }
 
   private assertPublicPinningConfigured(): void {

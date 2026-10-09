@@ -51,6 +51,13 @@ export function metadataUriFromCid(cid: string): string {
   return uri;
 }
 
+/** On-chain metadata URL served by promptfun (kept short for Solana tx size limits). */
+export function hostedTokenMetadataUri(publicUrl: string, pictureId: string): string {
+  const uri = `${publicUrl.replace(/\/+$/, "")}/m/${pictureId}`;
+  assertMetadataUriLength(uri);
+  return uri;
+}
+
 export function buildTokenMetadataBytes(input: TokenMetadataInput): Buffer {
   return Buffer.from(JSON.stringify(buildTokenMetadataJson(input)), "utf8");
 }

@@ -11,6 +11,7 @@ function sdk(): PumpSdkModule {
 import type { Intent, LaunchParams } from "../../intents/types.js";
 import { IntentError } from "../../intents/types.js";
 import type { DecodedTx, MintFacts } from "./decode.js";
+import { assertVersionedTxFits } from "./tx-size.js";
 
 /** pump.fun mints a fixed 1,000,000,000 supply with 6 decimals on its bonding curve; requests cannot change that. */
 export const PUMPFUN_SUPPLY = "1000000000";
@@ -100,12 +101,16 @@ export async function buildPumpfunLaunchSponsored(
     newShareholders: shareholders,
     bondingCurveComplete: false,
   });
-  for (const sh of shareholders) {
-    feeShareIx.keys.push({ pubkey: sh.address, isSigner: false, isWritable: true });
+
+  const instructions = [createIx, feeConfigIx, feeShareIx];
+  try {
+    assertVersionedTxFits(instructions, sponsor);
+  } catch (err) {
+    throw new IntentError((err as Error).message, "tx_too_large");
   }
 
   return {
-    instructions: [createIx, feeConfigIx, feeShareIx],
+    instructions,
     mints: new Map<string, MintFacts>([[mint.toBase58(), { decimals: PUMPFUN_DECIMALS, symbol: params.symbol }]]),
     deposits: 0n,
     sendsLamports: 0n,

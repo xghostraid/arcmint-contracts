@@ -14,6 +14,7 @@ test("launch playbook tells models not to ask for tool names or pasted URLs", ()
   const joined = lines.join("\n");
   assert.match(joined, /Never ask them to name MCP tools/);
   assert.match(joined, /import_picture_from_url/);
+  assert.match(joined, /get_last_picture/);
   assert.match(joined, /solana-mainnet/);
   assert.match(joined, /Launch it/);
 });

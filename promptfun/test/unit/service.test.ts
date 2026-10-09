@@ -35,7 +35,7 @@ test("launch input is normalised and checked before any network call", async () 
 
 test("prepareLaunch defaults to solana-mainnet when chain is omitted", async () => {
   const pump = service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
-  await assert.rejects(pump.prepareLaunch({ name: "P", symbol: "PP" }), /metadata link/);
+  await assert.rejects(pump.prepareLaunch({ name: "P", symbol: "PP" }), /coin image|metadata link/);
   const withMeta = await pump.prepareLaunch({ name: "P", symbol: "PP", metadataUri: "https://x.io/m.json" });
   assert.equal(withMeta.chain, "solana-mainnet");
 });

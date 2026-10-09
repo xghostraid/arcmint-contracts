@@ -304,7 +304,7 @@ export class IntentService {
       decimals = PUMPFUN_DECIMALS;
       if (!metadataUri) {
         throw new IntentError(
-          "pump.fun needs a coin image. Call open_picture_panel (Choose image → Save to promptfun), or import_picture_from_url with the user's HTTPS image link, then prepare_launch with the returned pictureId. Do not paste base64 into save_picture.",
+          "pump.fun needs a coin image. Import the user's chat attachment (import_picture_from_url or prepare_launch imageUrl) or open_picture_panel — do not ask them to paste URLs or name tools.",
         );
       }
     }

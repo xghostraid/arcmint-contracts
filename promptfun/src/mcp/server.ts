@@ -11,18 +11,9 @@ import { CARD_URI, cardHtml } from "./card.js";
 import { PICTURE_URI, pictureHtml } from "./picture.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
+import { EXAMPLE_USER_PROMPTS, launchPlaybook, serverInstructions } from "./launch-playbook.js";
 
 import type { Config } from "../config.js";
-
-function serverInstructions(config: Config): string {
-  const sponsoredMainnet = config.enableSponsoredMainnet && config.enableSponsoredLaunches && config.enablePumpfunMainnet;
-  const launchPath = sponsoredMainnet
-    ? "Default: Solana mainnet pump.fun with no wallet — prepare_launch returns the card, the user taps Launch it, confirm_launch sends (promptfun pays network fees from the sponsor wallet; real mainnet SOL)."
-    : config.enablePumpfunMainnet
-      ? "Solana mainnet pump.fun is live via the approval page and the user's wallet (real SOL)."
-      : "Solana mainnet is off until PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1.";
-  return `${BRAND} turns a request into a token launch or transfer. ${launchPath} Devnet remains for optional testing. ${SHORT} never holds user keys. Call get_capabilities first (recommendedLaunchChain is solana-mainnet when pump.fun mainnet is on). After prepare_*, use the in-chat card (Launch it for sponsored launches) or the approval link for wallet mode, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
-}
 
 function limitations(config: Config): string[] {
   const mainnetLive = config.enablePumpfunMainnet;
@@ -47,7 +38,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-    "Coin images: never paste or retype base64. Use open_picture_panel (Choose image → Save to promptfun), import_picture_from_url with the user's HTTPS attachment link, or prepare_launch with imageUrl. The panel uploads raw JPEG/PNG to /api/pictures/upload (max 15 MB). save_picture is panel-internal only.",
+    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. save_picture is panel-internal only.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown are network fees only. promptfun charges no fee.",
   ];
@@ -148,7 +139,8 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     "get_capabilities",
     {
       title: "What promptfun can do",
-      description: "Use this first. Lists chains, which actions each supports, and each chain's honest status: verified (proven end to end), configured (wired, not yet proven), or gated (real money behind a flag). Also lists known limitations.",
+      description:
+        "Lists chains, launchPlaybook (how to handle short launch prompts and chat images without asking the user for tool names or URLs), example user phrases, limitations, and honest per-chain status. Call when the user asks what is supported — not required before every launch.",
       inputSchema: z.object({}),
       annotations: READ,
     },
@@ -165,12 +157,15 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         evidence: c.evidence,
         ...(c.family === "evm" ? { chainId: c.chainId, priority: c.priority } : { launchVenues: c.launchVenues }),
       }));
+      const PLAYBOOK = launchPlaybook(config);
       const lines = chains.map((c) => `- ${c.key} (${c.name}): ${c.status}${c.enabled ? "" : ` — off: ${c.disabledReason}`}`);
       return {
         content: [{
           type: "text",
           text: [
             `${BRAND} ${VERSION}. Chains:`, ...lines,
+            "Launch playbook (short user prompts):", ...PLAYBOOK.map((l) => `- ${l}`),
+            "Example things users say:", ...EXAMPLE_USER_PROMPTS.map((p) => `- “${p}”`),
             "Limitations:", ...LIMITATIONS.map((l) => `- ${l}`),
             "Hosts:", ...HOSTS.map((h) => `- ${h.host} (${h.role}): ${h.connect} ${h.notes.join(" ")}`),
           ].join("\n"),
@@ -178,6 +173,8 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         structuredContent: {
           version: VERSION,
           recommendedLaunchChain: recommendedLaunchChainKey(config),
+          launchPlaybook: PLAYBOOK,
+          exampleUserPrompts: [...EXAMPLE_USER_PROMPTS],
           chains,
           limitations: LIMITATIONS,
           hosts: HOSTS,
@@ -231,7 +228,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     {
       title: "Upload a coin picture",
       description:
-        "Use when the user needs a coin image before launch. Opens the in-chat picture panel. The user chooses JPEG/PNG (max 15 MB) and taps Save to promptfun, or taps Use this image when imageUrl is set from a chat attachment. Returns pictureId for prepare_launch. Do not call save_picture or paste base64 yourself.",
+        "Opens the in-chat picture panel when the user attached an image or needs to pick a file. If you have the chat attachment https:// URL, pass imageUrl so they can tap Use this image; otherwise they Choose image → Save to promptfun. Then prepare_launch with the returned pictureId. Do not ask the user to name this tool or paste URLs manually.",
       inputSchema: z.object({
         imageUrl: z
           .string()
@@ -259,7 +256,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     {
       title: "Import coin picture from URL",
       description:
-        "Use when the user attached an image in chat or gave an https:// image link. Downloads JPEG/PNG server-side (max 15 MB) and returns pictureId. Prefer this over save_picture or manual base64. You can also pass imageUrl on prepare_launch instead.",
+        "Default when the user's message includes a chat image attachment or https:// JPEG/PNG link. Downloads server-side (max 15 MB) and returns pictureId for prepare_launch. Prefer over asking the user for URLs or calling save_picture. Same as passing imageUrl on prepare_launch.",
       inputSchema: z.object({
         imageUrl: z.string().max(2000).describe("Public https:// URL to a JPEG or PNG (e.g. Claude attachment CDN link)."),
       }),
@@ -343,7 +340,8 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     "prepare_launch",
     {
       title: "Prepare a token launch",
-      description: "Use when the user wants to create a new token. Read-only: simulates and returns the card. On solana-mainnet with sponsored mode (and on sponsored testnets), the card shows Launch it and confirm_launch sends with promptfun paying the network fee — no wallet. Otherwise the user opens approveUrl and signs in their wallet. Nothing is broadcast by this call.",
+      description:
+        "Use for plain-language launch asks (e.g. \"Launch TEST on mainnet\", \"Launch Moonbeam BEAM with this photo\"). Read-only: returns the preview card. Resolve the image first (imageUrl or pictureId). Omit chain for recommendedLaunchChain. On sponsored mainnet/testnets the card shows Launch it; wallet mode uses approveUrl. Nothing is broadcast by this call.",
       inputSchema: z.object({
         chain: z.string().optional().describe("Chain key from get_capabilities. Defaults to recommendedLaunchChain (solana-mainnet when pump.fun mainnet is live)."),
         name: z.string().min(1).max(32),

@@ -34,6 +34,11 @@ export function pictureHtml(publicUrl: string): string {
 <button type="button" class="btn btn-ghost" id="useChat" hidden>Use this image</button>
 <button type="button" class="btn btn-ghost" id="save" disabled>Save to promptfun</button>
 </div>
+<div class="pic-id-row" id="idRow" hidden>
+<span class="pic-id-label">Picture ID</span>
+<code class="pic-id-val" id="idVal"></code>
+<button type="button" class="btn btn-ghost" id="copyId">Copy</button>
+</div>
 <p class="pic-err" id="err" hidden></p>
 <p class="pic-foot">${BRAND} stores the image until you launch or it expires. Nothing is sent on chain until you confirm a launch.</p>
 </article></div>
@@ -41,11 +46,14 @@ export function pictureHtml(publicUrl: string): string {
 <script>
 (function(){
   var MAX = ${15 * 1024 * 1024};
-  var nextId = 1, pending = {}, dataUrl = null, pictureId = null, chatImageUrl = null;
+  var nextId = 1, pending = {}, dataUrl = null, pictureId = null, chatImageUrl = null, handoffSessionId = null;
   var preview = document.getElementById("preview");
   var errEl = document.getElementById("err");
   var saveBtn = document.getElementById("save");
   var useChatBtn = document.getElementById("useChat");
+  var idRow = document.getElementById("idRow");
+  var idVal = document.getElementById("idVal");
+  var copyIdBtn = document.getElementById("copyId");
   function post(m){ window.parent.postMessage(m, "*"); }
   function request(method, params){ var id = nextId++; post({jsonrpc:"2.0", id:id, method:method, params:params}); return new Promise(function(res, rej){ pending[id] = {res:res, rej:rej}; }); }
   function showErr(msg){ errEl.hidden = !msg; errEl.textContent = msg || ""; }
@@ -78,6 +86,7 @@ export function pictureHtml(publicUrl: string): string {
       preview.hidden = false;
       saveBtn.disabled = false;
       pictureId = null;
+      showPictureId(null);
       resize();
     };
     r.readAsDataURL(f);
@@ -121,6 +130,8 @@ export function pictureHtml(publicUrl: string): string {
   function notifyHostPictureSaved(sc){
     var text = handoffText(sc);
     var structured = Object.assign({ picturePanelUri: "${PICTURE_URI}", handoff: "picture_saved" }, sc);
+    if (handoffSessionId) structured.handoffSessionId = handoffSessionId;
+    post({jsonrpc:"2.0", method:"ui/notifications/tool-result", params:{ content: [{ type: "text", text: text }], structuredContent: structured }});
     request("ui/update-model-context", {
       content: [{ type: "text", text: text }],
       structuredContent: structured,
@@ -130,11 +141,23 @@ export function pictureHtml(publicUrl: string): string {
       content: [{ type: "text", text: text }],
     }).catch(function(){});
   }
+  function showPictureId(id){
+    if (idVal) idVal.textContent = id;
+    if (idRow) idRow.hidden = !id;
+  }
+  if (copyIdBtn) copyIdBtn.onclick = function(){
+    if (!pictureId) return;
+    var done = function(){ copyIdBtn.textContent = "Copied"; setTimeout(function(){ copyIdBtn.textContent = "Copy"; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(pictureId).then(done).catch(function(){});
+    }
+  };
   function showSaved(sc, notifyHost){
     pictureId = sc && sc.pictureId;
     if (!pictureId) throw new Error("No picture id returned");
     preview.src = publicOrigin + "/api/pictures/" + pictureId;
     preview.hidden = false;
+    showPictureId(pictureId);
     saveBtn.textContent = "Saved";
     saveBtn.disabled = true;
     if (useChatBtn) useChatBtn.hidden = true;
@@ -147,7 +170,9 @@ export function pictureHtml(publicUrl: string): string {
     return compressForMcp(f)
       .then(blobToDataUrl)
       .then(function(dataUrl){
-        return request("tools/call", {name:"upload_picture_bytes", arguments:{imageBase64: dataUrl}});
+        var args = { imageBase64: dataUrl };
+        if (handoffSessionId) args.handoffSessionId = handoffSessionId;
+        return request("tools/call", {name:"upload_picture_bytes", arguments: args});
       })
       .then(function(res){ showSaved(toolStructured(res, "Save failed")); })
       .catch(function(e){ showErr(rpcErr(e, "Save failed")); saveBtn.disabled = false; });
@@ -172,6 +197,7 @@ export function pictureHtml(publicUrl: string): string {
   };
   function applyToolOutput(sc){
     if (!sc) return;
+    if (sc.handoffSessionId) handoffSessionId = sc.handoffSessionId;
     if (sc.sourceImageUrl) {
       chatImageUrl = sc.sourceImageUrl;
       useChatBtn.hidden = false;

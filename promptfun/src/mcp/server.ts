@@ -12,6 +12,7 @@ import { PICTURE_URI, pictureHtml } from "./picture.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
 import { EXAMPLE_USER_PROMPTS, launchPlaybook, serverInstructions } from "./launch-playbook.js";
+import { newHandoffSessionId } from "../pictures/handoff-store.js";
 
 import type { Config } from "../config.js";
 
@@ -38,7 +39,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). When the panel shows Saved, read pictureId from that tool result, the panel ui/update-model-context handoff, or get_last_picture — do not ask the user to save again.",
+    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). When the panel shows Saved, read pictureId from tool structuredContent, ui/notifications/tool-result, ui/update-model-context, or call get_last_picture (with handoffSessionId from open_picture_panel if needed) — never ask the user to copy pic_ unless get_last_picture also failed.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% of creator fees.",
   ];
@@ -241,14 +242,19 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     },
     async ({ imageUrl }) => {
       const url = (imageUrl ?? "").trim();
+      const handoffSessionId = newHandoffSessionId();
       const hint = url
         ? "The picture panel is open. Tap Use this image to import the chat attachment, or Choose image to pick a file, then Save to promptfun."
         : "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then use the returned pictureId in prepare_launch or build_metadata_uri.";
-      const last = service.getLastPicture();
+      const last = await service.getLastPicture(handoffSessionId);
       return {
-        content: [{ type: "text", text: hint }],
+        content: [{
+          type: "text",
+          text: `${hint} If you do not receive pictureId after Save, call get_last_picture with handoffSessionId ${handoffSessionId}.`,
+        }],
         structuredContent: {
           picturePanelUri: PICTURE_URI,
+          handoffSessionId,
           ...(url ? { sourceImageUrl: url } : {}),
           ...(last ? { lastPictureId: last.pictureId, lastPictureSavedAt: last.savedAt } : {}),
         },
@@ -270,11 +276,11 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     async ({ imageUrl }) => {
       try {
         const saved = await service.pictures.saveFromUrl(imageUrl.trim());
-        service.noteLastPicture(saved);
+        await service.noteLastPicture(saved);
         const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
         return {
           content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in prepare_launch or build_metadata_uri.` }],
-          structuredContent: { ...saved, source: "import_picture_from_url" },
+          structuredContent: { ...saved, source: "import_picture_from_url", handoff: "picture_saved" },
         };
       } catch (err) {
         return fail(err);
@@ -289,8 +295,16 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
       .string()
       .max(PANEL_IMAGE_B64_MAX)
       .describe("JPEG/PNG as a data URL or raw base64 from the picture panel only. Host models: do not use."),
+    handoffSessionId: z
+      .string()
+      .regex(/^hs_[a-f0-9]{24}$/)
+      .optional()
+      .describe("Session id from open_picture_panel structuredContent; binds panel Save to get_last_picture on serverless."),
   });
-  const savePictureFromPanel = async ({ imageBase64 }: z.infer<typeof panelPictureB64Schema>): Promise<ToolResult> => {
+  const savePictureFromPanel = async ({
+    imageBase64,
+    handoffSessionId,
+  }: z.infer<typeof panelPictureB64Schema>): Promise<ToolResult> => {
     try {
       if (imageBase64.length > PANEL_IMAGE_B64_MAX) {
         return fail(new IntentError(
@@ -299,11 +313,16 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         ));
       }
       const saved = await service.pictures.saveFromBase64(imageBase64);
-      service.noteLastPicture(saved);
+      await service.noteLastPicture(saved, handoffSessionId);
       const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
       return {
         content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in build_metadata_uri or prepare_launch.` }],
-        structuredContent: { ...saved, source: "upload_picture_bytes", handoff: "picture_saved" },
+        structuredContent: {
+          ...saved,
+          source: "upload_picture_bytes",
+          handoff: "picture_saved",
+          ...(handoffSessionId ? { handoffSessionId } : {}),
+        },
       };
     } catch (err) {
       return fail(err);
@@ -341,12 +360,18 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     {
       title: "Get last saved coin picture",
       description:
-        "Returns pictureId from the most recent picture save in this connector session (panel Save via upload_picture_bytes, import_picture_from_url, or prepare_launch imageUrl). Call when the picture panel shows Saved but you do not have pictureId yet.",
-      inputSchema: z.object({}),
+        "Returns pictureId from the most recent picture save in this connector session (panel Save via upload_picture_bytes, import_picture_from_url, or prepare_launch imageUrl). Call when the picture panel shows Saved but you do not have pictureId yet. Pass handoffSessionId from open_picture_panel when available.",
+      inputSchema: z.object({
+        handoffSessionId: z
+          .string()
+          .regex(/^hs_[a-f0-9]{24}$/)
+          .optional()
+          .describe("From open_picture_panel structuredContent; required on serverless when the model missed panel handoff notifications."),
+      }),
       annotations: READ,
     },
-    async () => {
-      const last = service.getLastPicture();
+    async ({ handoffSessionId }) => {
+      const last = await service.getLastPicture(handoffSessionId);
       if (!last) {
         return fail(new IntentError("No picture saved yet. Ask the user to Save in the picture panel or attach an image to import.", "not_found"));
       }

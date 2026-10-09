@@ -3,7 +3,8 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMcpHandler } from "@modelcontextprotocol/server";
-import { hostHeaderValidation, toNodeHandler } from "@modelcontextprotocol/node";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import { createMcpHostCheck } from "./mcp/host-check.js";
 import type { Config } from "./config.js";
 import { findChain } from "./chains/registry.js";
 import { IntentService } from "./intents/service.js";
@@ -97,8 +98,7 @@ export function createApp(config: Config): App {
   const payoutCron = new PayoutCron(config, coinStore);
   const mcp = createMcpHandler(() => buildServer(service, coins), { legacy: "stateless" });
   const mcpNode = toNodeHandler(mcp);
-  const allowedHosts = [...new Set([new URL(config.publicUrl).hostname, "localhost", "127.0.0.1", "[::1]"])];
-  const hostCheck = hostHeaderValidation(allowedHosts);
+  const hostCheck = createMcpHostCheck(config.publicUrl, config.env);
 
   const intentPublic = (id: string) => {
     const intent = service.get(id);

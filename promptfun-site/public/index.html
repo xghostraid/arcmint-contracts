@@ -120,35 +120,53 @@
     </div>
   </section>
 
-  <section class="section" id="how" aria-labelledby="how-title">
+  <section class="section section-flow" id="how" aria-labelledby="how-title">
     <div class="wrap">
       <p class="eyebrow">How it works</p>
-      <h2 id="how-title">Four steps, all inside the chat. You’re in charge of the one that matters.</h2>
-      <ol class="steps">
-        <li class="step">
-          <span class="step-num">1</span>
-          <div class="step-art"><img src="/art/step-say.svg" alt="" width="92" height="92"></div>
-          <h3>Say it</h3>
-          <p>Tell Claude what you want done, in your own words. Claude turns it into a clear request for promptfun.fun.</p>
+      <h2 id="how-title">Four steps from chat to coin. You stay in control.</h2>
+      <p class="section-lede">Approve in Claude, add art, go live on Solana, and earn pump.fun creator fees on every trade.</p>
+      <ol class="flow-steps">
+        <li class="flow-step">
+          <span class="flow-num" aria-hidden="true">1</span>
+          <div class="flow-copy">
+            <p class="flow-text">You approve every launch. No tap, no coin.</p>
+            <p class="flow-detail">Sponsored launches use a sunny preview card in chat. Tap confirm there — not a separate wallet app — unless a step needs your Solana wallet.</p>
+          </div>
+          <div class="flow-visual" aria-hidden="true"><img src="/art/step-approve.svg" alt="" width="72" height="72"></div>
         </li>
-        <li class="step">
-          <span class="step-num">2</span>
-          <div class="step-art"><img src="/art/step-preview.svg" alt="" width="92" height="92"></div>
-          <h3>See the preview</h3>
-          <p>promptfun.fun checks the request and builds the exact transaction. Then it reads it back to you in plain language: what happens, on which network, and what it costs.</p>
+        <li class="flow-step flow-step-upload">
+          <span class="flow-num" aria-hidden="true">2</span>
+          <div class="flow-copy">
+            <p class="flow-text">Add your picture. Upload in chat, then launch.</p>
+            <p class="flow-detail">Drop a JPEG or PNG in the Claude thread. promptfun.fun strips metadata, pins it for the token image, and shows the picture panel before you launch.</p>
+            <div class="flow-upload-panel" aria-hidden="true">
+              <div class="flow-upload-thumb"></div>
+              <div class="flow-upload-meta">
+                <p class="flow-upload-title">Coin image</p>
+                <p class="flow-upload-sub">Upload in chat · IPFS ready</p>
+              </div>
+              <span class="flow-upload-badge">Live</span>
+            </div>
+          </div>
+          <div class="flow-visual" aria-hidden="true"><img src="/art/step-preview.svg" alt="" width="72" height="72"></div>
         </li>
-        <li class="step step-key">
-          <span class="step-num">3</span>
-          <div class="step-art"><img src="/art/step-approve.svg" alt="" width="92" height="92"></div>
-          <h3>Approve in your wallet</h3>
-          <p>Your wallet signs the exact transaction from the preview. Nothing happens until you tap Approve, and you can always reject. On Solana mainnet this spends real SOL. Sponsored launch with no wallet is available on devnet only; mainnet pump.fun requires your wallet.</p>
-          <span class="status status-live">Live on mainnet</span>
+        <li class="flow-step">
+          <span class="flow-num" aria-hidden="true">3</span>
+          <div class="flow-copy">
+            <p class="flow-text">Launch on Solana mainnet. Real tokens; wallet step when required.</p>
+            <p class="flow-detail">Mainnet pump.fun spends real SOL when you approve in your wallet. Sponsored chat approval with no wallet stays on devnet; devnet testing uses test SOL only.</p>
+            <span class="status status-live">Live on mainnet</span>
+          </div>
+          <div class="flow-visual" aria-hidden="true"><img src="/art/step-say.svg" alt="" width="72" height="72"></div>
         </li>
-        <li class="step">
-          <span class="step-num">4</span>
-          <div class="step-art"><img src="/art/step-receipt.svg" alt="" width="92" height="92"></div>
-          <h3>Get the receipt</h3>
-          <p>promptfun.fun looks the transaction up on the chain and checks it matches what you approved. The receipt shows up in the same chat, and Claude only says “done” once the chain confirms it.</p>
+        <li class="flow-step flow-step-fees" id="prompt-fees">
+          <span class="flow-num" aria-hidden="true">4</span>
+          <div class="flow-copy">
+            <p class="flow-text">Earn on trades. Up to <strong>70%</strong> of pump.fun <strong>creator fees</strong> when you hold <strong>$PROMPT</strong> — <strong>40%</strong> otherwise. Add Solana wallet at launch.</p>
+            <p class="flow-detail">Set <code>creatorWallet</code> on launch so pump.fun locks fees to you. Holding $PROMPT unlocks the higher share once the tier is enforced on-chain.</p>
+            <p class="flow-detail flow-detail-fine"><span class="status status-building">Tier rules: marketing now</span> On-chain $PROMPT balance checks and automatic fee splits ship after the mint is set. Details in <a href="#prompt-fees">step 4</a> and the product fee-tier spec (on-chain enforcement phased).</p>
+          </div>
+          <div class="flow-visual" aria-hidden="true"><img src="/art/step-receipt.svg" alt="" width="72" height="72"></div>
         </li>
       </ol>
     </div>

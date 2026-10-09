@@ -100,10 +100,26 @@ test("every route is Sunny pop lilac inclined (alt), not cream/orange or the old
 });
 
 test("has every required section", () => {
-  for (const id of ["how", "chains", "connect", "safety", "faq"]) {
+  for (const id of ["how", "chains", "connect", "safety", "faq", "prompt-fees"]) {
     assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   }
   assert.match(html, /class="hero"/);
+});
+
+test("how-it-works uses four getplugged-style rows with PROMPT fee tiers", () => {
+  const how = html.match(/<section class="section section-flow" id="how"[\s\S]*?<\/section>/)[0];
+  assert.match(how, /class="flow-steps"/);
+  const rows = [...how.matchAll(/<li class="flow-step[^"]*"[^>]*>/g)];
+  assert.equal(rows.length, 4);
+  assert.match(how, /You approve every launch\. No tap, no coin\./);
+  assert.match(how, /Add your picture\. Upload in chat, then launch\./);
+  assert.match(how, /flow-upload-panel/);
+  assert.match(how, /Launch on Solana mainnet\. Real tokens/);
+  assert.match(how, /70%/);
+  assert.match(how, /40%/);
+  assert.match(how, /\$PROMPT/);
+  assert.match(how, /pump\.fun[\s\S]*creator fees/);
+  assert.match(how, /Add Solana wallet at launch/);
 });
 
 test("every in-page link points at a real section", () => {

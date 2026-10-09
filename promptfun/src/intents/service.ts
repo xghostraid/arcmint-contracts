@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Config } from "../config.js";
 import { adapterFor } from "../chains/index.js";
 import type { BuildOptions } from "../chains/adapter.js";
-import { findChain, type ActionKind, type Chain } from "../chains/registry.js";
+import { findChain, recommendedLaunchChainKey, type ActionKind, type Chain } from "../chains/registry.js";
 import { impersonatesBrand, isMajorSymbol } from "../brand.js";
 import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
 import { generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
@@ -25,7 +25,7 @@ import type { ClaimLaterWalletProvider } from "../wallets/claim-later.js";
 const U64_MAX = (1n << 64n) - 1n;
 
 export interface LaunchInput {
-  chain: string;
+  chain?: string;
   name: string;
   symbol: string;
   supply?: string;
@@ -229,7 +229,11 @@ export class IntentService {
   }
 
   async prepareLaunch(input: LaunchInput): Promise<Intent> {
-    const chain = this.chainOrThrow(input.chain, "launch_token");
+    const chainKey = input.chain?.trim() || recommendedLaunchChainKey(this.config);
+    if (!chainKey) {
+      throw new IntentError("No launch chain is enabled on this server. Call get_capabilities.", "unknown_chain");
+    }
+    const chain = this.chainOrThrow(chainKey, "launch_token");
     const defaultVenue = chain.family === "evm" ? "erc20" : chain.cluster === "mainnet-beta" ? "pumpfun" : "spl";
     const venue = input.venue ?? defaultVenue;
     const name = input.name.trim();

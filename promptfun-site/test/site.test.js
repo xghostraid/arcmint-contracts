@@ -56,7 +56,7 @@ test("Connect lists the Claude steps as Anthropic documents them", () => {
   const connect = html.match(/<section[^>]*id="connect"[\s\S]*?<\/section>/)[0];
   assert.match(connect, /Customize → Connectors/);
   assert.match(connect, /Add custom connector/);
-  assert.match(connect, /approve in your wallet/);
+  assert.match(connect, /tap Launch it/);
   assert.match(html, /href="https:\/\/support\.claude\.com\/en\/articles\/11175166-[^"]*"/);
 });
 
@@ -106,20 +106,26 @@ test("has every required section", () => {
   assert.match(html, /class="hero"/);
 });
 
-test("how-it-works uses four getplugged-style rows with PROMPT fee tiers", () => {
+test("how-it-works is chat-first journey with PROMPT fee tiers, not numbered clone rows", () => {
   const how = html.match(/<section class="section section-flow" id="how"[\s\S]*?<\/section>/)[0];
-  assert.match(how, /class="flow-steps"/);
-  const rows = [...how.matchAll(/<li class="flow-step[^"]*"[^>]*>/g)];
-  assert.equal(rows.length, 4);
-  assert.match(how, /You approve every launch\. No tap, no coin\./);
-  assert.match(how, /Add your picture\. Upload in chat, then launch\./);
-  assert.match(how, /flow-upload-panel/);
-  assert.match(how, /Launch on Solana mainnet\. Real tokens/);
+  assert.match(how, /class="chat-journey"/);
+  assert.doesNotMatch(how, /class="flow-steps"/);
+  assert.doesNotMatch(how, /flow-num/);
+  assert.doesNotMatch(how, /No tap, no coin/);
+  const beats = [...how.matchAll(/<li class="journey-beat[^"]*"[^>]*>/g)];
+  assert.equal(beats.length, 4);
+  assert.match(how, /You approve every launch/);
+  assert.match(how, /JPEG or PNG/);
+  assert.match(how, /journey-upload-panel/);
+  assert.match(how, /Mainnet pump\.fun is live/);
+  assert.match(how, /Solana mainnet/);
   assert.match(how, /70%/);
   assert.match(how, /40%/);
   assert.match(how, /\$PROMPT/);
-  assert.match(how, /pump\.fun[\s\S]*creator fees/);
-  assert.match(how, /Add Solana wallet at launch/);
+  assert.match(how, /pump\.fun creator fees/);
+  assert.match(how, /creatorWallet/);
+  assert.match(how, /class="fee-tier-cards"/);
+  assert.match(how, /<em>Done<\/em> on chain/);
 });
 
 test("every in-page link points at a real section", () => {
@@ -148,8 +154,8 @@ test("chain claims are labelled honestly", () => {
   for (const item of items) {
     assert.match(item, /class="status /, `unlabelled capability: ${item}`);
   }
-  assert.match(chains, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live"[^>]*>Live/);
-  assert.match(chains, /Launch with your wallet on Solana devnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.match(chains, /Launch on pump\.fun \(Solana mainnet, no wallet\)<\/span><span class="status status-live"[^>]*>Live/);
+  assert.match(chains, /Ops testing on Solana devnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
   assert.match(chains, /Robinhood Chain Testnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
   assert.match(chains, /EVM testnets[\s\S]*status-live/);
   const evmMain = chains.slice(chains.indexOf("EVM mainnets"));
@@ -200,18 +206,17 @@ test("the hero demo is labelled as an illustration", () => {
   assert.match(html, /An illustration of the flow\. Nothing in this picture is a real transaction\./);
 });
 
-test("the wallet flow is the headline, demo shows Preview then Wallet then Receipt, and unbuilt parts say they're being built", () => {
-  assert.match(html, /<h1[^>]*>Say it in Claude\.<br>Approve in your wallet\.<br><em>Done\.<\/em><\/h1>/);
+test("the Launch it flow is the headline, demo shows preview and receipt, and chain copy matches sponsored mainnet", () => {
+  assert.match(html, /<h1[^>]*>Say it in Claude\.<br>Tap <em>Launch it<\/em>\.<br>Done\.<\/h1>/);
   const demo = html.match(/<figure class="demo"[\s\S]*?<\/figure>/)[0];
-  assert.match(demo, /card-preview[\s\S]*promptfun\.fun preview[\s\S]*Approve in your wallet/);
-  assert.match(demo, /card-wallet[\s\S]*Your wallet[\s\S]*Approve this action/);
+  assert.match(demo, /card-preview[\s\S]*promptfun\.fun preview[\s\S]*Launch it/);
   assert.match(demo, /card-receipt[\s\S]*Receipt[\s\S]*Confirmed onchain/);
   const caption = html.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/)[1];
   assert.match(caption, /real SOL/i, "demo caption warns about mainnet funds");
 
   const main = html.slice(html.indexOf("<main"), html.indexOf("</main>")).replace(/<figure class="demo"[\s\S]*?<\/figure>/, "");
-  assert.match(main, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live"[^>]*>Live/);
-  assert.match(main, /Launch with no wallet \(sponsored, devnet\)<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.match(main, /Launch on pump\.fun \(Solana mainnet, no wallet\)<\/span><span class="status status-live"[^>]*>Live/);
+  assert.match(main, /Sponsored devnet \(optional\)<\/span><span class="status status-live"[^>]*>Live · testnet/);
   assert.match(main, /Live on mainnet/);
 });
 

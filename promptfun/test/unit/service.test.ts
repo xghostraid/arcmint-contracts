@@ -33,6 +33,13 @@ test("launch input is normalised and checked before any network call", async () 
   await assert.rejects(s.prepareLaunch({ chain: "nowhere", name: "A", symbol: "A" }), /Unknown chain/);
 });
 
+test("prepareLaunch defaults to solana-mainnet when chain is omitted", async () => {
+  const pump = service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
+  await assert.rejects(pump.prepareLaunch({ name: "P", symbol: "PP" }), /metadata link/);
+  const withMeta = await pump.prepareLaunch({ name: "P", symbol: "PP", metadataUri: "https://x.io/m.json" });
+  assert.equal(withMeta.chain, "solana-mainnet");
+});
+
 test("gated and unbuilt chains refuse with the reason", async () => {
   const s = service();
   await assert.rejects(s.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "P", metadataUri: "https://x.io/m.json" }), /Mainnet is off/);

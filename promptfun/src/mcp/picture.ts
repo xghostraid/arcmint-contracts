@@ -16,12 +16,14 @@ function pictureCss(): string {
   return `${sunny}\n${panel}`.replace(/url\("fonts\/instrument-sans\.woff2"\)/g, `url("${fontUri}")`);
 }
 
-let cached: string | null = null;
+const htmlCache = new Map<string, string>();
 
-export function pictureHtml(): string {
-  if (cached) return cached;
+export function pictureHtml(publicUrl: string): string {
+  const origin = new URL(publicUrl).origin;
+  const hit = htmlCache.get(origin);
+  if (hit) return hit;
   const css = pictureCss();
-  cached = `<!doctype html>
+  const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>${css}</style></head>
 <body><div class="pic-wrap"><article class="pic-card" id="root"><p class="pic-title">Coin picture</p>
@@ -65,13 +67,27 @@ export function pictureHtml(): string {
     };
     r.readAsDataURL(f);
   };
+  var uploadOrigin = ${JSON.stringify(origin)};
   saveBtn.onclick = function(){
-    if (!dataUrl) return;
+    var f = document.getElementById("file").files && document.getElementById("file").files[0];
+    if (!f && !dataUrl) return;
     showErr("");
     saveBtn.disabled = true;
-    request("tools/call", {name:"save_picture", arguments:{imageBase64: dataUrl}})
-      .then(function(res){
-        var sc = res && res.structuredContent;
+    var uploadPromise;
+    if (f) {
+      uploadPromise = fetch(uploadOrigin + "/api/pictures/upload", {
+        method: "POST",
+        headers: { "Content-Type": f.type || "application/octet-stream" },
+        body: f,
+      }).then(function(res){
+        return res.json().then(function(body){ if (!res.ok) throw new Error(body.error || "Upload failed"); return body; });
+      });
+    } else {
+      uploadPromise = request("tools/call", {name:"save_picture", arguments:{imageBase64: dataUrl}})
+        .then(function(res){ return res && res.structuredContent; });
+    }
+    uploadPromise
+      .then(function(sc){
         pictureId = sc && sc.pictureId;
         if (!pictureId) throw new Error("No picture id returned");
         saveBtn.textContent = "Saved";
@@ -92,5 +108,6 @@ export function pictureHtml(): string {
     .catch(function(){});
 })();
 </script></body></html>`;
-  return cached;
+  htmlCache.set(origin, html);
+  return html;
 }

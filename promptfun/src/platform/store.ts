@@ -1,5 +1,6 @@
-import Database from "better-sqlite3";
+import fs from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 export interface OAuthClient {
   clientId: string;
@@ -20,12 +21,13 @@ export interface StoredAuthCode {
 
 /** SQLite backing for OAuth clients, magic links, and auth codes (not wired to HTTP yet). */
 export class PlatformStore {
-  private readonly db: Database.Database;
+  private readonly db: DatabaseSync;
 
   constructor(dbPath: string) {
-    this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
+    if (dbPath !== ":memory:") fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    this.db = new DatabaseSync(dbPath);
     this.db.exec(`
+      PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS oauth_clients (
         client_id TEXT PRIMARY KEY,
         redirect_uris TEXT NOT NULL,
@@ -95,7 +97,8 @@ export class PlatformStore {
 
   consumeAuthCode(code: string): StoredAuthCode | null {
     const row = this.db.prepare(`
-      SELECT code, client_id, redirect_uri, code_challenge, code_challenge_method, sub, email, expires_at
+      SELECT code, client_id AS clientId, redirect_uri AS redirectUri, code_challenge AS codeChallenge,
+        code_challenge_method AS codeChallengeMethod, sub, email, expires_at AS expiresAt
       FROM oauth_codes WHERE code = ?
     `).get(code) as StoredAuthCode | undefined;
     if (!row || row.expiresAt < Date.now()) return null;

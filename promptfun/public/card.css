@@ -1,0 +1,15 @@
+/* In-chat card. Shared tokens and components are in sunny-pop.css; the server inlines both into the MCP Apps resource. */
+html, body { margin: 0; background: transparent; }
+body { color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.wrap { padding: 2px 8px 10px 2px; }
+.pv { box-shadow: var(--sh); }
+.pv-title { font-size: 20px; }
+.pv-actions .btn { min-height: 46px; }
+.pv-alt { flex-basis: 100%; margin: 0; color: var(--ink-2); font-size: 13px; }
+.skeleton { height: 220px; border: var(--bw) dashed var(--edge); border-radius: 22px; background: var(--bg); }
+:root[data-theme="dark"] .pv { box-shadow: 5px 5px 0 var(--yellow); }
+@media (max-width: 440px) {
+  .pv-top { flex-wrap: wrap; }
+  .rows div { flex-direction: column; gap: 0; }
+  .rows dd { text-align: left; }
+}

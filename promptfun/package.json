@@ -1,0 +1,48 @@
+{
+  "name": "promptfun",
+  "version": "0.1.0",
+  "private": true,
+  "description": "promptfun.fun — an MCP server that turns plain-language requests into user-approved onchain actions.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "bin": {
+    "promptfun-mcp": "dist/src/stdio.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "start": "node dist/src/http.js",
+    "start:stdio": "node dist/src/stdio.js",
+    "dev": "tsx src/http.ts",
+    "test": "node --test --import tsx 'test/**/*.test.ts'",
+    "test:e2e": "node --test --import tsx 'test/e2e/*.e2e.ts'",
+    "demo:devnet": "tsx scripts/devnet-demo.ts",
+    "demo:evm": "tsx scripts/evm-demo.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/server": "2.3.1",
+    "@openzeppelin/contracts": "5.6.1",
+    "@pump-fun/pump-sdk": "^4.0.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/spl-token-metadata": "^0.1.6",
+    "@solana/web3.js": "^1.99.0",
+    "bs58": "^6.0.0",
+    "ipfs-only-hash": "^4.0.0",
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0",
+    "solc": "0.8.37",
+    "viem": "2.57.4",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@modelcontextprotocol/ext-apps": "^2.0.3",
+    "@types/node": "^22.13.0",
+    "playwright-core": "^1.64.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

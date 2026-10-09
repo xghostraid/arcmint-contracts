@@ -1,0 +1,61 @@
+@import url("sunny-pop.css");
+
+.pic-wrap {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.pic-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.pic-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+
+.pic-sub {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin: 0 0 12px;
+}
+
+.pic-preview {
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+  display: block;
+  margin: 0 0 12px;
+}
+
+.pic-preview:empty {
+  min-height: 160px;
+}
+
+.pic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pic-foot {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 12px 0 0;
+}
+
+.pic-err {
+  color: var(--bad);
+  font-size: 13px;
+  margin: 8px 0 0;
+}

@@ -1,0 +1,435 @@
+import { McpServer } from "@modelcontextprotocol/server";
+import * as z from "zod";
+import { BRAND, SHORT, VERSION } from "../brand.js";
+import { adapterFor } from "../chains/index.js";
+import { allChains } from "../chains/registry.js";
+import type { IntentService } from "../intents/service.js";
+import type { CoinIndexService } from "../indexer/service.js";
+import type { CoinDetail } from "../api/types.js";
+import { IntentError } from "../intents/types.js";
+import { CARD_URI, cardHtml } from "./card.js";
+import { PICTURE_URI, pictureHtml } from "./picture.js";
+import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
+import { intentText, intentView } from "./view.js";
+
+const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer. On supported Solana testnets with sponsored launches enabled, prepare_launch is a read-only preview and the user taps Launch it on the card (confirm_launch) with no wallet. Otherwise the user approves on the approval page in their own wallet. ${SHORT} never holds user keys. Call get_capabilities first. After prepare_*, use the card or approval link, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
+
+import type { Config } from "../config.js";
+
+function limitations(config: Config): string[] {
+  return [
+    "Sponsored launches on Solana testnets: when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. SPL is default; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1 and locks 100% creator fees to PROMPTFUN_SPONSOR_FEE_RECIPIENT (defaults to sponsor). Mainnet pump.fun stays wallet-approved until OAuth lands.",
+    "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
+    config.oauthRequired
+      ? "OAuth required: Claude must sign in (Bearer token on /mcp). Mainnets stay off until ops enables them."
+      : config.oauthEnabled
+        ? "OAuth is available but optional; set PROMPTFUN_OAUTH_REQUIRED=1 on shared servers. Mainnets stay off until ops enables them."
+        : "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
+    "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
+    "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
+    "Picture upload: JPEG/PNG up to 15 MB, EXIF stripped, pinned to IPFS (Kubo when PROMPTFUN_KUBO_API_URL is set, otherwise in-memory for dev).",
+    "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
+    "Fees shown are network fees only. promptfun charges no fee.",
+  ];
+}
+
+/** v1 targets Claude custom connectors; same Streamable HTTP / MCP Apps card at /mcp. */
+function hosts(config: Config) {
+  return [
+    {
+      host: "claude",
+      role: "primary" as const,
+      connect: config.oauthRequired
+        ? "Custom connector: Add https://<promptfun-host>/mcp with OAuth (PKCE). Metadata at /.well-known/oauth-protected-resource."
+        : "Custom connector: Customize → Connectors → Add custom connector, URL https://<promptfun-host>/mcp, Authentication: No sign in.",
+      notes: [
+        "Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise, on web, desktop and mobile. Add it on web or desktop first; it then appears on mobile.",
+        "prepare_launch is read-only; sponsored sends use confirm_launch from the in-chat card. prepare_transfer still opens the approval page.",
+        "The card renders inline. Opening the approval page shows Claude's external-link confirmation, which custom connectors always get.",
+        "Claude allows 240 seconds per tool call; every promptfun tool returns in seconds.",
+      ],
+    },
+  ];
+}
+
+type ToolResult = { content: Array<{ type: "text"; text: string }>; structuredContent?: Record<string, unknown>; isError?: boolean };
+
+function fail(err: unknown): ToolResult {
+  const message = err instanceof IntentError ? err.message : `Something went wrong: ${(err as Error).message}`;
+  return { content: [{ type: "text", text: `${message} Nothing was sent.` }], isError: true };
+}
+
+const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
+const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
+// "ui/resourceUri" is the pre-2026 MCP Apps key some hosts still read; "openai/outputTemplate" is ChatGPT's alias.
+const CARD_META = { ui: { resourceUri: CARD_URI }, "ui/resourceUri": CARD_URI, "openai/outputTemplate": CARD_URI };
+const PICTURE_META = { ui: { resourceUri: PICTURE_URI }, "ui/resourceUri": PICTURE_URI, "openai/outputTemplate": PICTURE_URI };
+const APP_ONLY = { "ui/visibility": "app" } as const;
+
+// Models and clients often send amounts as JSON numbers; the decimal parser still validates the text.
+const decimalInput = z.union([z.string(), z.number()]);
+function decimalText(value: string | number): string {
+  return typeof value === "number" ? value.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 20 }) : value;
+}
+
+export function buildServer(service: IntentService, coins?: CoinIndexService): McpServer {
+  const config = service.config;
+  const LIMITATIONS = limitations(config);
+  const HOSTS = hosts(config);
+  const server = new McpServer({ name: SHORT, title: BRAND, version: VERSION }, { instructions: INSTRUCTIONS });
+
+  const view = (id: string) => {
+    const intent = service.get(id);
+    return intentView(config, intent, service.approveUrl(intent.id));
+  };
+  const intentResult = (id: string): ToolResult => {
+    const v = view(id);
+    return { content: [{ type: "text", text: intentText(v) }], structuredContent: v as unknown as Record<string, unknown> };
+  };
+
+  server.registerResource(
+    "picture-panel",
+    PICTURE_URI,
+    { title: `${BRAND} coin picture`, mimeType: "text/html;profile=mcp-app" },
+    async (uri) => ({
+      contents: [{
+        uri: uri.href,
+        mimeType: "text/html;profile=mcp-app",
+        text: pictureHtml(),
+        _meta: {
+          ui: { prefersBorder: true, csp: { connectDomains: [new URL(config.publicUrl).origin], resourceDomains: [new URL(config.publicUrl).origin] } },
+          "openai/widgetDescription": "Upload a coin image (JPEG/PNG, max 15 MB). EXIF is stripped; the image is pinned for pump.fun metadata.",
+          "openai/widgetCSP": { connect_domains: [new URL(config.publicUrl).origin], resource_domains: [new URL(config.publicUrl).origin], redirect_domains: [] },
+        },
+      }],
+    }),
+  );
+
+  server.registerResource(
+    "intent-card",
+    CARD_URI,
+    { title: `${BRAND} action card`, mimeType: "text/html;profile=mcp-app" },
+    async (uri) => ({
+      contents: [{
+        uri: uri.href,
+        mimeType: "text/html;profile=mcp-app",
+        text: cardHtml(),
+        _meta: {
+          ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
+          "openai/widgetDescription": "Shows the prepared action, the decoded transaction, the network fee, and status, with a button to approve in the user's wallet.",
+          "openai/widgetCSP": { connect_domains: [], resource_domains: [], redirect_domains: [new URL(config.publicUrl).origin] },
+        },
+      }],
+    }),
+  );
+
+  server.registerTool(
+    "get_capabilities",
+    {
+      title: "What promptfun can do",
+      description: "Use this first. Lists chains, which actions each supports, and each chain's honest status: verified (proven end to end), configured (wired, not yet proven), or gated (real money behind a flag). Also lists known limitations.",
+      inputSchema: z.object({}),
+      annotations: READ,
+    },
+    async () => {
+      const chains = allChains(config).map((c) => ({
+        key: c.key,
+        name: c.name,
+        family: c.family,
+        testnet: c.testnet,
+        status: c.status,
+        enabled: !c.disabledReason,
+        disabledReason: c.disabledReason ?? null,
+        actions: c.actions,
+        evidence: c.evidence,
+        ...(c.family === "evm" ? { chainId: c.chainId, priority: c.priority } : { launchVenues: c.launchVenues }),
+      }));
+      const lines = chains.map((c) => `- ${c.key} (${c.name}): ${c.status}${c.enabled ? "" : ` — off: ${c.disabledReason}`}`);
+      return {
+        content: [{
+          type: "text",
+          text: [
+            `${BRAND} ${VERSION}. Chains:`, ...lines,
+            "Limitations:", ...LIMITATIONS.map((l) => `- ${l}`),
+            "Hosts:", ...HOSTS.map((h) => `- ${h.host} (${h.role}): ${h.connect} ${h.notes.join(" ")}`),
+          ].join("\n"),
+        }],
+        structuredContent: {
+          version: VERSION,
+          chains,
+          limitations: LIMITATIONS,
+          hosts: HOSTS,
+          promptfunFee: "0",
+          sponsoredLaunches: sponsorBudgetSnapshot(config),
+          sponsorPublicKey: service.sponsorPublicKey?.() ?? null,
+        },
+      };
+    },
+  );
+
+  server.registerTool(
+    "open_picture_panel",
+    {
+      title: "Upload a coin picture",
+      description: "Use when the user needs a coin image before launch. Opens the in-chat picture panel (JPEG/PNG, max 15 MB). After upload, save_picture returns pictureId for prepare_launch or build_metadata_uri.",
+      inputSchema: z.object({}),
+      annotations: READ,
+      _meta: PICTURE_META,
+    },
+    async () => ({
+      content: [{ type: "text", text: "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then use the returned pictureId in prepare_launch or build_metadata_uri." }],
+      structuredContent: { picturePanelUri: PICTURE_URI },
+    }),
+  );
+
+  server.registerTool(
+    "save_picture",
+    {
+      title: "Save picture (panel only)",
+      description: "Called from the picture panel after the user picks an image. Strips EXIF, stores the bytes, and returns pictureId.",
+      inputSchema: z.object({
+        imageBase64: z.string().max(22_000_000).describe("Data URL or raw base64 JPEG/PNG from the panel file picker."),
+      }),
+      annotations: WRITE,
+      _meta: APP_ONLY,
+    },
+    async ({ imageBase64 }) => {
+      try {
+        const saved = await service.pictures.saveFromBase64(imageBase64);
+        return {
+          content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}). Use pictureId in build_metadata_uri or prepare_launch.` }],
+          structuredContent: saved,
+        };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "build_metadata_uri",
+    {
+      title: "Build pump.fun metadata URI",
+      description: "Pins the saved picture and a pump.fun-style metadata JSON to IPFS and returns metadataUri (ipfs://…, max 200 chars). Use before prepare_launch when you already have pictureId.",
+      inputSchema: z.object({
+        pictureId: z.string().regex(/^pic_[a-f0-9]{24}$/),
+        name: z.string().min(1).max(32),
+        symbol: z.string().min(1).max(10),
+        description: z.string().max(400).optional(),
+        website: z.string().max(200).optional().describe("https:// project site"),
+        x: z.string().max(200).optional().describe("https:// X profile or post"),
+      }),
+      annotations: READ,
+    },
+    async (args) => {
+      try {
+        const result = await service.buildMetadataUri(args);
+        return {
+          content: [{ type: "text", text: `metadataUri: ${result.metadataUri} (image CID ${result.imageCid}).` }],
+          structuredContent: result,
+        };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "prepare_launch",
+    {
+      title: "Prepare a token launch",
+      description: "Use when the user wants to create a new token. Read-only: simulates and returns the card. On sponsored Solana testnets (SPL, not pump.fun) the card shows Launch it and confirm_launch sends with promptfun paying the network fee. Otherwise the user opens approveUrl and signs in their wallet. Nothing is broadcast by this call.",
+      inputSchema: z.object({
+        chain: z.string().describe("Chain key from get_capabilities, e.g. solana-devnet"),
+        name: z.string().min(1).max(32),
+        symbol: z.string().min(1).max(10),
+        supply: decimalInput.optional().describe("Whole tokens, e.g. \"1000000\". Default 1000000000. pump.fun is always 1000000000."),
+        decimals: z.number().int().min(0).max(18).optional().describe("Default 9 on Solana, 18 on EVM; pump.fun is 6."),
+        description: z.string().max(400).optional(),
+        metadataUri: z.string().max(200).optional().describe("Existing https:// or ipfs:// metadata JSON. Omit when pictureId is set."),
+        pictureId: z.string().regex(/^pic_[a-f0-9]{24}$/).optional().describe("From save_picture; builds and pins metadata when metadataUri is omitted."),
+        website: z.string().max(200).optional().describe("https:// site for metadata JSON"),
+        x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
+        fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),
+        venue: z.enum(["spl", "pumpfun", "erc20"]).optional(),
+        creatorWallet: z.string().max(64).optional().describe("Solana wallet for locked pump.fun creator fees on sponsored launches. Omit to use the sponsor wallet (100% to promptfun until claim-later ships)."),
+        idempotencyKey: z.string().max(64).optional(),
+      }),
+      annotations: READ,
+      _meta: CARD_META,
+    },
+    async (args) => {
+      try {
+        const intent = await service.prepareLaunch({ ...args, supply: args.supply === undefined ? undefined : decimalText(args.supply) });
+        return intentResult(intent.id);
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  const confirmLaunchHandler = async ({ intentId }: { intentId: string }): Promise<ToolResult> => {
+    try {
+      const intent = await service.confirmLaunch(intentId);
+      return intentResult(intent.id);
+    } catch (err) {
+      return fail(err);
+    }
+  };
+
+  server.registerTool(
+    "confirm_launch",
+    {
+      title: "Confirm a sponsored launch",
+      description: "Called from the in-chat card (Launch it) after prepare_launch when promptfun pays. Signs with the sponsor fee payer and submits. Do not call unless the user confirmed on the card.",
+      inputSchema: z.object({ intentId: z.string() }),
+      annotations: WRITE,
+      _meta: { ...CARD_META, "ui/visibility": "app" },
+    },
+    confirmLaunchHandler,
+  );
+
+  server.registerTool(
+    "confirm_launch_by_text",
+    {
+      title: "Confirm a sponsored launch (text)",
+      description: "Same as confirm_launch for hosts and tests that cannot invoke app-only tools from the card iframe.",
+      inputSchema: z.object({ intentId: z.string() }),
+      annotations: WRITE,
+    },
+    confirmLaunchHandler,
+  );
+
+  server.registerTool(
+    "prepare_transfer",
+    {
+      title: "Prepare a transfer",
+      description: "Use this when the user wants to send the native coin (e.g. SOL) or a token to an address. Prepares it only: returns an approval link where the user reviews the exact transaction and network fee and signs in their own wallet. Nothing is sent by this call.",
+      inputSchema: z.object({
+        chain: z.string().describe("Chain key from get_capabilities, e.g. solana-devnet"),
+        asset: z.string().describe('"native" for SOL/ETH, a listed symbol, or a token mint/contract address'),
+        amount: decimalInput.describe("Amount in whole units, e.g. \"0.01\""),
+        to: z.string().describe("Recipient wallet address"),
+        idempotencyKey: z.string().max(64).optional(),
+      }),
+      annotations: WRITE,
+      _meta: CARD_META,
+    },
+    async (args) => {
+      try {
+        const intent = await service.prepareTransfer({ ...args, amount: decimalText(args.amount) });
+        return intentResult(intent.id);
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_action_status",
+    {
+      title: "Check an action",
+      description: "Use this after prepare_* to see whether the user approved and what happened on chain. A confirmed status includes a receipt read from the chain and explorer links. Never report success unless status is confirmed.",
+      inputSchema: z.object({ intentId: z.string() }),
+      annotations: READ,
+      _meta: CARD_META,
+    },
+    async ({ intentId }) => {
+      try {
+        await service.refresh(intentId);
+        const v = view(intentId);
+        const intent = service.get(intentId);
+        let structured = v as unknown as Record<string, unknown>;
+        if (intent.status === "confirmed" && intent.kind === "launch_token" && coins) {
+          coins.syncIntents();
+          const detail = coins.findByIntentOrAddress(intentId) ?? (intent.receipt?.tokenAddress ? coins.findByIntentOrAddress(intent.receipt.tokenAddress, intent.chain) : null);
+          if (detail) {
+            structured = { ...structured, coin: detail };
+            const lines = [
+              intentText(v),
+              detail.links.explorer ? `Explorer: ${detail.links.explorer}` : null,
+              detail.links.launchTx ? `Launch tx: ${detail.links.launchTx}` : null,
+              `Share on X: ${detail.share.intentUrl}`,
+            ].filter(Boolean);
+            return { content: [{ type: "text", text: lines.join("\n") }], structuredContent: structured };
+          }
+        }
+        return { content: [{ type: "text", text: intentText(v) }], structuredContent: structured };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "coin_status",
+    {
+      title: "Coin index status",
+      description: "Read-only status for a coin promptfun launched: live market snapshot, holders, creator fees, and share text. Input is a coin id (chain:address), token address, or launch intent id.",
+      inputSchema: z.object({
+        coin: z.string().describe("Coin id, mint/contract address, or launch intent id"),
+        chain: z.string().optional().describe("Disambiguate when the same address exists on multiple chains"),
+      }),
+      annotations: READ,
+    },
+    async ({ coin, chain }) => {
+      try {
+        if (!coins) throw new IntentError("Coin index is not available.");
+        coins.syncIntents();
+        const detail: CoinDetail | null = coins.findByIntentOrAddress(coin, chain);
+        if (!detail) throw new IntentError("No indexed coin matches that id.");
+        const splitLine =
+          detail.feeSplit.recipients?.length
+            ? `Fee split (locked on chain): ${detail.feeSplit.recipients.map((r) => `${r.address.slice(0, 4)}…${r.address.slice(-4)} ${(r.shareBps / 100).toFixed(0)}%`).join(", ")}`
+            : detail.feeSplit.reason;
+        const feesLine =
+          detail.creatorFees.waiting != null
+            ? `Creator fees waiting: ${detail.creatorFees.waiting} ${detail.creatorFees.symbol}${detail.creatorFees.paid ? `; paid out so far: ${detail.creatorFees.paid} ${detail.creatorFees.symbol}` : ""}`
+            : detail.creatorFees.reason;
+        const text = [
+          `${detail.name} ($${detail.symbol}) on ${detail.chain.name}`,
+          detail.links.explorer ? `Explorer: ${detail.links.explorer}` : null,
+          detail.links.pumpfun ? `pump.fun: ${detail.links.pumpfun}` : null,
+          splitLine,
+          feesLine,
+          detail.market.reason && !detail.market.priceNative ? detail.market.reason : null,
+          detail.holders.count !== null ? `Holders: ${detail.holders.exact ? detail.holders.count : `at least ${detail.holders.count}`}` : detail.holders.reason,
+          `Share on X: ${detail.share.intentUrl}`,
+        ].filter(Boolean).join("\n");
+        return { content: [{ type: "text", text }], structuredContent: detail as unknown as Record<string, unknown> };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_balance",
+    {
+      title: "Check a balance",
+      description: "Use this to read a wallet's native or token balance on a chain, straight from the chain.",
+      inputSchema: z.object({
+        chain: z.string(),
+        address: z.string(),
+        token: z.string().optional().describe("Omit for the native coin; or a listed symbol / token address"),
+      }),
+      annotations: READ,
+    },
+    async ({ chain: key, address, token }) => {
+      try {
+        const chain = service.chainOrThrow(key);
+        const adapter = adapterFor(chain.family);
+        if (!adapter.isAddress(address)) throw new IntentError(`"${address}" is not a ${chain.name} address.`);
+        const bal = await adapter.balance(chain, address, token ?? null);
+        return {
+          content: [{ type: "text", text: `${address} holds ${bal.amount} ${bal.symbol} on ${chain.name} (read from chain).` }],
+          structuredContent: { chain: chain.key, address, amount: bal.amount, symbol: bal.symbol },
+        };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  return server;
+}

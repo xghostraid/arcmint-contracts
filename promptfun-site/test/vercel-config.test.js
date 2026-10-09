@@ -16,8 +16,15 @@ test("vercel.json proxies MCP/API via PROMPTFUN_BACKEND_URL (no hardcoded host)"
   assert.ok(mcp, "missing /mcp route");
   assert.match(mcp.dest, /\$\{PROMPTFUN_BACKEND_URL\}/);
   assert.deepEqual(mcp.env, ["PROMPTFUN_BACKEND_URL"]);
+  const pictures = routes.find((r) => r.src === "/api/pictures/(.*)");
+  assert.ok(pictures, "missing /api/pictures proxy route (OPTIONS preflight + POST upload)");
+  assert.match(pictures.dest, /\$\{PROMPTFUN_BACKEND_URL\}\/api\/pictures\/\$1/);
+  assert.deepEqual(pictures.env, ["PROMPTFUN_BACKEND_URL"]);
   const api = routes.find((r) => r.src === "/api/(.*)");
   assert.ok(api, "missing /api proxy route");
   assert.match(api.dest, /\$\{PROMPTFUN_BACKEND_URL\}/);
+  const picturesIdx = routes.findIndex((r) => r.src === "/api/pictures/(.*)");
+  const apiIdx = routes.findIndex((r) => r.src === "/api/(.*)");
+  assert.ok(picturesIdx >= 0 && apiIdx >= 0 && picturesIdx < apiIdx, "/api/pictures must precede /api catch-all");
   assert.ok(routes.some((r) => r.handle === "filesystem"), "static files need filesystem handler");
 });

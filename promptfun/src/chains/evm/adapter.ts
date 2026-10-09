@@ -335,17 +335,17 @@ export const evmAdapter: ChainAdapter = {
     let status: "success" | "failed" = receipt.status === "success" ? "success" : "failed";
     const want = digest.call;
     const fieldChecks: Array<[boolean, string]> = [
-      [tx.from.toLowerCase() === want.from.toLowerCase(), `Sent from ${getAddress(tx.from)}.`],
-      [(tx.to?.toLowerCase() ?? null) === (want.to?.toLowerCase() ?? null), want.to ? `Sent to ${getAddress(want.to)}.` : "A contract deployment, as previewed."],
-      [tx.input.toLowerCase() === want.data.toLowerCase(), "Call data is byte-identical to the preview."],
-      [tx.value === BigInt(want.value), `Value ${native(chain, tx.value)} ${chain.nativeSymbol}, as previewed.`],
-      [tx.chainId === undefined || tx.chainId === Number(BigInt(want.chainId)), `On chain ID ${Number(BigInt(want.chainId))}.`],
+      [tx.from.toLowerCase() === want.from.toLowerCase(), `it to be sent from ${getAddress(want.from)}, but it came from ${getAddress(tx.from)}.`],
+      [(tx.to?.toLowerCase() ?? null) === (want.to?.toLowerCase() ?? null), want.to ? `it to go to ${getAddress(want.to)}, but it went to ${tx.to ? getAddress(tx.to) : "a new contract"}.` : `a contract deployment, but it went to ${tx.to}.`],
+      [tx.input.toLowerCase() === want.data.toLowerCase(), "call data byte-identical to the preview, but it differs."],
+      [tx.value === BigInt(want.value), `a value of ${native(chain, BigInt(want.value))} ${chain.nativeSymbol}, but it sent ${native(chain, tx.value)} ${chain.nativeSymbol}.`],
+      [tx.chainId === undefined || tx.chainId === Number(BigInt(want.chainId)), `chain ID ${Number(BigInt(want.chainId))}, but it was ${tx.chainId}.`],
     ];
     const differs = fieldChecks.filter(([ok]) => !ok);
     if (differs.length) {
       status = "failed";
       verified.push("MISMATCH: your wallet sent a different transaction than the one previewed.");
-      for (const [, text] of differs) verified.push(`MISMATCH: expected ${text}`);
+      for (const [, text] of differs) verified.push(`MISMATCH: the preview expected ${text}`);
     }
     if (receipt.status !== "success") verified.push("The transaction reverted on chain. Only the network fee was spent.");
 

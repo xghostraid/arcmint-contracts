@@ -88,16 +88,29 @@ function verifyEd25519(publicKey: PublicKey, message: Uint8Array, signature: Uin
   }
 }
 
+/** A plain-language reason for a failed simulation, falling back to the program's own log line. */
+export function explainSimulationFailure(logs: string[], err: unknown): string {
+  const lamports = logs.map((line) => /insufficient lamports (\d+), need (\d+)/.exec(line)).find(Boolean);
+  if (lamports) {
+    const [have, need] = [formatUnits(BigInt(lamports[1]), 9), formatUnits(BigInt(lamports[2]), 9)];
+    return `Not enough SOL: the wallet has ${have} SOL but this needs ${need} SOL`;
+  }
+  if (JSON.stringify(err).includes("AccountNotFound") || logs.some((l) => /Attempt to debit an account but found no record of a prior credit/.test(l))) {
+    return "Not enough SOL: the wallet has no SOL on this network yet";
+  }
+  if (logs.some((l) => /insufficient funds/i.test(l))) return "Not enough tokens in the wallet for this transfer";
+  return [...logs].reverse().find((line) => /failed|error|insufficient/i.test(line)) ?? JSON.stringify(err);
+}
+
 async function simulate(conn: Connection, tx: VersionedTransaction): Promise<Simulation> {
   const at = new Date().toISOString();
   try {
     const result = await conn.simulateTransaction(tx, { sigVerify: false, commitment: "confirmed" });
     const logs = result.value.logs ?? [];
     if (result.value.err) {
-      const failing = [...logs].reverse().find((line) => /failed|error|insufficient/i.test(line));
       return {
         ok: false,
-        error: failing ?? JSON.stringify(result.value.err),
+        error: explainSimulationFailure(logs, result.value.err),
         logs: logs.slice(-12),
         unitsConsumed: result.value.unitsConsumed ?? null,
         at,

@@ -29,6 +29,7 @@
     "@solana/spl-token": "^0.4.15",
     "@solana/spl-token-metadata": "^0.1.6",
     "@solana/web3.js": "^1.99.0",
+    "@vercel/blob": "^0.27.3",
     "bs58": "^6.0.0",
     "ipfs-only-hash": "^4.0.0",
     "jpeg-js": "^0.4.4",

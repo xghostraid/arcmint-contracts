@@ -12,6 +12,8 @@ import { IntentStore } from "./intents/store.js";
 import { IntentError } from "./intents/types.js";
 import { PictureService } from "./pictures/service.js";
 import { PictureStore } from "./pictures/store.js";
+import { readRawBody } from "./pictures/read-body.js";
+import { MAX_PICTURE_BYTES } from "./pictures/sanitize.js";
 import { buildServer } from "./mcp/server.js";
 import { CoinIndexStore } from "./indexer/store.js";
 import { CoinIndexService, handleCoinsApi } from "./indexer/service.js";
@@ -199,10 +201,20 @@ export function createApp(config: Config): App {
         res.setHeader("Content-Security-Policy", PAGE_CSP);
         return send(res, 200, "text/html; charset=utf-8", homePage());
       }
+      if (pathname === "/api/pictures/upload" && req.method === "POST") {
+        const ct = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+        if (ct !== "image/jpeg" && ct !== "image/png") {
+          return json(res, 400, { error: "Content-Type must be image/jpeg or image/png." });
+        }
+        const raw = await readRawBody(req, MAX_PICTURE_BYTES);
+        const saved = await pictures.saveFromRaw(ct, raw);
+        return json(res, 200, saved);
+      }
+
       const picMatch = /^\/api\/pictures\/(pic_[a-f0-9]{24})$/.exec(pathname);
       if (picMatch && req.method === "GET") {
         try {
-          const { mime, data } = pictures.getBytes(picMatch[1]);
+          const { mime, data } = await pictures.getBytes(picMatch[1]);
           res.setHeader("Cache-Control", "public, max-age=300");
           return send(res, 200, mime, data);
         } catch (err) {

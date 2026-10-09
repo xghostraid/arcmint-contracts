@@ -34,7 +34,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-    "Picture upload: JPEG/PNG up to 15 MB, EXIF stripped, pinned to IPFS (Kubo when PROMPTFUN_KUBO_API_URL is set, otherwise in-memory for dev).",
+    "Picture upload: JPEG/PNG up to 15 MB via the in-chat panel (direct upload to /api/pictures/upload). EXIF stripped; pins to IPFS when PROMPTFUN_KUBO_API_URL or PROMPTFUN_PINATA_JWT is set, or hosts on Vercel Blob when BLOB_READ_WRITE_TOKEN is set.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown are network fees only. promptfun charges no fee.",
   ];
@@ -102,7 +102,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
       contents: [{
         uri: uri.href,
         mimeType: "text/html;profile=mcp-app",
-        text: pictureHtml(),
+        text: pictureHtml(config.publicUrl),
         _meta: {
           ui: { prefersBorder: true, csp: { connectDomains: [new URL(config.publicUrl).origin], resourceDomains: [new URL(config.publicUrl).origin] } },
           "openai/widgetDescription": "Upload a coin image (JPEG/PNG, max 15 MB). EXIF is stripped; the image is pinned for pump.fun metadata.",
@@ -241,8 +241,9 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     async ({ imageBase64 }) => {
       try {
         const saved = await service.pictures.saveFromBase64(imageBase64);
+        const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
         return {
-          content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}). Use pictureId in build_metadata_uri or prepare_launch.` }],
+          content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in build_metadata_uri or prepare_launch.` }],
           structuredContent: saved,
         };
       } catch (err) {

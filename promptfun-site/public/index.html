@@ -46,7 +46,7 @@
     </div>
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="pill"><span class="dot" aria-hidden="true"></span>Live on Solana mainnet · pump.fun</p>
+        <p class="pill pill-live"><span class="dot" aria-hidden="true"></span>Live · mainnet, devnet &amp; testnets</p>
         <h1 id="hero-title">Say it in Claude.<br>Approve in your wallet.<br><em>Done.</em></h1>
         <p class="lede">promptfun.fun connects Claude to the blockchain. Ask for what you want, like “launch a token called Moonbeam”. You get a preview in plain words, you approve it in your wallet, and you get a receipt checked against the chain.</p>
         <div class="cta-row">
@@ -158,37 +158,57 @@
     <div class="wrap">
       <p class="eyebrow">Chains</p>
       <h2 id="chains-title">Solana first. EVM chains next.</h2>
-      <p class="section-lede">Solana mainnet pump.fun launches are live via the Claude connector. Everything else is labelled honestly below.</p>
+      <p class="section-lede">Mainnet, devnet and public testnets are live through the Claude connector. Green badges refresh from the public networks API when it is reachable.</p>
 
-      <div class="chains">
+      <div class="chains" data-networks-panel data-state="static">
         <article class="chain chain-first">
           <div class="chain-top" aria-hidden="true"><img src="/art/chain-solana.svg" alt="" width="560" height="74"></div>
           <div class="chain-head">
             <h3>Solana</h3>
-            <span class="status status-live">Live on mainnet</span>
+            <span class="status status-live">Live</span>
           </div>
-          <p class="chain-sub">pump.fun token launches on Solana mainnet through Claude. Real SOL, real coins — you approve in your wallet.</p>
+          <p class="chain-sub">Mainnet pump.fun launches and devnet testing share the same preview → approve → receipt flow.</p>
           <ul class="chain-list">
-            <li><span>Launch on pump.fun (Solana mainnet)</span><span class="status status-live">Live</span></li>
-            <li><span>Launch with your wallet on Solana devnet</span><span class="status status-testing">Test network</span></li>
-            <li><span>Launch with no wallet (sponsored)</span><span class="status status-testing">Devnet only</span></li>
+            <li data-chain-key="solana-mainnet"><span>Launch on pump.fun (Solana mainnet)</span><span class="status status-live" data-network-chip>Live</span></li>
+            <li data-chain-key="solana-devnet"><span>Launch with your wallet on Solana devnet</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="solana-devnet"><span>Launch with no wallet (sponsored, devnet)</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="solana-devnet"><span>pump.fun on devnet (when enabled)</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
           </ul>
-          <p class="chain-note">Mainnet uses real funds. Devnet is optional for testing with test SOL only.</p>
+          <p class="chain-note">Mainnet uses real SOL. Devnet and sponsored launches use test SOL with no real value.</p>
         </article>
 
         <article class="chain">
           <div class="chain-top" aria-hidden="true"><img src="/art/chain-evm.svg" alt="" width="560" height="74"></div>
           <div class="chain-head">
-            <h3>EVM chains</h3>
+            <h3>EVM testnets</h3>
+            <span class="status status-live">Live</span>
+          </div>
+          <p class="chain-sub">ERC-20 launches and transfers on public testnets. Robinhood Chain Testnet is proven end to end; the others use the same adapter.</p>
+          <ul class="chain-list">
+            <li data-chain-key="robinhood-testnet"><span>Robinhood Chain Testnet</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="ethereum-sepolia"><span>Ethereum Sepolia</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="base-sepolia"><span>Base Sepolia</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="arbitrum-sepolia"><span>Arbitrum Sepolia</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="optimism-sepolia"><span>OP Sepolia</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="polygon-amoy"><span>Polygon Amoy</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+            <li data-chain-key="bnb-testnet"><span>BNB Smart Chain Testnet</span><span class="status status-live" data-network-chip>Live · testnet</span></li>
+          </ul>
+          <p class="chain-note">Testnets use test ETH or POL with no real value. You approve in your wallet on each network.</p>
+        </article>
+
+        <article class="chain">
+          <div class="chain-top" aria-hidden="true"><img src="/art/chain-evm.svg" alt="" width="560" height="74"></div>
+          <div class="chain-head">
+            <h3>EVM mainnets</h3>
             <span class="status status-soon">Coming next</span>
           </div>
-          <p class="chain-sub">Token launches with the same say-it, approve-it flow, one chain at a time in this order.</p>
+          <p class="chain-sub">Real-money EVM mainnets stay off until OAuth and ops enable them explicitly.</p>
           <ol class="chain-list chain-order">
-            <li><span><span class="order">1</span>Ethereum</span><span class="status status-soon">Coming next</span></li>
-            <li><span><span class="order">2</span>Robinhood Chain</span><span class="status status-soon">Coming soon</span></li>
-            <li><span><span class="order">3</span>Base</span><span class="status status-soon">Coming soon</span></li>
+            <li data-chain-key="ethereum"><span><span class="order">1</span>Ethereum</span><span class="status status-soon" data-network-chip>Coming next</span></li>
+            <li data-chain-key="robinhood"><span><span class="order">2</span>Robinhood Chain</span><span class="status status-soon" data-network-chip>Coming soon</span></li>
+            <li data-chain-key="base"><span><span class="order">3</span>Base</span><span class="status status-soon" data-network-chip>Coming soon</span></li>
           </ol>
-          <p class="chain-note">None of these are available yet. Each chain shows up here as working only when it works end to end.</p>
+          <p class="chain-note">Mainnet EVM launches are not open yet. Testnets above are live today.</p>
         </article>
       </div>
 
@@ -333,7 +353,7 @@
         </details>
         <details>
           <summary>Is it live?</summary>
-          <p>Yes for Solana mainnet pump.fun launches via the Claude connector. Real SOL, real coins — you are responsible for what you launch. Devnet remains available for testing. Ethereum, Robinhood Chain and Base are not live yet.</p>
+          <p>Yes. Solana mainnet (pump.fun), Solana devnet, sponsored devnet launches, and EVM public testnets (including Robinhood Chain Testnet) are live via the Claude connector. Mainnet uses real SOL; testnets use test tokens only. EVM mainnets (Ethereum, Robinhood Chain, Base) are not open yet.</p>
         </details>
         <details>
           <summary>Which chains does it support?</summary>
@@ -401,12 +421,13 @@
       <a href="/terms">Terms</a>
       <a href="/privacy">Privacy</a>
     </nav>
-    <p>Solana mainnet pump.fun launches are live via Claude. Real SOL; you are responsible for what you launch.</p>
+    <p>Mainnet, devnet and testnets are live via Claude. Real SOL on mainnet; test tokens on devnet and EVM testnets.</p>
     <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
   </div>
 </footer>
 
 <script src="/site.js" defer></script>
+<script src="/networks.js" defer></script>
 <script src="/stats.js" defer></script>
 </body>
 </html>

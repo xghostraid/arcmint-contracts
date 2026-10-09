@@ -4,6 +4,8 @@ import { BRAND, SHORT, VERSION } from "../brand.js";
 import { adapterFor } from "../chains/index.js";
 import { allChains } from "../chains/registry.js";
 import type { IntentService } from "../intents/service.js";
+import type { CoinIndexService } from "../indexer/service.js";
+import type { CoinDetail } from "../api/types.js";
 import { IntentError } from "../intents/types.js";
 import { CARD_URI, cardHtml } from "./card.js";
 import { PICTURE_URI, pictureHtml } from "./picture.js";
@@ -58,7 +60,7 @@ function decimalText(value: string | number): string {
   return typeof value === "number" ? value.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 20 }) : value;
 }
 
-export function buildServer(service: IntentService): McpServer {
+export function buildServer(service: IntentService, coins?: CoinIndexService): McpServer {
   const config = service.config;
   const server = new McpServer({ name: SHORT, title: BRAND, version: VERSION }, { instructions: INSTRUCTIONS });
 
@@ -320,7 +322,54 @@ export function buildServer(service: IntentService): McpServer {
     async ({ intentId }) => {
       try {
         await service.refresh(intentId);
-        return intentResult(intentId);
+        const v = view(intentId);
+        const intent = service.get(intentId);
+        let structured = v as unknown as Record<string, unknown>;
+        if (intent.status === "confirmed" && intent.kind === "launch_token" && coins) {
+          coins.syncIntents();
+          const detail = coins.findByIntentOrAddress(intentId) ?? (intent.receipt?.tokenAddress ? coins.findByIntentOrAddress(intent.receipt.tokenAddress, intent.chain) : null);
+          if (detail) {
+            structured = { ...structured, coin: detail };
+            const lines = [
+              intentText(v),
+              detail.links.explorer ? `Explorer: ${detail.links.explorer}` : null,
+              detail.links.launchTx ? `Launch tx: ${detail.links.launchTx}` : null,
+              `Share on X: ${detail.share.intentUrl}`,
+            ].filter(Boolean);
+            return { content: [{ type: "text", text: lines.join("\n") }], structuredContent: structured };
+          }
+        }
+        return { content: [{ type: "text", text: intentText(v) }], structuredContent: structured };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "coin_status",
+    {
+      title: "Coin index status",
+      description: "Read-only status for a coin promptfun launched: live market snapshot, holders, creator fees, and share text. Input is a coin id (chain:address), token address, or launch intent id.",
+      inputSchema: z.object({
+        coin: z.string().describe("Coin id, mint/contract address, or launch intent id"),
+        chain: z.string().optional().describe("Disambiguate when the same address exists on multiple chains"),
+      }),
+      annotations: READ,
+    },
+    async ({ coin, chain }) => {
+      try {
+        if (!coins) throw new IntentError("Coin index is not available.");
+        coins.syncIntents();
+        const detail: CoinDetail | null = coins.findByIntentOrAddress(coin, chain);
+        if (!detail) throw new IntentError("No indexed coin matches that id.");
+        const text = [
+          `${detail.name} ($${detail.symbol}) on ${detail.chain.name}`,
+          detail.links.explorer ? `Explorer: ${detail.links.explorer}` : null,
+          detail.market.reason && !detail.market.priceNative ? detail.market.reason : null,
+          detail.holders.count !== null ? `Holders: ${detail.holders.exact ? detail.holders.count : `at least ${detail.holders.count}`}` : detail.holders.reason,
+        ].filter(Boolean).join("\n");
+        return { content: [{ type: "text", text }], structuredContent: detail as unknown as Record<string, unknown> };
       } catch (err) {
         return fail(err);
       }

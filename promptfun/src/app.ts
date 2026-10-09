@@ -12,6 +12,8 @@ import { IntentError } from "./intents/types.js";
 import { PictureService } from "./pictures/service.js";
 import { PictureStore } from "./pictures/store.js";
 import { buildServer } from "./mcp/server.js";
+import { CoinIndexStore } from "./indexer/store.js";
+import { CoinIndexService, handleCoinsApi } from "./indexer/service.js";
 import { intentView } from "./mcp/view.js";
 import { approvePage, homePage, notFoundPage, type EvmWalletChain } from "./web/page.js";
 
@@ -66,6 +68,7 @@ async function readJson(req: http.IncomingMessage): Promise<Record<string, unkno
 export interface App {
   config: Config;
   service: IntentService;
+  coins: CoinIndexService;
   server: http.Server;
   listen(): Promise<string>;
   close(): Promise<void>;
@@ -75,8 +78,10 @@ export function createApp(config: Config): App {
   const store = new IntentStore(config.dbPath);
   const pictureStore = new PictureStore(config.dbPath);
   const pictures = new PictureService(config, pictureStore);
+  const coinStore = new CoinIndexStore(config.dbPath);
   const service = new IntentService(config, store, pictures);
-  const mcp = createMcpHandler(() => buildServer(service), { legacy: "stateless" });
+  const coins = new CoinIndexService(config, store, coinStore);
+  const mcp = createMcpHandler(() => buildServer(service, coins), { legacy: "stateless" });
   const mcpNode = toNodeHandler(mcp);
   const allowedHosts = [...new Set([new URL(config.publicUrl).hostname, "localhost", "127.0.0.1", "[::1]"])];
   const hostCheck = hostHeaderValidation(allowedHosts);
@@ -98,6 +103,8 @@ export function createApp(config: Config): App {
         return;
       }
       if (pathname.startsWith("/.well-known/oauth")) return json(res, 404, { error: "No OAuth on this server (v1 is no-sign-in)." });
+
+      if (handleCoinsApi(req, res, pathname, url, coins, (status, body) => json(res, status, body))) return;
 
       const apiMatch = /^\/api\/intents\/(int_[a-f0-9]{32})(\/build|\/submit|\/reject)?$/.exec(pathname);
       if (apiMatch) {
@@ -195,6 +202,7 @@ export function createApp(config: Config): App {
   return {
     config,
     service,
+    coins,
     server,
     listen: () =>
       new Promise((resolve) => {
@@ -202,16 +210,19 @@ export function createApp(config: Config): App {
           const address = server.address();
           const port = typeof address === "object" && address ? address.port : config.port;
           service.startPoller();
+          coins.start();
           resolve(`http://${config.host}:${port}`);
         });
       }),
     close: async () => {
       service.stopPoller();
+      coins.stop();
       await mcp.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       server.closeAllConnections?.();
       store.close();
       pictureStore.close();
+      coinStore.close();
     },
   };
 }

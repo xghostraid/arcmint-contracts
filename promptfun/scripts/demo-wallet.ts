@@ -30,19 +30,22 @@ const WALLET_SOURCE = String.raw`function (walletChains) {
     for (var c of s) { if (c !== "1") break; out.unshift(0); }
     return new Uint8Array(out);
   }
+  // The approval page's CSP forbids inline style attributes, so styles are set through CSSOM, which CSP allows.
+  function el(tag, css, text) { var e = document.createElement(tag); e.style.cssText = css; if (text) e.textContent = text; return e; }
   function prompt() {
     return new Promise(function (resolve) {
-      var box = document.createElement("div");
+      var box = el("div", "position:fixed;right:24px;top:24px;width:340px;z-index:99999;background:#1b1530;color:#fff;border-radius:14px;padding:16px 18px;font:14px/1.45 system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.35)");
       box.id = "demo-wallet-prompt";
-      box.setAttribute("style", "position:fixed;right:24px;top:24px;width:340px;z-index:99999;background:#1b1530;color:#fff;border-radius:14px;padding:16px 18px;font:14px/1.45 system-ui,sans-serif;box-shadow:0 12px 40px rgba(0,0,0,.35)");
-      box.innerHTML = '<div style="font-weight:700;margin-bottom:6px">Demo test wallet</div>' +
-        '<div style="opacity:.85;margin-bottom:10px">Stands in for Phantom in this recording. Devnet key held by the test harness, not by promptfun.</div>' +
-        '<div style="margin-bottom:12px">Sign this transaction?</div>' +
-        '<div style="display:flex;gap:8px;justify-content:flex-end"><button id="demo-wallet-reject" style="padding:8px 14px;border-radius:8px;border:1px solid #6b6290;background:transparent;color:#fff">Reject</button>' +
-        '<button id="demo-wallet-approve" style="padding:8px 14px;border-radius:8px;border:0;background:#8f7bff;color:#fff;font-weight:600">Sign</button></div>';
+      var reject = el("button", "padding:8px 14px;border-radius:8px;border:1px solid #6b6290;background:transparent;color:#fff;cursor:pointer", "Reject");
+      reject.id = "demo-wallet-reject";
+      var approve = el("button", "padding:8px 14px;border-radius:8px;border:0;background:#8f7bff;color:#fff;font-weight:600;cursor:pointer", "Sign");
+      approve.id = "demo-wallet-approve";
+      var row = el("div", "display:flex;gap:8px;justify-content:flex-end");
+      row.append(reject, approve);
+      box.append(el("div", "font-weight:700;margin-bottom:6px", "Demo test wallet"), el("div", "opacity:.85;margin-bottom:10px", "Stands in for Phantom in this recording. Devnet key held by the test harness, not by promptfun."), el("div", "margin-bottom:12px", "Sign this transaction?"), row);
       document.body.append(box);
-      box.querySelector("#demo-wallet-approve").addEventListener("click", function () { box.remove(); resolve(true); });
-      box.querySelector("#demo-wallet-reject").addEventListener("click", function () { box.remove(); resolve(false); });
+      approve.addEventListener("click", function () { box.remove(); resolve(true); });
+      reject.addEventListener("click", function () { box.remove(); resolve(false); });
     });
   }
   var wallet = {

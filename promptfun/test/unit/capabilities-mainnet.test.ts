@@ -40,4 +40,5 @@ test("sponsored mainnet stays gated unless explicitly enabled", () => {
   });
   assert.equal(chainAllowsSponsoredLaunch(mainnet, sponsoredMainnet), true);
   assert.equal(sponsorBudgetSnapshot(sponsoredMainnet).sponsoredMainnetEnabled, true);
+  assert.match(findChain(sponsoredMainnet, "solana-mainnet")!.evidence, /sponsored pump.fun on Solana mainnet/);
 });

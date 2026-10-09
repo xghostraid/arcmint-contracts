@@ -100,7 +100,9 @@ export function allChains(config: Config): Chain[] {
       testnet: false,
       status: config.enablePumpfunMainnet ? "verified" : "gated",
       evidence: config.enablePumpfunMainnet
-        ? "Live: pump.fun token launches via the Claude connector. prepare_launch builds with @pump-fun/pump-sdk; the user approves in their wallet on Solana mainnet (real SOL). Sponsored mainnet (no wallet) stays off unless PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and the sponsor wallet is funded."
+        ? config.enableSponsoredMainnet && config.enableSponsoredLaunches
+          ? "Live: sponsored pump.fun on Solana mainnet via Claude — prepare_launch returns the card, the user taps Launch it, confirm_launch sends with promptfun as fee payer (no wallet). Real mainnet SOL from the sponsor wallet; creator fees lock to feeRecipient or the sponsor pubkey when omitted."
+          : "Live: pump.fun token launches via the Claude connector. prepare_launch builds with @pump-fun/pump-sdk; the user approves in their wallet on Solana mainnet (real SOL). Sponsored mainnet (no wallet) stays off unless PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and the sponsor wallet is funded."
         : "pump.fun has no testnet. The pump.fun launch transaction is built with the official @pump-fun/pump-sdk and simulated. Real SOL is spent when enabled.",
       rpcUrl: rpc(env, "solana-mainnet", "https://api.mainnet-beta.solana.com"),
       nativeSymbol: "SOL",

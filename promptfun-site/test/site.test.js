@@ -3,10 +3,8 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile, readdir, access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { join, relative, sep } from "node:path";
 import { handler, resolvePath } from "../server.js";
 
-const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const PUBLIC = fileURLToPath(new URL("../public/", import.meta.url));
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
 const text = html.replace(/<[^>]+>/g, " ");
@@ -18,38 +16,48 @@ test("brand is promptfun.fun, never the old placeholder", () => {
   assert.doesNotMatch(flat, /promptfun(?!\.fun)/, "the name is always promptfun.fun");
 });
 
-test("the site is for ChatGPT and never mentions Claude, anywhere in the folder", async () => {
-  // This file has to spell the word it forbids, so it is the one file not scanned.
-  const self = fileURLToPath(import.meta.url);
-  const files = (await readdir(ROOT, { recursive: true, withFileTypes: true }))
-    .filter((e) => e.isFile())
-    .map((e) => join(e.parentPath ?? e.path, e.name))
-    .filter((f) => f !== self && !f.split(sep).includes("node_modules"));
-  assert.ok(files.length >= 8);
-  for (const file of files) {
-    const body = await readFile(file, "latin1");
-    assert.doesNotMatch(body, /claude/i, `"Claude" appears in ${relative(ROOT, file)}`);
-  }
-  assert.match(html, /<h1[^>]*>Say it in ChatGPT\./);
-  assert.match(html, />Connect to ChatGPT</);
-});
-
-test("title, meta, alt, aria and caption text name ChatGPT and nothing else", () => {
+test("Claude is the main host: in the title, the hero headline and the primary CTA", () => {
   const title = html.match(/<title>([^<]*)<\/title>/)[1];
-  const metas = [...html.matchAll(/<meta\b[^>]*\bcontent="([^"]*)"/g)].map((m) => m[1]);
-  const attrs = [...html.matchAll(/\b(?:alt|aria-label|title)="([^"]*)"/g)].map((m) => m[1]);
-  const captions = [...html.matchAll(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/g)].map((m) => m[1]);
-  assert.ok(metas.length >= 4 && attrs.length >= 1 && captions.length >= 1);
-  for (const value of [title, ...metas, ...attrs, ...captions]) {
-    assert.doesNotMatch(value, /claude/i, `"Claude" appears in: ${value}`);
-  }
+  assert.match(title, /Say it in Claude\./);
   for (const name of ["description", "og:description"]) {
     const tag = html.match(new RegExp(`<meta\\b[^>]*(?:name|property)="${name}"[^>]*>`));
     assert.ok(tag, `missing meta ${name}`);
-    assert.match(tag[0], /ChatGPT/, `meta ${name} should mention ChatGPT`);
+    assert.match(tag[0], /Claude/, `meta ${name} should mention Claude`);
   }
-  assert.match(title, /ChatGPT/);
-  assert.match(html, /aria-label="Connect to ChatGPT"/);
+  const hero = html.match(/<section class="hero"[\s\S]*?<\/section>/)[0];
+  assert.match(hero, /<h1[^>]*>Say it in Claude\./);
+  const primary = hero.match(/<div class="cta-row">\s*<a class="btn"[^>]*>([^<]*)<\/a>/);
+  assert.ok(primary, "the hero needs a primary CTA");
+  assert.equal(primary[1], "Add to Claude");
+  assert.match(hero, /Works on the Claude Free plan/);
+  const navCta = html.match(/<header[\s\S]*?<a class="btn btn-small"[^>]*>([^<]*)<\/a>[\s\S]*?<\/header>/);
+  assert.equal(navCta[1], "Add to Claude");
+  const closer = html.match(/<section class="[^"]*closer[\s\S]*?<\/section>/)[0];
+  assert.match(closer, /<a class="btn"[^>]*>Add to Claude<\/a>/);
+});
+
+test("Connect lists the Claude steps first, as Anthropic documents them, then ChatGPT", () => {
+  const connect = html.match(/<section[^>]*id="connect"[\s\S]*?<\/section>/)[0];
+  const steps = connect.indexOf('<ol class="connect-steps">');
+  const chatgpt = connect.indexOf("ChatGPT");
+  assert.ok(steps > 0 && chatgpt > steps, "Claude steps come before any ChatGPT mention");
+  assert.match(connect, /Customize → Connectors/);
+  assert.match(connect, /Add custom connector/);
+  assert.match(connect, /<aside class="host-alt" data-chatgpt[\s\S]*?Also works in ChatGPT/);
+  assert.match(html, /href="https:\/\/support\.claude\.com\/en\/articles\/11175166-[^"]*"/);
+});
+
+test("every ChatGPT mention carries its plan caveat", () => {
+  const blocks = [...html.matchAll(/<(aside|details)\b[^>]*\bdata-chatgpt\b[^>]*>[\s\S]*?<\/\1>/g)].map((m) => m[0]);
+  assert.ok(blocks.length >= 3, "the hero note, the Connect box and the plans FAQ");
+  let rest = html;
+  for (const block of blocks) {
+    rest = rest.replace(block, "");
+    assert.match(block, /ChatGPT/);
+    assert.match(block, /Business, Enterprise or Edu/, `missing the plan caveat in: ${block.slice(0, 80)}`);
+    assert.match(block, /on the web/, `missing "on the web" in: ${block.slice(0, 80)}`);
+  }
+  assert.doesNotMatch(rest, /chatgpt/i, "ChatGPT is mentioned outside a caveated data-chatgpt block");
 });
 
 test("has every required section", () => {
@@ -102,7 +110,7 @@ test("network fees are dated, sourced, and never a promptfun.fun price", () => {
   assert.match(fees, /measured 9 Oct 2026/);
   assert.match(fees, /goes to the network, not to promptfun\.fun/);
   assert.match(fees, /not promptfun\.fun fees/);
-  assert.match(fees, /preview shows the estimated fee for your exact transaction before you confirm/);
+  assert.match(fees, /preview shows the estimated fee for your exact transaction before you approve/);
   for (const source of ["etherscan.io/gastracker", "solana.com/docs/core/fees", "solana.com/docs/tokens/extensions/metadata", "pump.fun/docs/fees"]) {
     assert.ok(fees.includes(source), `missing source ${source}`);
   }
@@ -128,7 +136,7 @@ test("the hero demo is labelled as an illustration", () => {
 });
 
 test("the in-chat flow is the headline, and unbuilt parts say they're being built", () => {
-  assert.match(html, /<h1[^>]*>Say it in ChatGPT\.<br>Confirm in chat\.<br><em>Done\.<\/em><\/h1>/);
+  assert.match(html, /<h1[^>]*>Say it in Claude\.<br>Approve in chat\.<br><em>Done\.<\/em><\/h1>/);
   const caption = html.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/)[1];
   assert.match(caption, /being built/i, "the demo shows the walletless flow, so its caption must say it's being built");
 

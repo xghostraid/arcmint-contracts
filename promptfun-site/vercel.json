@@ -1,14 +1,46 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "public",
-  "rewrites": [
-    { "source": "/mcp", "destination": "https://promptfun-mcp.fly.dev/mcp" },
-    { "source": "/mcp/:path*", "destination": "https://promptfun-mcp.fly.dev/mcp/:path*" },
-    { "source": "/api/:path*", "destination": "https://promptfun-mcp.fly.dev/api/:path*" },
-    { "source": "/oauth/:path*", "destination": "https://promptfun-mcp.fly.dev/oauth/:path*" },
-    { "source": "/.well-known/:path*", "destination": "https://promptfun-mcp.fly.dev/.well-known/:path*" },
-    { "source": "/docs", "destination": "/docs/index.html" },
-    { "source": "/explore", "destination": "/explore/index.html" },
-    { "source": "/terms", "destination": "/terms/index.html" },
-    { "source": "/privacy", "destination": "/privacy/index.html" }
+  "routes": [
+    {
+      "src": "/mcp",
+      "dest": "${PROMPTFUN_BACKEND_URL}/mcp",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    {
+      "src": "/mcp/(.*)",
+      "dest": "${PROMPTFUN_BACKEND_URL}/mcp/$1",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "${PROMPTFUN_BACKEND_URL}/api/$1",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    {
+      "src": "/oauth/(.*)",
+      "dest": "${PROMPTFUN_BACKEND_URL}/oauth/$1",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    {
+      "src": "/.well-known/(.*)",
+      "dest": "${PROMPTFUN_BACKEND_URL}/.well-known/$1",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    {
+      "src": "/approve/(.*)",
+      "dest": "${PROMPTFUN_BACKEND_URL}/approve/$1",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "${PROMPTFUN_BACKEND_URL}/static/$1",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    { "src": "/docs", "dest": "/docs/index.html" },
+    { "src": "/explore", "dest": "/explore/index.html" },
+    { "src": "/terms", "dest": "/terms/index.html" },
+    { "src": "/privacy", "dest": "/privacy/index.html" },
+    { "handle": "filesystem" }
   ]
 }

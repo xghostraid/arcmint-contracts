@@ -38,7 +38,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. save_picture is panel-internal only.",
+    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge).",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% of creator fees.",
   ];
@@ -276,36 +276,57 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     },
   );
 
+  /** Max base64 / data-URL length the in-chat picture panel sends via tools/call (≈3.3 MB decoded). */
+  const PANEL_IMAGE_B64_MAX = 4_500_000;
+  const panelPictureB64Schema = z.object({
+    imageBase64: z
+      .string()
+      .max(PANEL_IMAGE_B64_MAX)
+      .describe("JPEG/PNG as a data URL or raw base64 from the picture panel only. Host models: do not use."),
+  });
+  const savePictureFromPanel = async ({ imageBase64 }: z.infer<typeof panelPictureB64Schema>): Promise<ToolResult> => {
+    try {
+      if (imageBase64.length > PANEL_IMAGE_B64_MAX) {
+        return fail(new IntentError(
+          "Image is still too large after compression. Try a smaller photo or tap Use this image on a chat attachment.",
+          "bad_request",
+        ));
+      }
+      const saved = await service.pictures.saveFromBase64(imageBase64);
+      const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
+      return {
+        content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in build_metadata_uri or prepare_launch.` }],
+        structuredContent: saved,
+      };
+    } catch (err) {
+      return fail(err);
+    }
+  };
+
   server.registerTool(
-    "save_picture",
+    "upload_picture_bytes",
     {
-      title: "Save picture (panel only)",
+      title: "Upload picture (panel only)",
       description:
-        "Internal: the picture panel uploads bytes via /api/pictures/upload. Host models must not call this with base64 — use open_picture_panel, import_picture_from_url, or prepare_launch imageUrl instead.",
-      inputSchema: z.object({
-        imageBase64: z.string().max(22_000_000).describe("Legacy panel fallback only. Host models: do not use."),
-      }),
+        "Internal: the picture panel saves a chosen JPEG/PNG through the MCP host bridge (tools/call). Host models must not call this — use open_picture_panel, import_picture_from_url, or prepare_launch imageUrl instead.",
+      inputSchema: panelPictureB64Schema,
       annotations: WRITE,
       _meta: APP_ONLY,
     },
-    async ({ imageBase64 }) => {
-      try {
-        if (imageBase64.length > 120_000) {
-          return fail(new IntentError(
-            "Image is too large for base64 in JSON. Call open_picture_panel (Choose image → Save) or import_picture_from_url with the user's https:// image link.",
-            "bad_request",
-          ));
-        }
-        const saved = await service.pictures.saveFromBase64(imageBase64);
-        const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
-        return {
-          content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in build_metadata_uri or prepare_launch.` }],
-          structuredContent: saved,
-        };
-      } catch (err) {
-        return fail(err);
-      }
+    savePictureFromPanel,
+  );
+
+  server.registerTool(
+    "save_picture",
+    {
+      title: "Save picture (panel only, legacy name)",
+      description:
+        "Internal alias of upload_picture_bytes for older panel builds. Host models must not call this with base64.",
+      inputSchema: panelPictureB64Schema,
+      annotations: WRITE,
+      _meta: APP_ONLY,
     },
+    savePictureFromPanel,
   );
 
   server.registerTool(

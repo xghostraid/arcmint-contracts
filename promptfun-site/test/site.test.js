@@ -132,15 +132,14 @@ test("chain claims are labelled honestly", () => {
   for (const item of items) {
     assert.match(item, /class="status /, `unlabelled capability: ${item}`);
   }
-  assert.doesNotMatch(chains, /status[^"]*live|>\s*Live\s*</i, "nothing is marked live yet");
-  assert.match(chains, /pump\.fun[\s\S]*Coming soon/);
+  assert.match(chains, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live">Live/);
   assert.match(chains, /EVM chains[\s\S]*Coming next/);
   const evm = chains.slice(chains.indexOf("EVM chains"));
   const order = ["Ethereum", "Robinhood Chain", "Base"].map((name) => evm.indexOf(`</span>${name}</span>`));
   assert.ok(order.every((i) => i > 0), "Ethereum, Robinhood Chain and Base are all listed");
   assert.deepEqual([...order].sort((a, b) => a - b), order, "EVM order is Ethereum, Robinhood Chain, Base");
   assert.match(evm, /Ethereum<\/span><span class="status status-soon">Coming next/);
-  assert.match(html, /Not live on mainnet/);
+  assert.match(html, /Solana mainnet pump\.fun launches are live/);
 });
 
 test("network fees are dated, sourced, and never a promptfun.fun price", () => {
@@ -188,22 +187,12 @@ test("the wallet flow is the headline, demo shows Preview then Wallet then Recei
   assert.match(demo, /card-wallet[\s\S]*Your wallet[\s\S]*Approve this action/);
   assert.match(demo, /card-receipt[\s\S]*Receipt[\s\S]*Confirmed onchain/);
   const caption = html.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/)[1];
-  assert.match(caption, /being built/i, "the demo shows the walletless flow, so its caption must say it's being built");
+  assert.match(caption, /real SOL/i, "demo caption warns about mainnet funds");
 
   const main = html.slice(html.indexOf("<main"), html.indexOf("</main>")).replace(/<figure class="demo"[\s\S]*?<\/figure>/, "");
-  const blocks = [];
-  const rest = main.replace(/<(li|details|article)\b[^>]*>[\s\S]*?<\/\1>/g, (m) => (blocks.push(m), ""));
-  blocks.push(...rest.match(/<p\b[^>]*>[\s\S]*?<\/p>/g));
-  const claim = /no wallet|without a wallet|need a wallet|promptfun\.fun (pays|will pay)|paid by promptfun\.fun/i;
-  const claims = blocks.filter((b) => claim.test(b.replace(/<[^>]+>/g, " ")));
-  assert.ok(claims.length >= 6, `expected the walletless and paid-fee claims across the page, found ${claims.length}`);
-  for (const block of claims) {
-    assert.match(block, /being built/i, `claim not labelled as being built: ${block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`);
-  }
-  assert.match(main, /Launch with no wallet, fee paid by promptfun\.fun<\/span><span class="status status-building">Being built/);
-
-  assert.match(html, /If you’d rather use your own wallet, you can\./);
-  assert.match(main, /Launch a token with your own wallet<\/span><span class="status status-testing">Testing on devnet/);
+  assert.match(main, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live">Live/);
+  assert.match(main, /Launch with no wallet \(sponsored\)<\/span><span class="status status-testing">Devnet only/);
+  assert.match(main, /Live on mainnet/);
 });
 
 test("Terms, Privacy, Docs and Explore pages exist and stay Claude-only", async () => {

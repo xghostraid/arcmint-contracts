@@ -63,7 +63,9 @@
       const paid = fmtPaid(coin);
       const badge = coin.chain?.testnet
         ? `<span class="status status-testing">${coin.chain.key.replace("solana-", "Solana ").replace("-", " ")}</span>`
-        : "";
+        : coin.chain?.key === "solana-mainnet"
+          ? `<span class="status status-live">Mainnet</span>`
+          : "";
       tr.innerHTML = `
         <th scope="row">
           <span class="coin-name">${coin.name}</span>

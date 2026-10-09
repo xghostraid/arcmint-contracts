@@ -170,7 +170,7 @@ export class IntentService {
   }
 
   private shouldOfferSponsoredLaunch(chain: Chain, intent: Intent): boolean {
-    if (!chainAllowsSponsoredLaunch(chain)) return false;
+    if (!chainAllowsSponsoredLaunch(chain, this.config)) return false;
     if (!sponsorBudgetSnapshot(this.config).sponsoredLaunchesEnabled) return false;
     if (!this.sponsorSigner) return false;
     const venue = (intent.params as LaunchParams).venue;

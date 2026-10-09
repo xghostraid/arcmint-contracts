@@ -249,6 +249,7 @@ h1 em, h2 em {
 /* Status chips */
 .status { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border: 2px solid var(--edge); border-radius: 999px; color: var(--ink); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.status-live { background: var(--green); }
 .status-testing { background: var(--yellow); }
 .status-building { background: var(--pink); }
 .status-soon { background: var(--paper); border-style: dashed; color: var(--ink-2); }

@@ -13,6 +13,11 @@
       "env": ["PROMPTFUN_BACKEND_URL"]
     },
     {
+      "src": "/api/pictures/(.*)",
+      "dest": "${PROMPTFUN_BACKEND_URL}/api/pictures/$1",
+      "env": ["PROMPTFUN_BACKEND_URL"]
+    },
+    {
       "src": "/api/(.*)",
       "dest": "${PROMPTFUN_BACKEND_URL}/api/$1",
       "env": ["PROMPTFUN_BACKEND_URL"]

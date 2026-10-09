@@ -8,9 +8,22 @@ export function newHandoffSessionId(): string {
   return `hs_${randomBytes(12).toString("hex")}`;
 }
 
+const HANDOFF_PREFIX = "picture-handoffs/";
+
 function blobPath(scopeKey: string): string {
   const digest = createHash("sha256").update(scopeKey).digest("hex").slice(0, 32);
-  return `picture-handoffs/${digest}.json`;
+  return `${HANDOFF_PREFIX}${digest}.json`;
+}
+
+/** Match a listed blob to an expected handoff JSON path (exact pathname or digest suffix). */
+export function matchHandoffBlobPath(
+  pathname: string,
+  expectedPathname: string,
+): boolean {
+  if (pathname === expectedPathname) return true;
+  const expectedFile = expectedPathname.slice(HANDOFF_PREFIX.length);
+  if (!expectedFile.endsWith(".json")) return false;
+  return pathname.startsWith(HANDOFF_PREFIX) && pathname.endsWith(expectedFile);
 }
 
 function scopeKey(scope: string, handoffSessionId?: string): string {
@@ -75,10 +88,10 @@ export class PictureHandoffStore {
     if (!token) return null;
     const session = (handoffSessionId ?? "").trim();
     const keys = session ? [scopeKey(scope, session), scope] : [scope];
-    for (const key of keys) {
-      const pathname = blobPath(key);
-      const found = await list({ prefix: pathname, token });
-      const blob = found.blobs.find((b) => b.pathname === pathname);
+    const expectedPaths = keys.map((key) => blobPath(key));
+    const found = await list({ prefix: HANDOFF_PREFIX, token });
+    for (const pathname of expectedPaths) {
+      const blob = found.blobs.find((b) => matchHandoffBlobPath(b.pathname, pathname));
       if (!blob) continue;
       const res = await fetch(blob.url);
       if (!res.ok) continue;

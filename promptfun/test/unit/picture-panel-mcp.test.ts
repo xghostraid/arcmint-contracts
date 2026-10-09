@@ -41,13 +41,16 @@ test("picture panel HTML notifies host via redundant handoff channels after save
   assert.match(html, /ui\/message/);
   assert.match(html, /pic-id-row/);
   assert.match(html, /handoffSessionId/);
+  assert.match(html, /Launch ready/);
   await h.close();
 });
 
-test("open_picture_panel returns handoffSessionId", async () => {
+test("open_picture_panel returns handoffSessionId in structured content and plain text", async () => {
   const h = await startHarness({ PROMPTFUN_PUBLIC_URL: "https://promptfun.fun" });
   const r = await h.call("open_picture_panel", {});
   assert.match(r.data.handoffSessionId, /^hs_[a-f0-9]{24}$/);
+  assert.match(r.text, /handoffSessionId hs_/);
+  assert.match(r.text, /prepare_launch/);
   await h.close();
 });
 

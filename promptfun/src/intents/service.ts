@@ -156,8 +156,10 @@ export class IntentService {
     const to = input.to.trim();
     if (!adapter.isAddress(to)) throw new IntentError(`"${to}" is not a ${chain.name} wallet address.`);
     const amount = input.amount.trim();
+    const asset0 = input.asset.trim() || "native";
+    const isNative = asset0 === "native" || asset0.toUpperCase() === chain.nativeSymbol;
     try {
-      if (parseUnits(amount, 18) <= 0n) throw new IntentError("The amount must be more than zero.");
+      if (parseUnits(amount, isNative ? chain.nativeDecimals : 18) <= 0n) throw new IntentError("The amount must be more than zero.");
     } catch (err) {
       if (err instanceof IntentError) throw err;
       throw new IntentError(err instanceof AmountError ? err.message : "The amount is not a number.");
@@ -206,7 +208,13 @@ export class IntentService {
       throw new IntentError(`This request is already ${intent.status}.`, "wrong_state");
     }
     const chain = this.chainOrThrow(intent.chain, intent.kind);
-    const built = await adapterFor(chain.family).build(chain, intent, signer, options);
+    let built: Built;
+    try {
+      built = await adapterFor(chain.family).build(chain, intent, signer, options);
+    } catch (err) {
+      if (err instanceof AmountError) throw new IntentError(err.message);
+      throw err;
+    }
     const next = this.update(intent, { status: "built", built, error: null }, "built",
       `Transaction compiled for ${signer}; simulation ${built.simulation.ok ? "passed" : `failed: ${built.simulation.error}`}.`);
     return { intent: next, built };

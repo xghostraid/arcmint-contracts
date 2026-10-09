@@ -98,6 +98,16 @@ Previews show **"Network fee (paid to <chain>, not promptfun)"**:
 - **USD** is shown only on mainnets, from a live Pyth Hermes price under 2 minutes old. Testnet coins have no value, so they get no USD.
 - **promptfun fee:** none.
 
+## Production deploy
+
+Ship the Node service from this folder (`promptfun/`):
+
+- **Docker:** `docker build -t promptfun-mcp . && docker run -p 8787:8787 --env-file .env promptfun-mcp`
+- **Fly.io:** `fly volumes create promptfun_data -r iad` (once), then `fly deploy` (uses `fly.toml` + persistent `/data` for SQLite).
+- **Railway:** point the service **Root Directory** at `promptfun/` (uses `railway.toml` + `Dockerfile`).
+
+Copy `.env.example` into your host’s environment UI (never commit secrets). Set `PROMPTFUN_PUBLIC_URL` to `https://promptfun.fun` when the Vercel site proxies `/mcp` and `/api` to this service.
+
 ## Configuration
 
 | Variable | Default | Meaning |

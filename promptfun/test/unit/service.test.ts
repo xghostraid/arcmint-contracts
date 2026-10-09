@@ -67,7 +67,7 @@ test("intents expire and cannot be built after expiry", async () => {
   const s = service({ PROMPTFUN_INTENT_TTL_MS: "1" });
   const a = await s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to });
   await new Promise((r) => setTimeout(r, 5));
-  assert.equal(s.get(a.id).status, "expired");
+  assert.equal((await s.get(a.id)).status, "expired");
   await assert.rejects(s.build(a.id, to), /already expired/);
 });
 

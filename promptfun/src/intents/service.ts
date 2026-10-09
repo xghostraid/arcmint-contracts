@@ -6,6 +6,7 @@ import { findChain, type ActionKind, type Chain } from "../chains/registry.js";
 import { impersonatesBrand, isMajorSymbol } from "../brand.js";
 import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
 import { generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
+import { IntentCatalog, type IntentRemoteStore } from "./catalog.js";
 import { IntentStore } from "./store.js";
 import { IntentError, type Built, type Intent, type LaunchParams, type TransferParams } from "./types.js";
 import { chainAllowsSponsoredLaunch, sponsorBudgetSnapshot } from "../sponsor/budget.js";
@@ -60,14 +61,20 @@ export class IntentService {
 
   private readonly sponsorSigner: FeePayerSigner | null;
 
+  private readonly remote: IntentRemoteStore;
+
   constructor(
     readonly config: Config,
     readonly store: IntentStore,
     readonly pictures: PictureService,
     readonly platform: PlatformStore | null = null,
     private readonly claimWallets: WalletProvider | null = null,
+    remote: IntentRemoteStore | null = null,
   ) {
     this.sponsorSigner = createFeePayerSigner(config);
+    this.remote =
+      remote ??
+      new IntentCatalog(config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null);
   }
 
   callerIdentity(): AuthenticatedUser | null {
@@ -158,7 +165,7 @@ export class IntentService {
     };
     const issues = await adapterFor(chain.family).check(chain, full);
     if (issues.length) throw new IntentError(issues.join(" "));
-    this.store.save(full);
+    await this.persist(full);
     if (full.kind === "launch_token" && this.shouldOfferSponsoredLaunch(chain, full)) {
       try {
         return await this.attachSponsoredPreview(full);
@@ -217,7 +224,7 @@ export class IntentService {
       updatedAt: at,
       events: [...working.events, { at, type: "previewed", detail: `Sponsored preview; fee paid by promptfun (${sponsor}).` }],
     };
-    this.store.save(next);
+    await this.persist(next);
     return next;
   }
 
@@ -358,23 +365,32 @@ export class IntentService {
     return `${kind}:${chain}:${createHash("sha256").update(JSON.stringify(params)).digest("hex").slice(0, 32)}`;
   }
 
-  get(id: string): Intent {
-    const intent = this.store.get(id);
+  async get(id: string): Promise<Intent> {
+    let intent = this.store.get(id);
+    if (!intent && this.remote.enabled()) {
+      intent = await this.remote.load(id);
+      if (intent) await this.persist(intent);
+    }
     if (!intent) throw new IntentError("No request with that id.", "not_found");
-    return this.expireIfDue(intent);
+    return await this.expireIfDue(intent);
   }
 
-  private expireIfDue(intent: Intent): Intent {
+  private async persist(intent: Intent): Promise<void> {
+    this.store.save(intent);
+    if (this.remote.enabled()) await this.remote.mirror(intent);
+  }
+
+  private async expireIfDue(intent: Intent): Promise<Intent> {
     if ((intent.status === "awaiting_wallet" || intent.status === "awaiting_confirm" || intent.status === "built") && Date.parse(intent.expiresAt) <= Date.now()) {
-      return this.update(intent, { status: "expired" }, "expired", "Not approved in time. Nothing was sent.");
+      return await this.update(intent, { status: "expired" }, "expired", "Not approved in time. Nothing was sent.");
     }
     return intent;
   }
 
-  private update(intent: Intent, patch: Partial<Intent>, type: string, detail: string): Intent {
+  private async update(intent: Intent, patch: Partial<Intent>, type: string, detail: string): Promise<Intent> {
     const at = now();
     const next: Intent = { ...intent, ...patch, updatedAt: at, events: [...intent.events, { at, type, detail }] };
-    this.store.save(next);
+    await this.persist(next);
     return next;
   }
 
@@ -390,7 +406,7 @@ export class IntentService {
   }
 
   async build(id: string, signer: string, options: BuildOptions = {}): Promise<{ intent: Intent; built: Built }> {
-    const intent = this.get(id);
+    const intent = await this.get(id);
     if (intent.status !== "awaiting_wallet" && intent.status !== "awaiting_confirm" && intent.status !== "built") {
       throw new IntentError(`This request is already ${intent.status}.`, "wrong_state");
     }
@@ -400,13 +416,13 @@ export class IntentService {
       patch.executionMode = "wallet";
       patch.instructionFingerprint = null;
     }
-    const next = this.update(intent, patch, "built",
+    const next = await this.update(intent, patch, "built",
       `Transaction compiled for ${signer}; simulation ${built.simulation.ok ? "passed" : `failed: ${built.simulation.error}`}.`);
     return { intent: next, built };
   }
 
   async confirmLaunch(id: string): Promise<Intent> {
-    const intent = this.get(id);
+    const intent = await this.get(id);
     if (intent.executionMode !== "sponsor" || intent.status !== "awaiting_confirm") {
       throw new IntentError("This request is not waiting for in-chat confirmation.", "wrong_state");
     }
@@ -433,7 +449,7 @@ export class IntentService {
     }
     if (!built.simulation.ok) throw new IntentError(`Simulation failed: ${built.simulation.error ?? "unknown"}`, "simulation_failed");
     const signed = await this.sponsorSigner.signSolanaTransaction(chain.key, intent, built, built.payload);
-    const withBuilt = this.update(intent, { status: "built", built, error: null }, "confirmed_in_chat", "User confirmed launch in chat.");
+    const withBuilt = await this.update(intent, { status: "built", built, error: null }, "confirmed_in_chat", "User confirmed launch in chat.");
     const submitted = await this.submit(withBuilt.id, signed);
     if (this.platform) {
       const sub = this.caller?.sub ?? "anonymous";
@@ -445,37 +461,37 @@ export class IntentService {
   }
 
   async submit(id: string, walletPayload: string): Promise<Intent> {
-    const intent = this.get(id);
+    const intent = await this.get(id);
     if (intent.status !== "built") throw new IntentError(`This request is ${intent.status}, not ready to send.`, "wrong_state");
     const chain = this.chainOrThrow(intent.chain, intent.kind);
     try {
       const result = await adapterFor(chain.family).submit(chain, intent, walletPayload);
-      const next = this.update(intent, { status: "submitted", submission: { id: result.id, submittedAt: now() } }, "submitted", `Sent to ${chain.name}: ${result.id}`);
+      const next = await this.update(intent, { status: "submitted", submission: { id: result.id, submittedAt: now() } }, "submitted", `Sent to ${chain.name}: ${result.id}`);
       void this.refresh(next.id).catch(() => undefined);
       return next;
     } catch (err) {
       const message = (err as Error).message;
-      this.update(intent, { error: message }, "submit_failed", message);
+      await this.update(intent, { error: message }, "submit_failed", message);
       throw err;
     }
   }
 
-  walletRejected(id: string, reason: string): Intent {
-    const intent = this.get(id);
+  async walletRejected(id: string, reason: string): Promise<Intent> {
+    const intent = await this.get(id);
     if (intent.status !== "awaiting_wallet" && intent.status !== "awaiting_confirm" && intent.status !== "built") return intent;
     return this.update(intent, { error: "You declined in your wallet. Nothing was sent." }, "wallet_rejected", reason.slice(0, 200) || "Declined in wallet.");
   }
 
   /** Read the receipt from the chain for a submitted intent. Never marks success without a chain read. */
   async refresh(id: string): Promise<Intent> {
-    const intent = this.get(id);
+    const intent = await this.get(id);
     if (intent.status !== "submitted") return intent;
     const chain = findChain(this.config, intent.chain);
     if (!chain) return intent;
     const receipt = await adapterFor(chain.family).receipt(chain, intent);
     if (!receipt) return intent;
     const status = receipt.status === "success" ? "confirmed" : "failed";
-    return this.update(intent, { status, receipt, error: status === "failed" ? receipt.verified.find((v) => v.startsWith("MISMATCH") || /fail|never/i.test(v)) ?? "Failed on chain." : null },
+    return await this.update(intent, { status, receipt, error: status === "failed" ? receipt.verified.find((v) => v.startsWith("MISMATCH") || /fail|never/i.test(v)) ?? "Failed on chain." : null },
       status, status === "confirmed" ? `Confirmed in slot/block ${receipt.slotOrBlock}.` : "Failed; see receipt.");
   }
 

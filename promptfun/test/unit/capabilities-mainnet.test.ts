@@ -41,4 +41,11 @@ test("sponsored mainnet stays gated unless explicitly enabled", () => {
   assert.equal(chainAllowsSponsoredLaunch(mainnet, sponsoredMainnet), true);
   assert.equal(sponsorBudgetSnapshot(sponsoredMainnet).sponsoredMainnetEnabled, true);
   assert.match(findChain(sponsoredMainnet, "solana-mainnet")!.evidence, /sponsored pump.fun on Solana mainnet/);
+
+  const flagsNoKey = loadConfig({
+    PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1",
+    PROMPTFUN_ENABLE_SPONSORED_LAUNCHES: "1",
+    PROMPTFUN_ENABLE_SPONSORED_MAINNET: "1",
+  });
+  assert.match(findChain(flagsNoKey, "solana-mainnet")!.evidence, /Sponsor not ready|PROMPTFUN_SPONSOR_SECRET_KEY/);
 });

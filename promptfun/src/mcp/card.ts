@@ -113,7 +113,10 @@ export function cardHtml(): string {
     if (r && r.tokenExplorerUrl) h += '<button class="btn btn-ghost btn-small" data-open="' + esc(r.tokenExplorerUrl) + '">View token</button>';
     if (!done && s !== "expired") h += '<button class="btn btn-ghost" data-refresh="1">Refresh status</button>';
     if (s === "awaiting_wallet" || s === "built") h += '<p class="pv-alt">Your chat app may ask you to confirm opening ' + esc(v.approveUrl.split("/approve/")[0]) + '.</p>';
-    h += '<p class="pv-foot">' + (done ? "Read from the chain, not assumed." : "Read from the transaction itself. Nothing moves until you approve in your own wallet. ${BRAND} never holds your keys.") + '</p>';
+    var foot = done ? "Read from the chain, not assumed." : (v.sponsorPaysFee || s === "awaiting_confirm"
+      ? "Tap Launch it to send. promptfun pays the network fee from the sponsor wallet. ${BRAND} never holds your keys."
+      : "Read from the transaction itself. Nothing moves until you approve in your own wallet. ${BRAND} never holds your keys.");
+    h += '<p class="pv-foot">' + foot + '</p>';
     h += '</div></article>';
     document.getElementById("root").innerHTML = h;
     post({jsonrpc:"2.0", method:"ui/notifications/size-changed", params:{height:document.documentElement.scrollHeight}});

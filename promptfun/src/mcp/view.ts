@@ -50,7 +50,9 @@ function nextStep(intent: Intent, approveUrl: string): string {
     case "built":
       return `Nothing has been sent. The user must open ${approveUrl}, connect their wallet, review the decoded transaction, and approve it in the wallet.`;
     case "submitted":
-      return "Signed by the user's wallet and sent. Waiting for the network to confirm; call get_action_status again shortly.";
+      return intent.executionMode === "sponsor"
+        ? "Sent with promptfun as fee payer. Waiting for the network to confirm; call get_action_status again shortly."
+        : "Signed by the user's wallet and sent. Waiting for the network to confirm; call get_action_status again shortly.";
     case "confirmed":
       return "Confirmed on chain. The receipt below was read from the chain, not assumed.";
     case "failed":
@@ -134,7 +136,9 @@ export function intentText(view: IntentView): string {
     if (view.receipt.tokenAddress) lines.push(`Token: ${view.receipt.tokenAddress}${view.receipt.tokenExplorerUrl ? ` (${view.receipt.tokenExplorerUrl})` : ""}`);
   }
   if (view.error) lines.push(`Error: ${view.error}`);
-  if (view.status === "awaiting_wallet" || view.status === "built") lines.push(`Approval link (send this to the user): ${view.approveUrl}`);
+  if ((view.status === "awaiting_wallet" || view.status === "built") && view.executionMode !== "sponsor") {
+    lines.push(`Approval link (send this to the user): ${view.approveUrl}`);
+  }
   lines.push(view.nextStep);
   return lines.join("\n");
 }

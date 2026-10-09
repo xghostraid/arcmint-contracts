@@ -9,7 +9,7 @@ import type { CoinDetail } from "../api/types.js";
 import { IntentError } from "../intents/types.js";
 import { CARD_URI, cardHtml } from "./card.js";
 import { PICTURE_URI, pictureHtml } from "./picture.js";
-import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
+import { mainnetPumpSponsoredProductDefault, sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
 import { EXAMPLE_USER_PROMPTS, launchPlaybook, serverInstructions } from "./launch-playbook.js";
 
@@ -17,19 +17,24 @@ import type { Config } from "../config.js";
 
 function limitations(config: Config): string[] {
   const mainnetLive = config.enablePumpfunMainnet;
-  const sponsoredMainnet = config.enableSponsoredMainnet && config.enableSponsoredLaunches;
+  const sponsoredProduct = mainnetPumpSponsoredProductDefault(config);
   const budget = sponsorBudgetSnapshot(config);
+  const sponsoredMainnetReady = sponsoredProduct && budget.sponsoredMainnetEnabled && budget.sponsoredLaunchesEnabled;
   return [
     mainnetLive
-      ? sponsoredMainnet && budget.sponsoredMainnetEnabled
-        ? "Solana mainnet (pump.fun) is live with sponsored launch (no wallet): default chain solana-mainnet; user taps Launch it on the card; promptfun pays network fees from the funded sponsor wallet (allowlisted pump.fun programs only). Real mainnet SOL is spent from the sponsor balance."
-        : "Solana mainnet (pump.fun) is live. Default chain: solana-mainnet. Real SOL is spent; the preview shows the fee before the user approves."
+      ? sponsoredMainnetReady
+        ? "Solana mainnet (pump.fun) is live with sponsored launch (no wallet): default chain solana-mainnet; user taps Launch it on the card — no Phantom; promptfun pays network fees from the funded sponsor wallet (allowlisted pump.fun programs only). Real mainnet SOL is spent from the sponsor balance."
+        : sponsoredProduct
+          ? `Solana mainnet (pump.fun) is configured for sponsored no-wallet launches only. ${budget.pauseReason ?? "Set PROMPTFUN_SPONSOR_SECRET_KEY and fund the sponsor pubkey with mainnet SOL."} Do not send users to wallet approval for public pump.fun launches.`
+          : "Solana mainnet (pump.fun) is live. Default chain: solana-mainnet. Real SOL is spent; the preview shows the fee before the user approves."
       : "Solana mainnet is off until PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1.",
-    sponsoredMainnet && budget.sponsoredMainnetEnabled
-      ? "Wallet approval on the /approve page is a fallback when sponsored mode is paused or for transfers. Public launches should use prepare_launch on solana-mainnet and confirm_launch from the card."
-      : sponsoredMainnet
-        ? "Sponsored mainnet needs PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and mainnet SOL on the sponsor pubkey."
-        : "Sponsored launches (no wallet) run on Solana testnets when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set. Mainnet pump.fun without a wallet needs PROMPTFUN_ENABLE_SPONSORED_MAINNET=1.",
+    sponsoredMainnetReady
+      ? "Wallet approval on the /approve page is for transfers and devnet fallback only — not the default for mainnet pump.fun. Public launches: prepare_launch on solana-mainnet, then confirm_launch from the card (Launch it)."
+      : sponsoredProduct
+        ? "Sponsored mainnet is the product default but is not ready yet (sponsor key and/or SOL). prepare_launch on solana-mainnet will error with a clear message instead of opening wallet mode."
+        : config.enableSponsoredLaunches
+          ? "Sponsored launches (no wallet) run on Solana testnets when a sponsor key is set. Mainnet pump.fun without a wallet needs PROMPTFUN_ENABLE_SPONSORED_MAINNET=1."
+          : "Sponsored launches (no wallet) need PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key.",
     "Claude's Allow on a write tool approves the tool call, not an onchain transaction. Sponsored sends only happen after the user taps Launch it on the card (confirm_launch).",
     config.oauthRequired
       ? "OAuth required: Claude must sign in (Bearer token on /mcp)."

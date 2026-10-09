@@ -43,16 +43,23 @@
         <ol class="connect-steps connect-steps-docs">
           <li>
             <h3>Copy the connector link</h3>
-            <p>The public HTTPS link to <code class="inline-code">/mcp</code> is posted on the home page the day the connector opens. Until then, nothing is published here on purpose.</p>
+            <div class="link-box" data-mcp-url="https://promptfun.fun/mcp">
+              <code class="link-slot">https://promptfun.fun/mcp</code>
+              <button class="btn btn-small" type="button" data-copy-mcp>Copy</button>
+            </div>
+            <p class="fine">Same URL as on the <a href="/#connect">home page</a>. Authentication: <strong>No sign-in</strong> unless OAuth is required.</p>
           </li>
           <li>
             <h3>Add it to Claude</h3>
-            <p>On claude.ai or in Claude Desktop: <strong>Customize → Connectors → + Add → Add custom connector</strong>. Name it promptfun.fun, paste the link, choose <strong>No sign-in</strong> if asked, then Continue and Add.</p>
+            <div class="connect-actions">
+              <a class="btn btn-small" href="https://claude.ai/customize/connectors?modal=add-custom-connector&amp;connectorName=promptfun.fun&amp;connectorUrl=https%3A%2F%2Fpromptfun.fun%2Fmcp" rel="noopener noreferrer" target="_blank">Open in Claude</a>
+            </div>
+            <p>Or on claude.ai or in Claude Desktop: <strong>Customize → Connectors → + Add → Add custom connector</strong>. Name it promptfun.fun, paste the link, choose <strong>No sign-in</strong> if asked, then Continue and Add.</p>
             <p class="fine">Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise. On Team and Enterprise, an Owner adds it for the organization first.</p>
           </li>
           <li>
             <h3>Turn it on and ask</h3>
-            <p>In a chat, open <strong>+ → Connectors</strong> and switch promptfun.fun on. Say what you want, for example “Launch a token called Moonbeam, ticker BEAM.” Claude shows the preview; you approve in your wallet (or in chat once sponsored launch ships); the receipt comes back in the same chat.</p>
+            <p>In a chat, open <strong>+ → Connectors</strong> and switch promptfun.fun on. Say what you want, for example “Launch a pump.fun token called Moonbeam, ticker BEAM on Solana mainnet.” Claude shows the preview; you approve in your wallet on mainnet (real SOL); the receipt comes back in the same chat.</p>
           </li>
         </ol>
 
@@ -60,7 +67,7 @@
         <ol class="docs-flow">
           <li>Ask in plain language. Claude fills in name and ticker if you did not specify them.</li>
           <li>promptfun.fun builds the exact transaction and reads it back in the preview: network, fee payer and what gets created.</li>
-          <li>You approve in your wallet today on Solana devnet. Sponsored launch with no wallet is <span class="status status-building">Being built</span>.</li>
+          <li>You approve in your wallet on <strong>Solana mainnet</strong> for pump.fun launches (real SOL). Sponsored launch with no wallet is available on devnet only.</li>
           <li>After confirmation, Claude returns a receipt with explorer links and a ready-to-post message for X. Nothing is marked “done” until the chain confirms it.</li>
         </ol>
 
@@ -74,7 +81,7 @@
         </ul>
 
         <h2 id="limits">Limits and networks</h2>
-        <p>Solana devnet is in testing today with your own wallet. Mainnet, pump.fun and EVM chains are labelled on the <a href="/#chains">Chains</a> section of the home page. Global rate limits apply while the connector is in testing.</p>
+        <p>Solana mainnet, devnet, sponsored devnet launches, and EVM public testnets are <span class="status status-live">Live</span> via Claude. EVM mainnets are labelled on the <a href="/#chains">Chains</a> section. Global rate limits apply.</p>
 
         <h2 id="help">Troubleshooting</h2>
         <details class="docs-faq">
@@ -117,7 +124,7 @@
       <a href="/terms">Terms</a>
       <a href="/privacy">Privacy</a>
     </nav>
-    <p>In testing on Solana devnet. Not live on mainnet yet.</p>
+    <p>Solana mainnet pump.fun launches are live via Claude. Real SOL; you are responsible for what you launch.</p>
     <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
   </div>
 </footer>

@@ -143,20 +143,23 @@ test("no fake transaction hashes, signatures, or addresses", () => {
 
 test("chain claims are labelled honestly", () => {
   const chains = html.slice(html.indexOf('id="chains"'), html.indexOf('id="connect"'));
-  const items = [...chains.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
-  assert.ok(items.length >= 3);
+  const items = [...chains.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+  assert.ok(items.length >= 6, `expected network rows in #chains, found ${items.length}`);
   for (const item of items) {
     assert.match(item, /class="status /, `unlabelled capability: ${item}`);
   }
-  assert.doesNotMatch(chains, /status[^"]*live|>\s*Live\s*</i, "nothing is marked live yet");
-  assert.match(chains, /pump\.fun[\s\S]*Coming soon/);
-  assert.match(chains, /EVM chains[\s\S]*Coming next/);
-  const evm = chains.slice(chains.indexOf("EVM chains"));
-  const order = ["Ethereum", "Robinhood Chain", "Base"].map((name) => evm.indexOf(`</span>${name}</span>`));
+  assert.match(chains, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live"[^>]*>Live/);
+  assert.match(chains, /Launch with your wallet on Solana devnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.match(chains, /Robinhood Chain Testnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.match(chains, /EVM testnets[\s\S]*status-live/);
+  const evmMain = chains.slice(chains.indexOf("EVM mainnets"));
+  const order = ["Ethereum", "Robinhood Chain", "Base"].map((name) => evmMain.indexOf(`</span>${name}</span>`));
   assert.ok(order.every((i) => i > 0), "Ethereum, Robinhood Chain and Base are all listed");
   assert.deepEqual([...order].sort((a, b) => a - b), order, "EVM order is Ethereum, Robinhood Chain, Base");
-  assert.match(evm, /Ethereum<\/span><span class="status status-soon">Coming next/);
-  assert.match(html, /Not live on mainnet/);
+  assert.match(evmMain, /Ethereum<\/span><span class="status status-soon"[^>]*>Coming next/);
+  assert.match(html, /data-networks-panel/);
+  assert.match(html, /\/networks\.js/);
+  assert.match(html, /mainnet, devnet &amp; testnets/);
 });
 
 test("network fees are dated, sourced, and never a promptfun.fun price", () => {
@@ -180,10 +183,17 @@ test("network fees are dated, sourced, and never a promptfun.fun price", () => {
   assert.doesNotMatch(flat, /waitlist|wait list/i);
 });
 
-test("the connector link is not invented before launch", () => {
-  assert.match(html, /Posted here at launch/);
-  assert.doesNotMatch(text, /https?:\/\/[^\s"]*\/mcp\b/, "no connector URL until it exists");
-  assert.match(html, /<button[^>]*disabled>Copy<\/button>/);
+test("connect section publishes the MCP URL with copy and Claude deep link", () => {
+  const connect = html.match(/<section[^>]*id="connect"[\s\S]*?<\/section>/)[0];
+  assert.match(connect, /https:\/\/promptfun\.fun\/mcp/);
+  assert.match(connect, /data-mcp-url="https:\/\/promptfun\.fun\/mcp"/);
+  assert.match(connect, /data-copy-mcp/);
+  assert.doesNotMatch(connect, /Posted here at launch/);
+  assert.doesNotMatch(connect, /<button[^>]*disabled>Copy<\/button>/);
+  assert.match(
+    connect,
+    /claude\.ai\/customize\/connectors\?modal=add-custom-connector[^"]*connectorUrl=https%3A%2F%2Fpromptfun\.fun%2Fmcp/,
+  );
 });
 
 test("the hero demo is labelled as an illustration", () => {
@@ -197,22 +207,12 @@ test("the wallet flow is the headline, demo shows Preview then Wallet then Recei
   assert.match(demo, /card-wallet[\s\S]*Your wallet[\s\S]*Approve this action/);
   assert.match(demo, /card-receipt[\s\S]*Receipt[\s\S]*Confirmed onchain/);
   const caption = html.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/)[1];
-  assert.match(caption, /being built/i, "the demo shows the walletless flow, so its caption must say it's being built");
+  assert.match(caption, /real SOL/i, "demo caption warns about mainnet funds");
 
   const main = html.slice(html.indexOf("<main"), html.indexOf("</main>")).replace(/<figure class="demo"[\s\S]*?<\/figure>/, "");
-  const blocks = [];
-  const rest = main.replace(/<(li|details|article)\b[^>]*>[\s\S]*?<\/\1>/g, (m) => (blocks.push(m), ""));
-  blocks.push(...rest.match(/<p\b[^>]*>[\s\S]*?<\/p>/g));
-  const claim = /no wallet|without a wallet|need a wallet|promptfun\.fun (pays|will pay)|paid by promptfun\.fun/i;
-  const claims = blocks.filter((b) => claim.test(b.replace(/<[^>]+>/g, " ")));
-  assert.ok(claims.length >= 6, `expected the walletless and paid-fee claims across the page, found ${claims.length}`);
-  for (const block of claims) {
-    assert.match(block, /being built/i, `claim not labelled as being built: ${block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`);
-  }
-  assert.match(main, /Launch with no wallet, fee paid by promptfun\.fun<\/span><span class="status status-building">Being built/);
-
-  assert.match(html, /If you’d rather use your own wallet, you can\./);
-  assert.match(main, /Launch a token with your own wallet<\/span><span class="status status-testing">Testing on devnet/);
+  assert.match(main, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live"[^>]*>Live/);
+  assert.match(main, /Launch with no wallet \(sponsored, devnet\)<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.match(main, /Live on mainnet/);
 });
 
 test("Terms, Privacy, Docs and Explore pages exist and stay Claude-only", async () => {

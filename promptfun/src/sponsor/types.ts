@@ -8,5 +8,9 @@ export interface FeePayerSigner {
 export interface SponsorBudgetSnapshot {
   killSwitch: boolean;
   sponsoredLaunchesEnabled: boolean;
+  /** Sponsored launches on Solana testnets (devnet SPL/pump.fun). */
+  sponsoredTestnetsEnabled: boolean;
+  /** Sponsored pump.fun on Solana mainnet; requires PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and funded sponsor SOL. */
+  sponsoredMainnetEnabled: boolean;
   pauseReason: string | null;
 }

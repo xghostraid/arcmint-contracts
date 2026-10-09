@@ -18,19 +18,37 @@ export function sponsorPubkeyFromConfig(config: Config): string | null {
   }
 }
 
-export function sponsorBudgetSnapshot(config: Config): SponsorBudgetSnapshot {
-  if (config.sponsorKillSwitch || isRuntimeSponsorPaused()) {
-    return { killSwitch: true, sponsoredLaunchesEnabled: false, pauseReason: "promptfun isn't paying for launches right now. Use your own wallet instead." };
-  }
-  if (!config.enableSponsoredLaunches) {
-    return { killSwitch: false, sponsoredLaunchesEnabled: false, pauseReason: "Sponsored launches are off on this server." };
-  }
-  if (!config.sponsorSecretKey) {
-    return { killSwitch: false, sponsoredLaunchesEnabled: false, pauseReason: "Sponsor wallet is not configured yet." };
-  }
-  return { killSwitch: false, sponsoredLaunchesEnabled: true, pauseReason: null };
+function baseSponsorOff(config: Config, pauseReason: string): SponsorBudgetSnapshot {
+  return {
+    killSwitch: config.sponsorKillSwitch || isRuntimeSponsorPaused(),
+    sponsoredLaunchesEnabled: false,
+    sponsoredTestnetsEnabled: false,
+    sponsoredMainnetEnabled: false,
+    pauseReason,
+  };
 }
 
-export function chainAllowsSponsoredLaunch(chain: Chain): boolean {
-  return chain.family === "solana" && chain.testnet && chain.actions.includes("launch_token");
+export function sponsorBudgetSnapshot(config: Config): SponsorBudgetSnapshot {
+  if (config.sponsorKillSwitch || isRuntimeSponsorPaused()) {
+    return { ...baseSponsorOff(config, "promptfun isn't paying for launches right now. Use your own wallet instead."), killSwitch: true };
+  }
+  if (!config.enableSponsoredLaunches) {
+    return baseSponsorOff(config, "Sponsored launches are off on this server.");
+  }
+  if (!config.sponsorSecretKey) {
+    return baseSponsorOff(config, "Sponsor wallet is not configured yet.");
+  }
+  return {
+    killSwitch: false,
+    sponsoredLaunchesEnabled: true,
+    sponsoredTestnetsEnabled: true,
+    sponsoredMainnetEnabled: config.enableSponsoredMainnet,
+    pauseReason: null,
+  };
+}
+
+export function chainAllowsSponsoredLaunch(chain: Chain, config: Config): boolean {
+  if (chain.family !== "solana" || !chain.actions.includes("launch_token")) return false;
+  if (chain.testnet) return true;
+  return chain.cluster === "mainnet-beta" && config.enableSponsoredMainnet && chain.launchVenues.includes("pumpfun");
 }

@@ -76,12 +76,14 @@ export function allChains(config: Config): Chain[] {
     },
     {
       key: "solana-devnet",
-      name: "Solana devnet",
+      name: "Solana devnet (test network)",
       family: "solana",
       testnet: true,
       status: "verified",
       evidence:
-        "Run end to end on public devnet on 2026-10-09 through the MCP tools and the approval page (scripts/devnet-demo.ts): Token-2022 launch Lvr3Gs42ZPMteZZZrDG48g3S9peoC6pg2UneTWPa5GHy2rUTwqe5Jmeuna8r42XPusL8SYcXVk6iB4bR9LKf1EY (mint 9T2ZGEjbngvadmgZQouQgHRaA2pDFLkcpb3Mo2faikds), token transfer 2ZRSbzmC3fDyGrG4g3f9xJkCLkaRZdSpwtWhPs57i2eyYPaLRHBUBhUpfB919bHXyC5abhxWQBAUjFttMW7G5SE7, SOL transfer 2o5CqE8gtZGhiAxCKGht5awAQmGBahvXxLaYDf1gmd6c6m5CwW7U5X1BcAnAhLvMk9Un5xNBkfYnBSeNNj5K4KsQ, each receipt read from chain. Signed by a Wallet Standard test wallet, not yet by Phantom itself.",
+        config.enablePumpfunMainnet
+          ? "Optional test network. Proven end to end on 2026-10-09 (scripts/devnet-demo.ts). For real launches use solana-mainnet (pump.fun)."
+          : "Run end to end on public devnet on 2026-10-09 through the MCP tools and the approval page (scripts/devnet-demo.ts): Token-2022 launch, token transfer, SOL transfer, each receipt read from chain.",
       rpcUrl: rpc(env, "solana-devnet", "https://api.devnet.solana.com"),
       nativeSymbol: "SOL",
       nativeDecimals: 9,
@@ -93,12 +95,13 @@ export function allChains(config: Config): Chain[] {
     },
     {
       key: "solana-mainnet",
-      name: "Solana mainnet (pump.fun launches only)",
+      name: "Solana mainnet (pump.fun)",
       family: "solana",
       testnet: false,
-      status: "gated",
-      evidence:
-        "pump.fun has no testnet. The pump.fun launch transaction is built with the official @pump-fun/pump-sdk and simulated, but promptfun has never broadcast one. Real SOL is spent.",
+      status: config.enablePumpfunMainnet ? "verified" : "gated",
+      evidence: config.enablePumpfunMainnet
+        ? "Live: pump.fun token launches via the Claude connector. prepare_launch builds with @pump-fun/pump-sdk; the user approves in their wallet on Solana mainnet (real SOL). Sponsored mainnet (no wallet) stays off unless PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and the sponsor wallet is funded."
+        : "pump.fun has no testnet. The pump.fun launch transaction is built with the official @pump-fun/pump-sdk and simulated. Real SOL is spent when enabled.",
       rpcUrl: rpc(env, "solana-mainnet", "https://api.mainnet-beta.solana.com"),
       nativeSymbol: "SOL",
       nativeDecimals: 9,
@@ -109,7 +112,7 @@ export function allChains(config: Config): Chain[] {
       launchVenues: ["pumpfun"],
       disabledReason: config.enablePumpfunMainnet
         ? undefined
-        : "Mainnet is off. Set PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1 for pump.fun launches (real SOL; single-user local runs only until OAuth lands).",
+        : "Mainnet is off. Set PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1 for pump.fun launches (real SOL).",
     },
   ];
   return [...solana, ...evmChains(config)];
@@ -123,6 +126,24 @@ export function registerEvmChains(fn: (config: Config) => EvmChain[]): void {
 
 export function enabledChains(config: Config): Chain[] {
   return allChains(config).filter((chain) => !chain.disabledReason);
+}
+
+/** Production Solana mainnet first when live; devnet and localnet sink to the bottom. */
+export function chainsForCapabilities(config: Config): Chain[] {
+  const chains = allChains(config);
+  const rank = (key: string): number => {
+    if (key === "solana-mainnet" && config.enablePumpfunMainnet) return 0;
+    if (key.startsWith("solana-") && key !== "solana-localnet") return key === "solana-devnet" ? 40 : 10;
+    if (key === "solana-localnet") return 50;
+    return 20;
+  };
+  return [...chains].sort((a, b) => rank(a.key) - rank(b.key) || a.key.localeCompare(b.key));
+}
+
+export function recommendedLaunchChainKey(config: Config): string | null {
+  if (config.enablePumpfunMainnet) return "solana-mainnet";
+  const first = enabledChains(config).find((c) => c.actions.includes("launch_token"));
+  return first?.key ?? null;
 }
 
 export function findChain(config: Config, key: string): Chain | undefined {

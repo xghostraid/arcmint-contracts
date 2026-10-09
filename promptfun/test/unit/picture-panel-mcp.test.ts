@@ -32,13 +32,22 @@ test("picture panel HTML uses MCP upload_picture_bytes, not fetch upload", async
   await h.close();
 });
 
-test("picture panel HTML notifies host via ui/update-model-context after save", async () => {
+test("picture panel HTML notifies host via redundant handoff channels after save", async () => {
   const h = await startHarness({ PROMPTFUN_PUBLIC_URL: "https://promptfun.fun" });
   const resource: any = await h.client.readResource({ uri: "ui://promptfun/picture-v1.html" });
   const html = resource.contents[0].text as string;
+  assert.match(html, /ui\/notifications\/tool-result/);
   assert.match(html, /ui\/update-model-context/);
   assert.match(html, /ui\/message/);
-  assert.doesNotMatch(html, /method:"ui\/notifications\/tool-result", params:\{structuredContent: sc\}/);
+  assert.match(html, /pic-id-row/);
+  assert.match(html, /handoffSessionId/);
+  await h.close();
+});
+
+test("open_picture_panel returns handoffSessionId", async () => {
+  const h = await startHarness({ PROMPTFUN_PUBLIC_URL: "https://promptfun.fun" });
+  const r = await h.call("open_picture_panel", {});
+  assert.match(r.data.handoffSessionId, /^hs_[a-f0-9]{24}$/);
   await h.close();
 });
 

@@ -24,7 +24,8 @@ import type { ClaimLaterWalletProvider } from "../wallets/claim-later.js";
 
 const U64_MAX = (1n << 64n) - 1n;
 
-export type LastPictureHandoff = SavedPicture & { savedAt: string };
+export type { LastPictureHandoff } from "../pictures/handoff-store.js";
+import { PictureHandoffStore, type LastPictureHandoff } from "../pictures/handoff-store.js";
 
 export interface LaunchInput {
   chain?: string;
@@ -62,7 +63,7 @@ export class IntentService {
   private poller: NodeJS.Timeout | null = null;
   private polling = false;
   private caller: AuthenticatedUser | null = null;
-  private readonly lastPictures = new Map<string, LastPictureHandoff>();
+  private readonly pictureHandoffs: PictureHandoffStore;
 
   private readonly sponsorSigner: FeePayerSigner | null;
 
@@ -80,6 +81,9 @@ export class IntentService {
     this.remote =
       remote ??
       new IntentCatalog(config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null);
+    this.pictureHandoffs = new PictureHandoffStore(
+      config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null,
+    );
   }
 
   callerIdentity(): AuthenticatedUser | null {
@@ -109,12 +113,22 @@ export class IntentService {
     return this.caller?.sub ?? this.caller?.email ?? "anonymous";
   }
 
-  noteLastPicture(saved: SavedPicture): void {
-    this.lastPictures.set(this.pictureHandoffScope(), { ...saved, savedAt: now() });
+  async noteLastPicture(saved: SavedPicture, handoffSessionId?: string): Promise<void> {
+    const scope = this.pictureHandoffScope();
+    const record: LastPictureHandoff = {
+      ...saved,
+      savedAt: now(),
+      ...(handoffSessionId?.trim() ? { handoffSessionId: handoffSessionId.trim() } : {}),
+    };
+    await this.pictureHandoffs.persist(scope, record, handoffSessionId?.trim() || undefined);
   }
 
-  getLastPicture(): LastPictureHandoff | null {
-    return this.lastPictures.get(this.pictureHandoffScope()) ?? null;
+  async getLastPicture(handoffSessionId?: string): Promise<LastPictureHandoff | null> {
+    const scope = this.pictureHandoffScope();
+    const session = handoffSessionId?.trim() || undefined;
+    const local = this.pictureHandoffs.recall(scope, session);
+    if (local) return local;
+    return this.pictureHandoffs.load(scope, session);
   }
 
   async buildMetadataUri(input: {
@@ -291,6 +305,7 @@ export class IntentService {
       try {
         const saved = await this.pictures.saveFromUrl(imageUrl);
         pictureId = saved.pictureId;
+        await this.noteLastPicture(saved);
       } catch (err) {
         throw err instanceof IntentError ? err : new IntentError((err as Error).message);
       }

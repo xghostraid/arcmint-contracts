@@ -31,3 +31,32 @@ test("picture panel HTML uses MCP upload_picture_bytes, not fetch upload", async
   assert.doesNotMatch(html, /fetch\([^)]*\/api\/pictures\/upload/);
   await h.close();
 });
+
+test("picture panel HTML notifies host via ui/update-model-context after save", async () => {
+  const h = await startHarness({ PROMPTFUN_PUBLIC_URL: "https://promptfun.fun" });
+  const resource: any = await h.client.readResource({ uri: "ui://promptfun/picture-v1.html" });
+  const html = resource.contents[0].text as string;
+  assert.match(html, /ui\/update-model-context/);
+  assert.match(html, /ui\/message/);
+  assert.doesNotMatch(html, /method:"ui\/notifications\/tool-result", params:\{structuredContent: sc\}/);
+  await h.close();
+});
+
+test("get_last_picture returns the most recent panel upload", async () => {
+  const h = await startHarness({
+    PROMPTFUN_PUBLIC_URL: "https://promptfun.fun",
+    PROMPTFUN_PINATA_JWT: "",
+    BLOB_READ_WRITE_TOKEN: "",
+    PROMPTFUN_BLOB_READ_WRITE_TOKEN: "",
+  });
+  const empty = await h.call("get_last_picture", {});
+  assert.equal(empty.isError, true);
+  const b64 = tinyJpeg().toString("base64");
+  const saved = await h.call("upload_picture_bytes", { imageBase64: `data:image/jpeg;base64,${b64}` });
+  assert.equal(saved.isError, false);
+  const last = await h.call("get_last_picture", {});
+  assert.equal(last.isError, false);
+  assert.equal(last.data.pictureId, saved.data.pictureId);
+  assert.match(last.data.savedAt, /^\d{4}-\d{2}-\d{2}T/);
+  await h.close();
+});

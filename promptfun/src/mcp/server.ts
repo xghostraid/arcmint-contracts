@@ -38,7 +38,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge).",
+    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). When the panel shows Saved, read pictureId from that tool result, the panel ui/update-model-context handoff, or get_last_picture — do not ask the user to save again.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% of creator fees.",
   ];
@@ -228,7 +228,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     {
       title: "Upload a coin picture",
       description:
-        "Opens the in-chat picture panel when the user attached an image or needs to pick a file. If you have the chat attachment https:// URL, pass imageUrl so they can tap Use this image; otherwise they Choose image → Save to promptfun. Then prepare_launch with the returned pictureId. Do not ask the user to name this tool or paste URLs manually.",
+        "Opens the in-chat picture panel when the user attached an image or needs to pick a file. If you have the chat attachment https:// URL, pass imageUrl so they can tap Use this image; otherwise they Choose image → Save to promptfun. After Save, pictureId arrives via upload_picture_bytes (panel tools/call), ui/update-model-context from the panel, or get_last_picture if you still lack it. Then prepare_launch with pictureId. Do not ask the user to name this tool or paste URLs manually.",
       inputSchema: z.object({
         imageUrl: z
           .string()
@@ -244,9 +244,14 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
       const hint = url
         ? "The picture panel is open. Tap Use this image to import the chat attachment, or Choose image to pick a file, then Save to promptfun."
         : "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then use the returned pictureId in prepare_launch or build_metadata_uri.";
+      const last = service.getLastPicture();
       return {
         content: [{ type: "text", text: hint }],
-        structuredContent: { picturePanelUri: PICTURE_URI, ...(url ? { sourceImageUrl: url } : {}) },
+        structuredContent: {
+          picturePanelUri: PICTURE_URI,
+          ...(url ? { sourceImageUrl: url } : {}),
+          ...(last ? { lastPictureId: last.pictureId, lastPictureSavedAt: last.savedAt } : {}),
+        },
       };
     },
   );
@@ -265,10 +270,11 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     async ({ imageUrl }) => {
       try {
         const saved = await service.pictures.saveFromUrl(imageUrl.trim());
+        service.noteLastPicture(saved);
         const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
         return {
           content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in prepare_launch or build_metadata_uri.` }],
-          structuredContent: saved,
+          structuredContent: { ...saved, source: "import_picture_from_url" },
         };
       } catch (err) {
         return fail(err);
@@ -293,10 +299,11 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         ));
       }
       const saved = await service.pictures.saveFromBase64(imageBase64);
+      service.noteLastPicture(saved);
       const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
       return {
         content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in build_metadata_uri or prepare_launch.` }],
-        structuredContent: saved,
+        structuredContent: { ...saved, source: "upload_picture_bytes", handoff: "picture_saved" },
       };
     } catch (err) {
       return fail(err);
@@ -327,6 +334,30 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
       _meta: APP_ONLY,
     },
     savePictureFromPanel,
+  );
+
+  server.registerTool(
+    "get_last_picture",
+    {
+      title: "Get last saved coin picture",
+      description:
+        "Returns pictureId from the most recent picture save in this connector session (panel Save via upload_picture_bytes, import_picture_from_url, or prepare_launch imageUrl). Call when the picture panel shows Saved but you do not have pictureId yet.",
+      inputSchema: z.object({}),
+      annotations: READ,
+    },
+    async () => {
+      const last = service.getLastPicture();
+      if (!last) {
+        return fail(new IntentError("No picture saved yet. Ask the user to Save in the picture panel or attach an image to import.", "not_found"));
+      }
+      return {
+        content: [{
+          type: "text",
+          text: `Last saved picture ${last.pictureId} (${last.bytes} bytes, ${last.mime}, saved ${last.savedAt}). Use pictureId in prepare_launch or build_metadata_uri.`,
+        }],
+        structuredContent: { ...last, source: "get_last_picture" },
+      };
+    },
   );
 
   server.registerTool(

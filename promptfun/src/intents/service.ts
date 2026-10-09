@@ -13,7 +13,7 @@ import { chainAllowsSponsoredLaunch, sponsorBudgetSnapshot } from "../sponsor/bu
 import { createFeePayerSigner } from "../sponsor/local-signer.js";
 import type { FeePayerSigner } from "../sponsor/types.js";
 import { solanaInstructionFingerprint } from "../sponsor/fingerprint.js";
-import type { PictureService } from "../pictures/service.js";
+import type { PictureService, SavedPicture } from "../pictures/service.js";
 import type { AuthenticatedUser } from "../auth/types.js";
 import type { PlatformStore } from "../platform/store.js";
 import { assertLaunchQuota } from "../platform/quota.js";
@@ -23,6 +23,8 @@ import type { ClaimWalletView, WalletProvider } from "../wallets/types.js";
 import type { ClaimLaterWalletProvider } from "../wallets/claim-later.js";
 
 const U64_MAX = (1n << 64n) - 1n;
+
+export type LastPictureHandoff = SavedPicture & { savedAt: string };
 
 export interface LaunchInput {
   chain?: string;
@@ -60,6 +62,7 @@ export class IntentService {
   private poller: NodeJS.Timeout | null = null;
   private polling = false;
   private caller: AuthenticatedUser | null = null;
+  private readonly lastPictures = new Map<string, LastPictureHandoff>();
 
   private readonly sponsorSigner: FeePayerSigner | null;
 
@@ -99,6 +102,19 @@ export class IntentService {
 
   clearCaller(): void {
     this.caller = null;
+  }
+
+  /** Scope for panel handoff when OAuth is off (shared anonymous connector). */
+  private pictureHandoffScope(): string {
+    return this.caller?.sub ?? this.caller?.email ?? "anonymous";
+  }
+
+  noteLastPicture(saved: SavedPicture): void {
+    this.lastPictures.set(this.pictureHandoffScope(), { ...saved, savedAt: now() });
+  }
+
+  getLastPicture(): LastPictureHandoff | null {
+    return this.lastPictures.get(this.pictureHandoffScope()) ?? null;
   }
 
   async buildMetadataUri(input: {

@@ -115,7 +115,22 @@ export function pictureHtml(publicUrl: string): string {
       r.readAsDataURL(blob);
     });
   }
-  function showSaved(sc){
+  function handoffText(sc){
+    return "Saved coin picture " + sc.pictureId + " (" + sc.bytes + " bytes, " + sc.mime + "). Use pictureId in prepare_launch or build_metadata_uri.";
+  }
+  function notifyHostPictureSaved(sc){
+    var text = handoffText(sc);
+    var structured = Object.assign({ picturePanelUri: "${PICTURE_URI}", handoff: "picture_saved" }, sc);
+    request("ui/update-model-context", {
+      content: [{ type: "text", text: text }],
+      structuredContent: structured,
+    }).catch(function(){});
+    request("ui/message", {
+      role: "user",
+      content: [{ type: "text", text: text }],
+    }).catch(function(){});
+  }
+  function showSaved(sc, notifyHost){
     pictureId = sc && sc.pictureId;
     if (!pictureId) throw new Error("No picture id returned");
     preview.src = publicOrigin + "/api/pictures/" + pictureId;
@@ -123,7 +138,7 @@ export function pictureHtml(publicUrl: string): string {
     saveBtn.textContent = "Saved";
     saveBtn.disabled = true;
     if (useChatBtn) useChatBtn.hidden = true;
-    post({jsonrpc:"2.0", method:"ui/notifications/tool-result", params:{structuredContent: sc}});
+    if (notifyHost !== false) notifyHostPictureSaved(sc);
     resize();
   }
   function saveFileViaMcp(f){
@@ -162,7 +177,7 @@ export function pictureHtml(publicUrl: string): string {
       useChatBtn.hidden = false;
       resize();
     }
-    if (sc.pictureId) showSaved(sc);
+    if (sc.pictureId) showSaved(sc, false);
   }
   window.addEventListener("message", function(e){
     var m = e.data; if (!m || m.jsonrpc !== "2.0") return;
@@ -175,7 +190,10 @@ export function pictureHtml(publicUrl: string): string {
       } else q.res(m.result);
       return;
     }
-    if (m.method === "ui/notifications/tool-result") applyToolOutput(m.params && m.params.structuredContent);
+    if (m.method === "ui/notifications/tool-result") {
+      var tr = m.params;
+      applyToolOutput(tr && tr.structuredContent);
+    }
   });
   request("ui/initialize", {protocolVersion:"2026-01-26", appInfo:{name:"${BRAND} picture", version:"${VERSION}"}, appCapabilities:{availableDisplayModes:["inline"]}})
     .then(function(){ post({jsonrpc:"2.0", method:"ui/notifications/initialized", params:{}}); resize(); })

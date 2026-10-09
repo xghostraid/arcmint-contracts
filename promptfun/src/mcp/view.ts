@@ -10,6 +10,7 @@ export interface IntentView {
   chain: string;
   chainName: string;
   chainStatus: string;
+  testnet: boolean;
   params: Intent["params"];
   approveUrl: string;
   expiresAt: string;
@@ -66,6 +67,7 @@ export function intentView(config: Config, intent: Intent, approveUrl: string): 
     chain: intent.chain,
     chainName: chain?.name ?? intent.chain,
     chainStatus: chain?.status ?? "unknown",
+    testnet: chain?.testnet ?? false,
     params: intent.params,
     approveUrl,
     expiresAt: intent.expiresAt,

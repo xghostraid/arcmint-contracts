@@ -1,0 +1,125 @@
+/* Sunny pop: the promptfun.fun site's visual language, shared by the approval page and the in-chat card.
+   Text pairs meet WCAG AA. Buttons are ink on tomato, never white. Small red text uses --red-text. */
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("fonts/instrument-sans.woff2") format("woff2");
+}
+
+:root {
+  color-scheme: light;
+  --bg: #fff4e0;
+  --bg-2: #ffe9c2;
+  --paper: #ffffff;
+  --ink: #17153b;
+  --ink-2: #4a4766;
+  --ink-3: #6a6684;
+  --cta: #ff5b3a;
+  --cta-ink: #17153b;
+  --red-text: #c22f0f;
+  --yellow: #ffce3a;
+  --yellow-soft: #fff0bf;
+  --blue: #3b6cff;
+  --blue-soft: #dfe7ff;
+  --green: #1fc97f;
+  --green-soft: #d4f7e6;
+  --pink: #ff8fc7;
+  --pink-soft: #ffe0f0;
+  --lilac: #9b7bff;
+  --edge: var(--ink);
+  --bw: 2.5px;
+  --sh: 5px 5px 0 var(--ink);
+  --sh-sm: 3px 3px 0 var(--ink);
+  --sh-lg: 8px 8px 0 var(--ink);
+  --font: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+img { max-width: 100%; display: block; }
+a { color: var(--ink); text-decoration-color: var(--cta); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+code { font-family: var(--mono); font-size: 0.85em; word-break: break-all; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 6px; }
+[hidden] { display: none !important; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 0 22px;
+  border: var(--bw) solid var(--edge);
+  border-radius: 16px;
+  background: var(--cta);
+  color: var(--cta-ink);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: var(--sh);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.btn:hover { transform: translate(-2px, -2px); box-shadow: var(--sh-lg); }
+.btn:active { transform: translate(3px, 3px); box-shadow: none; }
+.btn-ghost { background: var(--paper); }
+.btn-approve { background: var(--green); min-height: 56px; font-size: 18px; }
+.btn-small { min-height: 44px; padding: 0 14px; border-radius: 12px; font-size: 15px; box-shadow: var(--sh-sm); }
+.btn:disabled { background: var(--bg-2); color: var(--ink-2); border-style: dashed; box-shadow: none; transform: none; cursor: wait; }
+.btn img { width: 22px; height: 22px; border-radius: 6px; }
+
+/* Status chips */
+.status { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px; border: 2px solid var(--edge); border-radius: 999px; background: var(--paper); color: var(--ink); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.status-testing { background: var(--yellow); }
+.status-building { background: var(--pink); }
+.status-soon { border-style: dashed; color: var(--ink-2); }
+.status-ok { background: var(--green); }
+.status-bad { background: var(--pink); }
+
+/* Preview / receipt card */
+.card-kicker { display: block; color: var(--ink-2); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.card-badge { flex: 0 0 auto; padding: 2px 9px; border: 2px solid var(--edge); border-radius: 999px; background: var(--yellow); color: var(--ink); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.card-badge-ok { background: var(--green); }
+.card-badge-bad { background: var(--pink); }
+.card-badge-wait { background: var(--paper); border-style: dashed; }
+.pv { border: var(--bw) solid var(--edge); border-radius: 22px; background: var(--paper); box-shadow: var(--sh); overflow: hidden; }
+.pv-top { display: flex; align-items: center; gap: 16px; padding: 16px 18px; background: var(--yellow-soft); border-bottom: 2px solid var(--edge); }
+.pv-top.is-ok { background: var(--green-soft); }
+.pv-top.is-bad { background: var(--pink-soft); }
+.pv-top.is-idle { background: var(--bg-2); }
+.pv-art { flex: 0 0 auto; width: 56px; height: 56px; }
+.pv-head { min-width: 0; }
+.pv-title { margin: 2px 0 0; font-size: 22px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.pv-sub { margin: 2px 0 0; color: var(--ink-2); font-size: 15px; }
+.pv-top .card-badge { margin-left: auto; align-self: flex-start; }
+.pv-section { padding: 14px 18px; border-bottom: 2px solid var(--edge); }
+.pv-section:last-child { border-bottom: 0; }
+.pv-label { margin: 0 0 10px; color: var(--ink-2); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.pv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pv-list li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; overflow-wrap: anywhere; }
+.pv-list li::before { content: ""; flex: 0 0 auto; width: 22px; height: 22px; margin-top: 1px; background: url("art/check.svg") center / 22px no-repeat; }
+.pv-list.is-plain li::before { width: 10px; height: 10px; margin: 7px 6px 0; border: 2px solid var(--edge); border-radius: 50%; background: var(--pink); }
+.pv-note { margin: 0; color: var(--ink-2); font-size: 15px; }
+.pv-list + .pv-note, .pv-list + .warn-box, .pv-note + .warn-box { margin-top: 12px; }
+.rows dt { flex: 1 1 auto; }
+.rows { margin: 0; display: grid; gap: 8px; }
+.rows div { display: flex; justify-content: space-between; gap: 16px; font-size: 15px; }
+.rows dt { color: var(--ink-3); }
+.rows dd { margin: 0; color: var(--ink); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rows dd span:not(.fee-chip):not(.status) { display: block; color: var(--ink-3); font-size: 13px; font-weight: 400; }
+.fee-chip { display: inline-block; white-space: nowrap; padding: 1px 10px; border: 2px solid var(--edge); border-radius: 999px; background: var(--blue-soft); font-weight: 700; }
+.pv-actions { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px 18px; background: var(--bg); }
+.pv-actions .btn-main { flex: 1 1 220px; }
+.pv-foot { flex-basis: 100%; margin: 2px 0 0; color: var(--ink-3); font-size: 13px; }
+.warn-box { margin: 0; padding: 10px 14px; border: 2px solid var(--edge); border-radius: 12px; background: var(--pink-soft); color: var(--red-text); font-size: 14px; font-weight: 600; }
+.ok-text { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .btn:hover, .btn:active { transform: none; }
+}

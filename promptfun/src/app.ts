@@ -15,12 +15,14 @@ import { approvePage, homePage, notFoundPage, type EvmWalletChain } from "./web/
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = [path.resolve(here, "../public"), path.resolve(here, "../../public")].find((dir) => fs.existsSync(dir))!;
-const STATIC: Record<string, string> = {
-  "/static/approve.js": "approve.js",
-  "/static/approve.css": "approve.css",
-  "/static/fonts/instrument-sans.woff2": "fonts/instrument-sans.woff2",
-};
-const TYPES: Record<string, string> = { ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".woff2": "font/woff2" };
+const STATIC: Record<string, string> = Object.fromEntries([
+  "approve.js",
+  "approve.css",
+  "sunny-pop.css",
+  "fonts/instrument-sans.woff2",
+  ...fs.readdirSync(path.join(PUBLIC_DIR, "art")).filter((f) => f.endsWith(".svg")).map((f) => `art/${f}`),
+].map((file) => [`/static/${file}`, file]));
+const TYPES: Record<string, string> = { ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".woff2": "font/woff2", ".svg": "image/svg+xml" };
 const PAGE_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: https:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
 function headers(res: http.ServerResponse): void {

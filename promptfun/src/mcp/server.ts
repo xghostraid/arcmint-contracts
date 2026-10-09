@@ -11,7 +11,8 @@ import { intentText, intentView } from "./view.js";
 const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer that the user approves in their own wallet. Nothing moves until they sign on the approval page; ${SHORT} never holds keys and never executes on its own. Call get_capabilities first for chains and their honest status. After prepare_*, give the user the approval link, then call get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
 
 const LIMITATIONS = [
-  "The user must approve each action in their own wallet on the approval page; ChatGPT's confirmation is not a transaction approval.",
+  "Today the user approves each action in their own wallet on the approval page. The host's tool approval (Claude's Allow, ChatGPT's confirm) approves the tool call, not a transaction.",
+  "Sponsored launches, where promptfun pays and the user confirms in chat with no wallet, are designed but not built yet.",
   "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
   "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
   "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
@@ -19,6 +20,30 @@ const LIMITATIONS = [
   "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
   "Fees shown are network fees only. promptfun charges no fee.",
 ];
+
+/** How each host reaches this same /mcp endpoint. Both use standard MCP, Streamable HTTP and the MCP Apps card. */
+const HOSTS = [
+  {
+    host: "claude",
+    role: "primary",
+    connect: "Custom connector: Customize → Connectors → Add custom connector, URL https://<promptfun-host>/mcp, Authentication: No sign in.",
+    notes: [
+      "Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise, on web, desktop and mobile. Add it on web or desktop first; it then appears on mobile.",
+      "Claude asks the user to Allow write tools (prepare_*) unless they chose Always allow. Read-only tools run without a prompt.",
+      "The card renders inline. Opening the approval page shows Claude's external-link confirmation, which custom connectors always get.",
+      "Claude allows 240 seconds per tool call; every promptfun tool returns in seconds.",
+    ],
+  },
+  {
+    host: "chatgpt",
+    role: "secondary",
+    connect: "Developer-mode custom app with the same URL and no authentication.",
+    notes: [
+      "Write tools in custom apps are a beta for ChatGPT Business, Enterprise and Edu on web. Pro gets read-only tools, and mobile isn't supported.",
+      "The card opens the approval page with ui/open-link, falling back to window.openai.openExternal.",
+    ],
+  },
+] as const;
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; structuredContent?: Record<string, unknown>; isError?: boolean };
 
@@ -29,7 +54,8 @@ function fail(err: unknown): ToolResult {
 
 const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
-const CARD_META = { ui: { resourceUri: CARD_URI }, "openai/outputTemplate": CARD_URI };
+// "ui/resourceUri" is the pre-2026 MCP Apps key some hosts still read; "openai/outputTemplate" is ChatGPT's alias.
+const CARD_META = { ui: { resourceUri: CARD_URI }, "ui/resourceUri": CARD_URI, "openai/outputTemplate": CARD_URI };
 
 // Models and clients often send amounts as JSON numbers; the decimal parser still validates the text.
 const decimalInput = z.union([z.string(), z.number()]);
@@ -91,8 +117,15 @@ export function buildServer(service: IntentService): McpServer {
       }));
       const lines = chains.map((c) => `- ${c.key} (${c.name}): ${c.status}${c.enabled ? "" : ` — off: ${c.disabledReason}`}`);
       return {
-        content: [{ type: "text", text: [`${BRAND} ${VERSION}. Chains:`, ...lines, "Limitations:", ...LIMITATIONS.map((l) => `- ${l}`)].join("\n") }],
-        structuredContent: { version: VERSION, chains, limitations: LIMITATIONS, promptfunFee: "0" },
+        content: [{
+          type: "text",
+          text: [
+            `${BRAND} ${VERSION}. Chains:`, ...lines,
+            "Limitations:", ...LIMITATIONS.map((l) => `- ${l}`),
+            "Hosts:", ...HOSTS.map((h) => `- ${h.host} (${h.role}): ${h.connect} ${h.notes.join(" ")}`),
+          ].join("\n"),
+        }],
+        structuredContent: { version: VERSION, chains, limitations: LIMITATIONS, hosts: HOSTS, promptfunFee: "0" },
       };
     },
   );

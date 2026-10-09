@@ -1,29 +1,50 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { BRAND, VERSION } from "../brand.js";
 
 export const CARD_URI = "ui://promptfun/intent-card-v1.html";
 
+const here = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = [path.resolve(here, "../../public"), path.resolve(here, "../../../public")].find((dir) => fs.existsSync(dir))!;
+const ART = ["coin", "step-preview", "step-receipt", "faq", "check"] as const;
+
+function dataUri(file: string, type: string): string {
+  return `data:${type};base64,${fs.readFileSync(path.join(PUBLIC_DIR, file)).toString("base64")}`;
+}
+
 /**
- * In-chat intent card (MCP Apps standard; ChatGPT primary). It shows the decoded preview, the network fee,
- * and status, and opens the approval page in the user's browser. It cannot sign: the iframe has no wallet access.
+ * The card's styles and art are files in public/ (sunny-pop.css, card.css, art/*.svg). The host loads the resource as
+ * one HTML document with no network access by default, so they are inlined here: CSS into <style>, SVGs and the font
+ * as data: URIs.
+ */
+function cardAssets(): { css: string; art: Record<string, string> } {
+  const art = Object.fromEntries(ART.map((name) => [name, dataUri(`art/${name}.svg`, "image/svg+xml")]));
+  const css = ["sunny-pop.css", "card.css"]
+    .map((f) => fs.readFileSync(path.join(PUBLIC_DIR, f), "utf8"))
+    .join("\n")
+    .replace(/url\("art\/([a-z-]+)\.svg"\)/g, (_, name: string) => `url("${art[name] ?? dataUri(`art/${name}.svg`, "image/svg+xml")}")`)
+    .replace(/url\("fonts\/([a-z-]+\.woff2)"\)/g, (_, file: string) => `url("${dataUri(`fonts/${file}`, "font/woff2")}")`);
+  return { css, art };
+}
+
+let cached: string | null = null;
+
+/**
+ * In-chat intent card (MCP Apps standard, so the same HTML runs in any MCP Apps host). It shows the decoded preview,
+ * the network fee, status and the chain-read receipt, and opens the approval page in the user's browser. It cannot
+ * sign: the sandboxed frame (a native WebView on Claude mobile) has no wallet access.
  */
 export function cardHtml(): string {
-  return `<!doctype html>
+  if (cached) return cached;
+  const { css, art } = cardAssets();
+  cached = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-:root{color-scheme:light dark;--fg:#141414;--muted:#5f5f5f;--line:#e4e4e4;--bg:#fff;--accent:#0f5cff;--ok:#0a7a3d;--bad:#b42318}
-@media (prefers-color-scheme:dark){:root{--fg:#f2f2f2;--muted:#a3a3a3;--line:#2c2c2c;--bg:#161616;--accent:#6e9bff;--ok:#4cc38a;--bad:#ff7b6b}}
-*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);background:var(--bg)}
-.card{padding:14px 16px}.top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-h1{font-size:15px;margin:0}.pill{font-size:12px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
-.pill.confirmed{color:var(--ok);border-color:var(--ok)}.pill.failed,.pill.expired{color:var(--bad);border-color:var(--bad)}
-p{margin:6px 0}.muted{color:var(--muted)}ul{margin:6px 0;padding-left:18px}li{margin:2px 0}
-.fee{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}.warn{color:var(--bad)}
-.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}button{font:inherit;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}a{color:var(--accent)}code{font-size:12px;word-break:break-all}
-</style></head>
-<body><div class="card" id="root"><p class="muted">Loading…</p></div>
+<style>${css}</style></head>
+<body><div class="wrap" id="root"><div class="skeleton" aria-label="Loading"></div></div>
 <script>
 (function(){
+  var ART = ${JSON.stringify(art)};
   var nextId = 1, pending = {}, view = null;
   function post(m){ window.parent.postMessage(m, "*"); }
   function request(method, params){ var id = nextId++; post({jsonrpc:"2.0", id:id, method:method, params:params}); return new Promise(function(res, rej){ pending[id] = {res:res, rej:rej}; }); }
@@ -31,34 +52,70 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}a{
   function open(url){
     request("ui/open-link", {url:url}).catch(function(){ if (window.openai && window.openai.openExternal) window.openai.openExternal({href:url, redirectUrl:false}); });
   }
+  var BADGES = {
+    awaiting_wallet: ["Needs your wallet", "wait"], submitted: ["Sent", "wait"], confirmed: ["Confirmed onchain", "ok"],
+    failed: ["Failed", "bad"], expired: ["Expired", "wait"]
+  };
+  var CHAIN_CHIPS = { verified: ["Verified end to end", "status-ok"], configured: ["Not yet verified", "status-testing"], gated: ["Real money, not verified", "status-building"] };
+  function row(label, value){ return '<div><dt>' + esc(label) + '</dt><dd>' + value + '</dd></div>'; }
   function render(v){
     if (!v || !v.intentId) return;
     view = v;
-    var h = '<div class="top"><h1>' + esc(v.summary) + '</h1><span class="pill ' + esc(v.status) + '">' + esc(v.status.replace("_"," ")) + '</span></div>';
-    h += '<p class="muted">' + esc(v.chainName) + ' · ' + esc(v.chainStatus) + '</p>';
-    if (v.chainStatus !== "verified") h += '<p class="warn">' + (v.chainStatus === "gated" ? "Real-money network. Not verified end to end by ${BRAND}." : "Configured, not yet verified end to end.") + '</p>';
-    var p = v.preview;
-    if (p) {
-      h += '<ul>' + p.steps.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join("") + '</ul>';
-      h += '<p>' + (p.simulationOk ? "Simulation passed." : '<span class="warn">Simulation failed: ' + esc(p.simulationError) + '</span>') + '</p>';
-      h += '<div class="fee"><strong>' + esc(p.feeLabel) + '</strong><br>' + esc(p.networkFee) + ' ' + esc(p.symbol) + ' fee' + (p.deposits !== "0" ? ' + ' + esc(p.deposits) + ' ' + esc(p.symbol) + ' rent deposits' : '') + (p.usd ? ' (≈ $' + esc(p.usd) + ')' : '') + '<br><span class="muted">promptfun fee: none</span></div>';
-    } else if (v.status === "awaiting_wallet") {
-      h += '<p class="muted">The exact transaction, network fee and simulation appear when you connect your wallet on the approval page.</p>';
+    var p = v.preview, r = v.receipt, s = v.status, launch = v.kind === "launch_token", params = v.params || {};
+    var done = s === "confirmed" || s === "failed";
+    var badge = s === "built" ? (p && p.simulationOk ? ["Checked", ""] : ["Check failed", "bad"]) : BADGES[s] || [s, "wait"];
+    var tone = s === "confirmed" ? " is-ok" : s === "failed" ? " is-bad" : s === "expired" ? " is-idle" : "";
+    var art = s === "confirmed" ? ART["step-receipt"] : s === "failed" || s === "expired" ? ART.faq : launch ? ART.coin : ART["step-preview"];
+    var title = launch ? (s === "confirmed" ? params.name + " (" + params.symbol + ") is live" : "Create a new token") : (s === "confirmed" ? "Sent" : "Send");
+    var sub = launch ? params.name + " · " + params.symbol + " on " + v.chainName : v.summary.replace(/\\.$/, "");
+    var h = '<article class="pv" aria-label="' + (done ? "Receipt" : "Transaction preview") + '">';
+    h += '<div class="pv-top' + tone + '"><img class="pv-art" src="' + art + '" alt="" width="56" height="56"><div class="pv-head">';
+    h += '<span class="card-kicker">' + (done ? "Receipt" : "${BRAND} preview") + '</span><p class="pv-title">' + esc(title) + '</p><p class="pv-sub">' + esc(sub) + '</p></div>';
+    h += '<span class="card-badge' + (badge[1] ? " card-badge-" + badge[1] : "") + '">' + esc(badge[0]) + '</span></div>';
+
+    h += '<div class="pv-section">';
+    if (r) {
+      h += '<p class="pv-label">' + (r.status === "success" ? "Read back from the chain" : "What the chain shows") + '</p>';
+      h += '<ul class="pv-list' + (r.status === "success" ? "" : " is-plain") + '">' + r.verified.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>';
+    } else if (p) {
+      h += '<p class="pv-label">What happens</p><ul class="pv-list">' + p.steps.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>';
+      if (!p.simulationOk) h += '<p class="warn-box">Simulation failed: ' + esc(p.simulationError) + '</p>';
+    } else if (s === "submitted") {
+      h += '<p class="pv-note">Signed by your wallet and sent. ${BRAND} is reading it back from the chain.</p>';
+    } else if (s === "expired") {
+      h += '<p class="pv-note">Expired before approval. Nothing was sent.</p>';
+    } else {
+      h += '<p class="pv-label">What happens</p><p class="pv-note">' + esc(v.summary) + ' The exact transaction, decoded into plain steps, and its network fee appear when you connect your wallet on the approval page.</p>';
     }
-    if (v.receipt) {
-      h += '<ul>' + v.receipt.verified.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join("") + '</ul>';
-      if (v.receipt.tokenAddress) h += '<p>Token <code>' + esc(v.receipt.tokenAddress) + '</code></p>';
+    if (v.error && s !== "confirmed" && !(r && r.verified.indexOf(v.error) >= 0)) h += '<p class="warn-box">' + esc(v.error) + '</p>';
+    h += '</div>';
+
+    var chip = CHAIN_CHIPS[v.chainStatus];
+    var rows = row("Network", esc(v.chainName) + '<span>' + (v.testnet ? "Test tokens with no real value" : "Real funds") + '</span>');
+    if (chip) rows += row("Checked by ${BRAND}", '<span class="status ' + chip[1] + '">' + chip[0] + '</span>');
+    if (r) {
+      rows += row("Network fee paid", '<span class="fee-chip">' + esc(r.fee) + ' ' + esc(r.feeSymbol) + '</span>');
+      rows += row("Block / slot", esc(r.slotOrBlock));
+      if (r.tokenAddress) rows += row("Token", '<code>' + esc(r.tokenAddress) + '</code>');
+    } else {
+      rows += row("Who pays", "Your wallet, network fee only");
+      rows += row("Estimated network fee", p
+        ? '<span class="fee-chip">' + esc(p.networkFee) + ' ' + esc(p.symbol) + '</span>' + (p.deposits !== "0" ? '<span>plus ' + esc(p.deposits) + ' ' + esc(p.symbol) + ' rent deposits</span>' : '') + (p.usd ? '<span>≈ $' + esc(p.usd) + '</span>' : '')
+        : 'Shown when you connect<span>Read live from the network</span>');
     }
-    if (v.error) h += '<p class="warn">' + esc(v.error) + '</p>';
-    h += '<div class="row">';
-    if (v.status === "awaiting_wallet" || v.status === "built") h += '<button class="primary" data-open="' + esc(v.approveUrl) + '">Review &amp; approve in wallet</button>';
-    if (v.transaction && v.transaction.explorerUrl) h += '<button data-open="' + esc(v.transaction.explorerUrl) + '">View transaction</button>';
-    if (v.receipt && v.receipt.tokenExplorerUrl) h += '<button data-open="' + esc(v.receipt.tokenExplorerUrl) + '">View token</button>';
-    if (v.status !== "confirmed" && v.status !== "failed" && v.status !== "expired") h += '<button data-refresh="1">Refresh status</button>';
-    h += '</div><p class="muted">Nothing moves until you approve in your own wallet. ${BRAND} never holds your keys.</p>';
+    rows += row("${BRAND} fee", "None");
+    h += '<div class="pv-section"><dl class="rows">' + rows + '</dl></div>';
+
+    h += '<div class="pv-actions">';
+    if (s === "awaiting_wallet" || s === "built") h += '<button class="btn btn-main" data-open="' + esc(v.approveUrl) + '">Review &amp; approve in wallet</button>';
+    if (v.transaction && v.transaction.explorerUrl) h += '<button class="btn btn-ghost btn-small" data-open="' + esc(v.transaction.explorerUrl) + '">View transaction</button>';
+    if (r && r.tokenExplorerUrl) h += '<button class="btn btn-ghost btn-small" data-open="' + esc(r.tokenExplorerUrl) + '">View token</button>';
+    if (!done && s !== "expired") h += '<button class="btn btn-ghost" data-refresh="1">Refresh status</button>';
+    if (s === "awaiting_wallet" || s === "built") h += '<p class="pv-alt">Your chat app may ask you to confirm opening ' + esc(v.approveUrl.split("/approve/")[0]) + '.</p>';
+    h += '<p class="pv-foot">' + (done ? "Read from the chain, not assumed." : "Read from the transaction itself. Nothing moves until you approve in your own wallet. ${BRAND} never holds your keys.") + '</p>';
+    h += '</div></article>';
     document.getElementById("root").innerHTML = h;
-    var height = document.documentElement.scrollHeight;
-    post({jsonrpc:"2.0", method:"ui/notifications/size-changed", params:{height:height}});
+    post({jsonrpc:"2.0", method:"ui/notifications/size-changed", params:{height:document.documentElement.scrollHeight}});
   }
   document.addEventListener("click", function(e){
     var t = e.target.closest("button"); if (!t) return;
@@ -67,13 +124,22 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}a{
   });
   window.addEventListener("message", function(e){
     var m = e.data; if (!m || m.jsonrpc !== "2.0") return;
-    if (m.id != null && pending[m.id] && !m.method) { var p = pending[m.id]; delete pending[m.id]; m.error ? p.rej(m.error) : p.res(m.result); return; }
+    if (m.id != null && pending[m.id] && !m.method) { var q = pending[m.id]; delete pending[m.id]; m.error ? q.rej(m.error) : q.res(m.result); return; }
     if (m.method === "ui/notifications/tool-result") render(m.params && m.params.structuredContent);
+    if (m.method === "ui/notifications/host-context-changed") applyHost(m.params);
   });
-  request("ui/initialize", {protocolVersion:"2026-01-26", appInfo:{name:"${BRAND}", version:"${VERSION}"}, appCapabilities:{}})
-    .then(function(){ post({jsonrpc:"2.0", method:"ui/notifications/initialized", params:{}}); })
+  function applyHost(ctx){
+    if (!ctx) return;
+    if (ctx.theme === "light" || ctx.theme === "dark") document.documentElement.setAttribute("data-theme", ctx.theme);
+    var s = ctx.safeAreaInsets;
+    if (s) document.body.style.padding = [s.top, s.right, s.bottom, s.left].map(function(n){ return (Number(n) || 0) + "px"; }).join(" ");
+    if (view) render(view);
+  }
+  request("ui/initialize", {protocolVersion:"2026-01-26", appInfo:{name:"${BRAND}", version:"${VERSION}"}, appCapabilities:{availableDisplayModes:["inline"]}})
+    .then(function(r){ applyHost(r && r.hostContext); post({jsonrpc:"2.0", method:"ui/notifications/initialized", params:{}}); })
     .catch(function(){});
   if (window.openai && window.openai.toolOutput) render(window.openai.toolOutput);
 })();
 </script></body></html>`;
+  return cached;
 }

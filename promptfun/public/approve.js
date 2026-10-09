@@ -35,7 +35,22 @@
     return el;
   }
   function setError(message) { text($("error"), message || ""); }
-  function setStatus(status) { const el = $("status"); el.dataset.status = status; text(el, status.replace("_", " ")); }
+  function setStatus(status) {
+    const el = $("status"); el.dataset.status = status; text(el, status.replace("_", " "));
+    const approveStep = document.querySelector('[data-step="approve"]');
+    const receiptStep = document.querySelector('[data-step="receipt"]');
+    const sent = ["submitted", "confirmed", "failed"].includes(status);
+    approveStep.className = sent ? "done" : "now";
+    approveStep.firstChild.textContent = sent ? "✓" : "3";
+    receiptStep.className = status === "confirmed" ? "done" : sent ? "now" : "";
+    receiptStep.firstChild.textContent = status === "confirmed" ? "✓" : "4";
+  }
+  function setBadge(label, tone) {
+    const badge = $("check-badge");
+    badge.className = `card-badge${tone ? ` card-badge-${tone}` : ""}`;
+    text(badge, label);
+    $("pv-top").className = `pv-top${tone === "ok" ? " is-ok" : tone === "bad" ? " is-bad" : tone === "wait" ? "" : ""}`;
+  }
 
   async function api(path, body) {
     const res = await fetch(`/api/intents/${intentId}${path}`, body === undefined
@@ -105,7 +120,7 @@
         ? "No EVM wallet found. Install MetaMask, Rabby or Coinbase Wallet, then reload."
         : "No Solana wallet found. Install Phantom, Solflare or Backpack, then reload.");
     for (const w of wallets) {
-      const btn = node("button", { type: "button", className: "wallet" }, [...(w.icon ? [node("img", { src: w.icon, alt: "" })] : []), w.name]);
+      const btn = node("button", { type: "button", className: "btn btn-ghost wallet-pick" }, [...(w.icon ? [node("img", { src: w.icon, alt: "" })] : []), w.name]);
       btn.dataset.wallet = w.name;
       btn.addEventListener("click", () => connect(w, btn));
       list.append(btn);
@@ -152,30 +167,46 @@
     renderPreview(data.view);
   }
 
+  function renderWho() {
+    const icon = wallet.icon ? node("img", { className: "wallet-icon", src: wallet.icon, alt: "" }) : node("i", { className: "wallet-icon" });
+    const name = wallet.name || "Your wallet";
+    const addr = account.address;
+    $("wallet-who").replaceChildren(
+      icon,
+      node("p", {}, [name, node("span", { textContent: `${addr.slice(0, 6)}…${addr.slice(-4)} on ${app.dataset.chainName}` })]),
+      node("span", { className: "status", textContent: "Ready" }),
+    );
+  }
+
+  function row(label, value, chip) {
+    return node("div", {}, [node("dt", { textContent: label }), node("dd", {}, [chip ? node("span", { className: "fee-chip", textContent: value }) : value])]);
+  }
+
   function renderPreview(view) {
     $("wallets").hidden = true;
     $("preview").hidden = false;
+    renderWho();
     setStatus(view.status);
     const p = view.preview;
+    $("steps-hint").hidden = true;
     $("steps").replaceChildren(...p.steps.map((s) => node("li", { textContent: s })));
     const sim = $("simulation");
-    sim.className = p.simulationOk ? "ok" : "warn";
-    text(sim, p.simulationOk ? "Simulation passed on the network." : `Simulation failed: ${p.simulationError}. Approving would likely fail.`);
-    const rows = [
-      ["Network fee", `${p.networkFee} ${p.symbol}`],
-      ...(p.deposits !== "0" ? [["Rent deposits (held by the new accounts)", `${p.deposits} ${p.symbol}`]] : []),
-      ["Total from your wallet", `${p.total} ${p.symbol}${p.usd ? ` (≈ $${p.usd})` : ""}`],
-      ["promptfun fee", "none"],
-      ["Your balance", p.balance == null ? "unknown" : `${p.balance} ${p.symbol}`],
-    ];
-    const dl = node("dl");
-    for (const [k, v] of rows) dl.append(node("dt", { textContent: k }), node("dd", { textContent: v }));
-    $("fee").replaceChildren(
-      node("strong", { textContent: p.feeLabel }),
-      dl,
-      ...(p.note ? [node("p", { className: "muted", textContent: p.note })] : []),
-      node("p", { className: "muted", textContent: `${p.feeBasis} ${p.usdSource || ""}`.trim() }),
+    sim.hidden = false;
+    text(sim, p.simulationOk ? "Simulated on the network: it passes." : `Simulation failed: ${p.simulationError}. Approving would likely fail.`);
+    sim.className = p.simulationOk ? "pv-note" : "warn-box";
+    if (p.simulationOk) setBadge("Checked"); else setBadge("Check failed", "bad");
+    const fee = $("fee");
+    while (fee.children.length > 2) fee.lastElementChild.remove();
+    fee.append(
+      row(p.feeLabel.replace(/^Network fee/, "Estimated network fee"), `${p.networkFee} ${p.symbol}`, true),
+      ...(p.deposits !== "0" ? [row("Rent deposits (held by the new accounts)", `${p.deposits} ${p.symbol}`)] : []),
+      row("Total from your wallet", `${p.total} ${p.symbol}${p.usd ? ` (≈ $${p.usd})` : ""}`),
+      row(`${"promptfun"} fee`, "none"),
+      row("Your balance", p.balance == null ? "unknown" : `${p.balance} ${p.symbol}`),
     );
+    const basis = $("fee-basis");
+    basis.hidden = false;
+    text(basis, [p.note, p.feeBasis, p.usdSource].filter(Boolean).join(" "));
     if (p.enough === false) setError(`Not enough ${p.symbol}: this needs ${p.total} and the wallet has ${p.balance}.`);
   }
 
@@ -254,29 +285,35 @@
     poll();
   }
 
-  function link(href, label) { return node("a", { href, textContent: label, target: "_blank", rel: "noopener noreferrer" }); }
+  function link(href, label) { return node("a", { className: "btn btn-ghost btn-small", href, textContent: label, target: "_blank", rel: "noopener noreferrer" }); }
+
+  const RESULT_TITLES = { submitted: "Sent. Waiting for the network…", confirmed: "Confirmed onchain", failed: "It didn't go through", expired: "This request expired" };
 
   function showResult(view) {
     setStatus(view.status);
+    $("wallets").hidden = true;
     $("preview").hidden = true;
     $("result").hidden = false;
+    text($("result-title"), RESULT_TITLES[view.status] || view.status);
+    if (view.status === "confirmed") setBadge("Confirmed onchain", "ok");
+    else if (view.status === "failed") setBadge("Failed", "bad");
+    else if (view.status === "submitted") setBadge("Sent", "wait");
     const body = [];
-    if (view.status === "submitted") body.push(node("p", { textContent: "Signed by your wallet and sent. Waiting for the network to confirm…" }));
-    if (view.transaction) {
-      body.push(node("p", {}, ["Transaction ", node("code", { textContent: view.transaction.id })]));
-      if (view.transaction.explorerUrl) body.push(node("p", {}, [link(view.transaction.explorerUrl, "View transaction on the explorer")]));
-    }
+    if (view.status === "submitted") body.push(node("p", { className: "wallet-note", textContent: "Signed by your wallet and sent. promptfun.fun is reading it back from the chain." }));
     if (view.receipt) {
-      body.push(node("p", { className: view.receipt.status === "success" ? "ok" : "warn", textContent: view.receipt.status === "success" ? "Confirmed. Checked against the chain:" : "Failed. What the chain shows:" }));
-      body.push(node("ul", {}, view.receipt.verified.map((v) => node("li", { textContent: v }))));
-      body.push(node("p", { className: "muted", textContent: `Slot/block ${view.receipt.slotOrBlock} · network fee paid ${view.receipt.fee} ${view.receipt.feeSymbol}` }));
-      if (view.receipt.tokenAddress) {
-        body.push(node("p", {}, ["Token ", node("code", { textContent: view.receipt.tokenAddress })]));
-        if (view.receipt.tokenExplorerUrl) body.push(node("p", {}, [link(view.receipt.tokenExplorerUrl, "View token on the explorer")]));
-      }
-      body.push(node("p", { className: "muted", textContent: "You can go back to the chat now." }));
+      const ok = view.receipt.status === "success";
+      body.push(node("p", { className: "wallet-note", textContent: ok ? "Checked against the chain:" : "What the chain shows:" }));
+      body.push(node("ul", { className: ok ? "pv-list" : "pv-list is-plain" }, view.receipt.verified.map((v) => node("li", { textContent: v }))));
+      if (view.receipt.tokenAddress) body.push(node("p", { className: "result-meta" }, ["Token ", node("code", { textContent: view.receipt.tokenAddress })]));
+      body.push(node("p", { className: "result-meta", textContent: `Block/slot ${view.receipt.slotOrBlock} · network fee paid ${view.receipt.fee} ${view.receipt.feeSymbol}` }));
     }
-    if (view.error && view.status !== "confirmed") body.push(node("p", { className: "warn", textContent: view.error }));
+    if (view.transaction) body.push(node("p", { className: "result-meta" }, ["Transaction ", node("code", { textContent: view.transaction.id })]));
+    if (view.error && view.status !== "confirmed") body.push(node("p", { className: "warn-box", textContent: view.error }));
+    const links = [];
+    if (view.transaction && view.transaction.explorerUrl) links.push(link(view.transaction.explorerUrl, "View transaction"));
+    if (view.receipt && view.receipt.tokenExplorerUrl) links.push(link(view.receipt.tokenExplorerUrl, "View token"));
+    if (links.length) body.push(node("div", { className: "result-links" }, links));
+    if (view.receipt) body.push(node("p", { className: "result-meta", textContent: "You can go back to the chat now." }));
     $("result-body").replaceChildren(...body);
   }
 
@@ -295,12 +332,13 @@
     await api("/reject", { reason: "Cancelled on approval page" }).catch(() => {});
     setError("Cancelled. Nothing was sent.");
     $("preview").hidden = true;
+    setBadge("Cancelled", "wait");
   });
 
   api("").then((view) => {
     if (["submitted", "confirmed", "failed", "expired"].includes(view.status)) {
       $("wallets").hidden = true;
-      if (view.status === "expired") setError("This request expired. Nothing was sent. Ask again in the chat.");
+      if (view.status === "expired") { setStatus("expired"); setBadge("Expired", "wait"); setError("This request expired. Nothing was sent. Ask again in the chat."); }
       else { showResult(view); if (view.status === "submitted") poll(); }
     }
   }).catch((err) => setError(err.message));

@@ -127,6 +127,108 @@ test("the hero demo is labelled as an illustration", () => {
   assert.match(html, /An illustration of the flow\. Nothing in this picture is a real transaction\./);
 });
 
+test("the in-chat flow is the headline, and unbuilt parts say they're being built", () => {
+  assert.match(html, /<h1[^>]*>Say it in ChatGPT\.<br>Confirm in chat\.<br><em>Done\.<\/em><\/h1>/);
+  const caption = html.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/)[1];
+  assert.match(caption, /being built/i, "the demo shows the walletless flow, so its caption must say it's being built");
+
+  const main = html.slice(html.indexOf("<main"), html.indexOf("</main>")).replace(/<figure class="demo"[\s\S]*?<\/figure>/, "");
+  const blocks = [];
+  const rest = main.replace(/<(li|details|article)\b[^>]*>[\s\S]*?<\/\1>/g, (m) => (blocks.push(m), ""));
+  blocks.push(...rest.match(/<p\b[^>]*>[\s\S]*?<\/p>/g));
+  const claim = /no wallet|without a wallet|need a wallet|promptfun\.fun (pays|will pay)|paid by promptfun\.fun/i;
+  const claims = blocks.filter((b) => claim.test(b.replace(/<[^>]+>/g, " ")));
+  assert.ok(claims.length >= 6, `expected the walletless and paid-fee claims across the page, found ${claims.length}`);
+  for (const block of claims) {
+    assert.match(block, /being built/i, `claim not labelled as being built: ${block.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}`);
+  }
+  assert.match(main, /Launch with no wallet, fee paid by promptfun\.fun<\/span><span class="status status-building">Being built/);
+
+  assert.match(html, /Prefer your own wallet\? You can approve in it instead\./, "bring-your-own-wallet stays an option");
+  assert.match(html, /If you’d rather use your own wallet, you can\./);
+  assert.match(main, /Launch a token with your own wallet<\/span><span class="status status-testing">Testing on devnet/);
+});
+
+const ART = fileURLToPath(new URL("../public/art/", import.meta.url));
+
+test("every image has alt text, and the flat art is decorative and in use", async () => {
+  const imgs = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
+  assert.ok(imgs.length >= 14);
+  for (const img of imgs) {
+    assert.match(img, /\balt="[^"]*"/, `missing alt: ${img}`);
+    assert.match(img, /\bwidth="\d+" height="\d+"/, `missing size, the layout would shift: ${img}`);
+  }
+  for (const img of imgs.filter((i) => i.includes('src="/art/'))) {
+    assert.match(img, /\balt=""/, `decorative art should have empty alt: ${img}`);
+  }
+  const files = (await readdir(ART)).filter((f) => f.endsWith(".svg"));
+  assert.ok(files.length >= 13);
+  for (const file of files) {
+    assert.ok(html.includes(`src="/art/${file}"`), `public/art/${file} is not used on the page`);
+  }
+});
+
+test("every SVG is plain, self-contained and safe under the CSP", async () => {
+  const svgs = (await readdir(PUBLIC, { recursive: true })).filter((f) => f.endsWith(".svg"));
+  assert.ok(svgs.includes("favicon.svg") && svgs.length >= 14);
+  for (const file of svgs) {
+    const body = await readFile(`${PUBLIC}${file}`, "utf8");
+    assert.match(body, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="[\d. ]+"/, `${file} needs xmlns and viewBox`);
+    assert.doesNotMatch(body, /<script|<foreignObject|<image|\son[a-z]+=|\bstyle=|href=|url\(/i, `${file} has scripts, styles or external references`);
+  }
+});
+
+test("the page works under the strict CSP: no inline styles, scripts or remote assets", async () => {
+  const css = await readFile(`${PUBLIC}site.css`, "utf8");
+  assert.doesNotMatch(html, /\sstyle=|<style\b|javascript:/i);
+  for (const tag of html.match(/<script\b[^>]*>/g)) assert.match(tag, /\bsrc="\/[^"]+"/, `inline script: ${tag}`);
+  for (const [, url] of css.matchAll(/url\(([^)]*)\)/g)) assert.match(url, /^"\/fonts\/[\w-]+\.woff2"$/, `CSS loads ${url}`);
+  assert.doesNotMatch(css, /@import|https?:/);
+  for (const [, url] of html.matchAll(/\s(?:src|href)="([^"#]+)"/g)) {
+    assert.ok(url.startsWith("/") || /^https:\/\/[^"]+$/.test(url) && html.includes(`href="${url}" rel="noopener noreferrer"`), `unexpected asset or link: ${url}`);
+  }
+});
+
+test("text colors meet WCAG AA contrast on the backgrounds they sit on", async () => {
+  const css = await readFile(`${PUBLIC}site.css`, "utf8");
+  const root = css.match(/:root\s*\{([\s\S]*?)\}/)[1];
+  const vars = Object.fromEntries([...root.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+  const hex = (name) => {
+    let v = vars[name];
+    while (v?.startsWith("var(")) v = vars[v.slice(6, -1)];
+    assert.match(v ?? "", /^#[0-9a-f]{6}$/i, `--${name} should be a hex color`);
+    return v;
+  };
+  const lum = (h) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => {
+    const [x, y] = [lum(hex(a)), lum(hex(b))].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  const pairs = [
+    ["ink", "bg"], ["ink-2", "bg"], ["ink-3", "bg"], ["ink-3", "bg-2"], ["ink-2", "bg-2"],
+    ["ink-2", "paper"], ["ink-3", "paper"], ["red-text", "bg"], ["red-text", "paper"],
+    ["ink", "yellow"], ["ink", "green"], ["ink", "pink"], ["ink", "lilac"], ["ink", "blue-soft"],
+    ["ink-2", "yellow-soft"], ["ink-3", "yellow-soft"], ["ink-2", "green-soft"], ["ink-2", "blue-soft"], ["ink-2", "pink-soft"],
+    ["cta-ink", "cta"], ["band-ink", "band"],
+  ];
+  for (const [fg, bg] of pairs) {
+    assert.ok(ratio(fg, bg) >= 4.5, `--${fg} on --${bg} is ${ratio(fg, bg).toFixed(2)}:1, below 4.5:1`);
+  }
+});
+
+test("motion stops for people who ask for reduced motion", async () => {
+  const css = await readFile(`${PUBLIC}site.css`, "utf8");
+  const js = await readFile(`${PUBLIC}site.js`, "utf8");
+  const block = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.ok(block.length > 0);
+  assert.match(block, /animation: none !important; transition: none !important;/);
+  assert.match(block, /scroll-behavior: auto/);
+  assert.match(js, /matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/);
+});
+
 test("server serves the page with strict headers and refuses traversal", async () => {
   const server = createServer(handler).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));

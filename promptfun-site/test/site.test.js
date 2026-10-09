@@ -12,6 +12,8 @@ const text = html.replace(/<[^>]+>/g, " ");
 test("brand is promptfun.fun, never the old placeholder", () => {
   assert.match(html, /<title>promptfun\.fun/);
   assert.doesNotMatch(html, /socket/i);
+  const flat = html.replace(/<[^>]+>/g, "");
+  assert.doesNotMatch(flat, /promptfun(?!\.fun)/, "the name is always promptfun.fun");
 });
 
 test("has every required section", () => {

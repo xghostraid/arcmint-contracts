@@ -99,12 +99,12 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
   const HOSTS = hosts(config);
   const server = new McpServer({ name: SHORT, title: BRAND, version: VERSION }, { instructions: serverInstructions(config) });
 
-  const view = (id: string) => {
-    const intent = service.get(id);
+  const view = async (id: string) => {
+    const intent = await service.get(id);
     return intentView(config, intent, service.approveUrl(intent.id));
   };
-  const intentResult = (id: string): ToolResult => {
-    const v = view(id);
+  const intentResult = async (id: string): Promise<ToolResult> => {
+    const v = await view(id);
     return { content: [{ type: "text", text: intentText(v) }], structuredContent: v as unknown as Record<string, unknown> };
   };
 
@@ -325,7 +325,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
           chain: args.chain?.trim() || recommendedLaunchChainKey(config) || undefined,
           supply: args.supply === undefined ? undefined : decimalText(args.supply),
         });
-        return intentResult(intent.id);
+        return await intentResult(intent.id);
       } catch (err) {
         return fail(err);
       }
@@ -335,7 +335,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
   const confirmLaunchHandler = async ({ intentId }: { intentId: string }): Promise<ToolResult> => {
     try {
       const intent = await service.confirmLaunch(intentId);
-      return intentResult(intent.id);
+      return await intentResult(intent.id);
     } catch (err) {
       return fail(err);
     }
@@ -382,7 +382,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     async (args) => {
       try {
         const intent = await service.prepareTransfer({ ...args, amount: decimalText(args.amount) });
-        return intentResult(intent.id);
+        return await intentResult(intent.id);
       } catch (err) {
         return fail(err);
       }
@@ -401,8 +401,8 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     async ({ intentId }) => {
       try {
         await service.refresh(intentId);
-        const v = view(intentId);
-        const intent = service.get(intentId);
+        const v = await view(intentId);
+        const intent = await service.get(intentId);
         let structured = v as unknown as Record<string, unknown>;
         if (intent.status === "confirmed" && intent.kind === "launch_token" && coins) {
           coins.syncIntents();

@@ -58,11 +58,11 @@ if (intent.status !== "awaiting_confirm") {
 }
 
 await service.confirmLaunch(intent.id);
-let final = service.get(intent.id);
+let final = await service.get(intent.id);
 for (let i = 0; i < 45 && final.status === "submitted"; i += 1) {
   await new Promise((r) => setTimeout(r, 2000));
   await service.refresh(final.id);
-  final = service.get(final.id);
+  final = await service.get(final.id);
 }
 if (final.status !== "confirmed" || !final.submission?.id) {
   throw new Error(`Launch did not confirm: ${final.status} ${final.error ?? ""} tx=${final.submission?.id ?? "none"}`);

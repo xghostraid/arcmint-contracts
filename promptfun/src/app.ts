@@ -103,8 +103,8 @@ export function createApp(config: Config): App {
   const mcpNode = toNodeHandler(mcp);
   const hostCheck = createMcpHostCheck(config.publicUrl, config.env);
 
-  const intentPublic = (id: string) => {
-    const intent = service.get(id);
+  const intentPublic = async (id: string) => {
+    const intent = await service.get(id);
     const view = intentView(config, intent, service.approveUrl(id));
     return { ...view, built: intent.built ? { payload: intent.built.payload, extraSigners: intent.built.extraSigners, signer: intent.built.signer } : null };
   };
@@ -152,7 +152,7 @@ export function createApp(config: Config): App {
         const [, id, action] = apiMatch;
         if (req.method === "GET" && !action) {
           await service.refresh(id).catch(() => undefined);
-          return json(res, 200, intentPublic(id));
+          return json(res, 200, await intentPublic(id));
         }
         if (req.method !== "POST" || !action) return json(res, 405, { error: "Method not allowed." });
         const origin = req.headers.origin;
@@ -164,10 +164,10 @@ export function createApp(config: Config): App {
         }
         if (action === "/submit") {
           await service.submit(id, String(body.signedTransaction ?? body.transactionHash ?? ""));
-          return json(res, 200, intentPublic(id));
+          return json(res, 200, await intentPublic(id));
         }
-        service.walletRejected(id, String(body.reason ?? ""));
-        return json(res, 200, intentPublic(id));
+        await service.walletRejected(id, String(body.reason ?? ""));
+        return json(res, 200, await intentPublic(id));
       }
 
       const page = /^\/approve\/(int_[a-f0-9]{32})$/.exec(pathname);
@@ -176,7 +176,7 @@ export function createApp(config: Config): App {
         res.setHeader("Cache-Control", "no-store");
         let intent;
         try {
-          intent = service.get(page[1]);
+          intent = await service.get(page[1]);
         } catch {
           return send(res, 404, "text/html; charset=utf-8", notFoundPage());
         }

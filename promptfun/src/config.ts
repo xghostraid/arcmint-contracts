@@ -17,6 +17,12 @@ export interface Config {
   pictureTtlMs: number;
   ipfsGateway: string;
   ipfsImageServePath: string | null;
+  /** HMAC secret for OAuth access tokens (auth slice; MCP stays no-sign-in until wired). */
+  oauthSigningSecret: string;
+  oauthExposeMagicLink: boolean;
+  /** Solana pubkey that receives 100% creator fees on sponsored pump.fun launches (defaults to sponsor). */
+  sponsorFeeRecipient: string | null;
+  enablePumpfunDevnet: boolean;
   env: NodeJS.ProcessEnv;
 }
 
@@ -45,6 +51,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     pictureTtlMs: Number(env.PROMPTFUN_PICTURE_TTL_MS || 24 * 60 * 60 * 1000),
     ipfsGateway: (env.PROMPTFUN_IPFS_GATEWAY || "https://ipfs.io/ipfs").replace(/\/+$/, ""),
     ipfsImageServePath: env.PROMPTFUN_IPFS_IMAGE_PATH === "0" ? null : env.PROMPTFUN_IPFS_IMAGE_PATH || "/api/img",
+    oauthSigningSecret: env.PROMPTFUN_OAUTH_SIGNING_SECRET?.trim() || "dev-only-change-me",
+    oauthExposeMagicLink: flag(env.PROMPTFUN_OAUTH_EXPOSE_MAGIC_LINK),
+    sponsorFeeRecipient: env.PROMPTFUN_SPONSOR_FEE_RECIPIENT?.trim() || null,
+    enablePumpfunDevnet: flag(env.PROMPTFUN_ENABLE_PUMPFUN_DEVNET),
     env,
   };
 }

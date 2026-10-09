@@ -4,7 +4,8 @@ type HashFn = (content: Uint8Array) => Promise<string>;
 
 async function loadHash(): Promise<HashFn> {
   const mod = await import("ipfs-only-hash");
-  const of = (mod as { of?: HashFn; default?: { of?: HashFn } }).of ?? mod.default?.of;
+  const wrapped = mod as unknown as { of?: HashFn; default?: { of?: HashFn } };
+  const of = wrapped.of ?? wrapped.default?.of;
   if (typeof of !== "function") throw new Error("ipfs-only-hash export missing");
   return of;
 }

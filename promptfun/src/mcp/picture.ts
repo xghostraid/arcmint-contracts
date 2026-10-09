@@ -49,6 +49,19 @@ export function pictureHtml(publicUrl: string): string {
   function post(m){ window.parent.postMessage(m, "*"); }
   function request(method, params){ var id = nextId++; post({jsonrpc:"2.0", id:id, method:method, params:params}); return new Promise(function(res, rej){ pending[id] = {res:res, rej:rej}; }); }
   function showErr(msg){ errEl.hidden = !msg; errEl.textContent = msg || ""; }
+  function rpcErr(e, fallback){
+    if (!e) return fallback;
+    if (typeof e === "string") return e;
+    if (e.message) return e.message;
+    if (e.data && typeof e.data === "string") return e.data;
+    return fallback;
+  }
+  function toolStructured(res, fallback){
+    if (!res) throw new Error(fallback);
+    if (res.isError) throw new Error((res.content && res.content[0] && res.content[0].text) || fallback);
+    if (!res.structuredContent) throw new Error(fallback);
+    return res.structuredContent;
+  }
   function resize(){
     post({jsonrpc:"2.0", method:"ui/notifications/size-changed", params:{height:document.documentElement.scrollHeight}});
   }
@@ -69,21 +82,21 @@ export function pictureHtml(publicUrl: string): string {
     };
     r.readAsDataURL(f);
   };
-  var uploadOrigin = ${JSON.stringify(origin)};
-  var SAFE = 3.2 * 1024 * 1024;
-  function compressForProxy(file){
-    if (file.size <= SAFE) return Promise.resolve(file);
+  var publicOrigin = ${JSON.stringify(origin)};
+  var MCP_SAFE = 2.4 * 1024 * 1024;
+  function compressForMcp(file){
+    if (file.size <= MCP_SAFE) return Promise.resolve(file);
     return new Promise(function(res, rej){
       var img = new Image();
       img.onload = function(){
-        var w = img.naturalWidth, h = img.naturalHeight, scale = Math.min(1, Math.sqrt(SAFE / file.size));
+        var w = img.naturalWidth, h = img.naturalHeight, scale = Math.min(1, Math.sqrt(MCP_SAFE / file.size));
         var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
         var c = document.createElement("canvas");
         c.width = cw; c.height = ch;
         c.getContext("2d").drawImage(img, 0, 0, cw, ch);
         c.toBlob(function(blob){
           if (!blob) return rej(new Error("Could not compress image."));
-          if (blob.size > SAFE && scale > 0.35) {
+          if (blob.size > MCP_SAFE && scale > 0.35) {
             c.width = Math.round(cw * 0.75); c.height = Math.round(ch * 0.75);
             c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
             c.toBlob(function(b2){ b2 ? res(b2) : rej(new Error("Could not compress image.")); }, "image/jpeg", 0.82);
@@ -94,10 +107,18 @@ export function pictureHtml(publicUrl: string): string {
       img.src = URL.createObjectURL(file);
     });
   }
+  function blobToDataUrl(blob){
+    return new Promise(function(res, rej){
+      var r = new FileReader();
+      r.onload = function(){ res(r.result); };
+      r.onerror = function(){ rej(new Error("Could not read image.")); };
+      r.readAsDataURL(blob);
+    });
+  }
   function showSaved(sc){
     pictureId = sc && sc.pictureId;
     if (!pictureId) throw new Error("No picture id returned");
-    preview.src = uploadOrigin + "/api/pictures/" + pictureId;
+    preview.src = publicOrigin + "/api/pictures/" + pictureId;
     preview.hidden = false;
     saveBtn.textContent = "Saved";
     saveBtn.disabled = true;
@@ -105,25 +126,21 @@ export function pictureHtml(publicUrl: string): string {
     post({jsonrpc:"2.0", method:"ui/notifications/tool-result", params:{structuredContent: sc}});
     resize();
   }
-  function uploadFile(f){
+  function saveFileViaMcp(f){
     showErr("");
     saveBtn.disabled = true;
-    return compressForProxy(f).then(function(bodyFile){
-      var ct = bodyFile.type || f.type || "application/octet-stream";
-      return fetch(uploadOrigin + "/api/pictures/upload", {
-        method: "POST",
-        headers: { "Content-Type": ct },
-        body: bodyFile,
-      });
-    }).then(function(res){
-      return res.json().then(function(body){ if (!res.ok) throw new Error(body.error || "Upload failed"); return body; });
-    }).then(showSaved)
-      .catch(function(e){ showErr((e && e.message) || "Save failed"); saveBtn.disabled = false; });
+    return compressForMcp(f)
+      .then(blobToDataUrl)
+      .then(function(dataUrl){
+        return request("tools/call", {name:"upload_picture_bytes", arguments:{imageBase64: dataUrl}});
+      })
+      .then(function(res){ showSaved(toolStructured(res, "Save failed")); })
+      .catch(function(e){ showErr(rpcErr(e, "Save failed")); saveBtn.disabled = false; });
   }
   saveBtn.onclick = function(){
     var f = document.getElementById("file").files && document.getElementById("file").files[0];
     if (!f) return;
-    uploadFile(f);
+    saveFileViaMcp(f);
   };
   useChatBtn.onclick = function(){
     if (!chatImageUrl) return;
@@ -131,9 +148,9 @@ export function pictureHtml(publicUrl: string): string {
     useChatBtn.disabled = true;
     saveBtn.disabled = true;
     request("tools/call", {name:"import_picture_from_url", arguments:{imageUrl: chatImageUrl}})
-      .then(function(res){ showSaved(res && res.structuredContent); })
+      .then(function(res){ showSaved(toolStructured(res, "Import failed")); })
       .catch(function(e){
-        showErr((e && e.message) || "Import failed");
+        showErr(rpcErr(e, "Import failed"));
         useChatBtn.disabled = false;
         saveBtn.disabled = !document.getElementById("file").files || !document.getElementById("file").files[0];
       });
@@ -151,7 +168,11 @@ export function pictureHtml(publicUrl: string): string {
     var m = e.data; if (!m || m.jsonrpc !== "2.0") return;
     if (m.id != null && pending[m.id] && !m.method) {
       var q = pending[m.id]; delete pending[m.id];
-      m.error ? q.rej(m.error) : q.res(m.result);
+      if (m.error) {
+        var err = new Error(m.error.message || "Request failed");
+        err.rpc = m.error;
+        q.rej(err);
+      } else q.res(m.result);
       return;
     }
     if (m.method === "ui/notifications/tool-result") applyToolOutput(m.params && m.params.structuredContent);

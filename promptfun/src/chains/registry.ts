@@ -89,7 +89,7 @@ export function allChains(config: Config): Chain[] {
       tokens: [{ symbol: "USDC", address: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", decimals: 6 }],
       cluster: "devnet",
       walletChain: "solana:devnet",
-      launchVenues: ["spl"],
+      launchVenues: config.enablePumpfunDevnet ? ["spl", "pumpfun"] : ["spl"],
     },
     {
       key: "solana-mainnet",

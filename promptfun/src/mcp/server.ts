@@ -15,7 +15,7 @@ import { intentText, intentView } from "./view.js";
 const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer. On supported Solana testnets with sponsored launches enabled, prepare_launch is a read-only preview and the user taps Launch it on the card (confirm_launch) with no wallet. Otherwise the user approves on the approval page in their own wallet. ${SHORT} never holds user keys. Call get_capabilities first. After prepare_*, use the card or approval link, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
 
 const LIMITATIONS = [
-  "Sponsored SPL launches on Solana testnets (not pump.fun): when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. pump.fun stays wallet-approved until the pump module lands.",
+  "Sponsored launches on Solana testnets: when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. SPL is default; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1 and locks 100% creator fees to PROMPTFUN_SPONSOR_FEE_RECIPIENT (defaults to sponsor). Mainnet pump.fun stays wallet-approved until OAuth lands.",
   "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
   "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
   "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",

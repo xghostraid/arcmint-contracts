@@ -1,6 +1,7 @@
 import { createPublicKey, verify } from "node:crypto";
 import {
   Connection,
+  Keypair,
   PublicKey,
   SystemProgram,
   TransactionMessage,
@@ -35,7 +36,7 @@ import { usdValue } from "../../util/price.js";
 import type { Built, Cost, Intent, LaunchParams, Receipt, Simulation, TransferParams } from "../../intents/types.js";
 import { IntentError } from "../../intents/types.js";
 import { decodeInstructions, isWalletAddress, type DecodedTx, type MintFacts } from "./decode.js";
-import { buildPumpfunLaunch } from "./pumpfun.js";
+import { buildPumpfunLaunch, buildPumpfunLaunchSponsored } from "./pumpfun.js";
 
 const connections = new Map<string, Connection>();
 
@@ -302,9 +303,26 @@ export const solanaAdapter: ChainAdapter = {
     const signer = new PublicKey(signerText);
     const params = intent.params as LaunchParams;
 
-    const compiled = intent.kind === "launch_token"
-      ? (params.venue === "pumpfun" ? await buildPumpfunLaunch(conn, intent, signer, options?.mint) : await compileLaunch(chain, intent, signer))
-      : await compileTransfer(chain, intent, signer);
+    let compiled;
+    if (intent.kind === "launch_token") {
+      if (params.venue === "pumpfun" && options?.sponsoredPumpMint) {
+        const mintKp = options.sponsoredPumpMint;
+        const feeRecipient = new PublicKey((intent.params as LaunchParams).feeRecipient ?? signer.toBase58());
+        compiled = await buildPumpfunLaunchSponsored(
+          conn,
+          intent,
+          signer,
+          feeRecipient,
+          Keypair.fromSecretKey(mintKp.secretKey),
+        );
+      } else if (params.venue === "pumpfun") {
+        compiled = await buildPumpfunLaunch(conn, intent, signer, options?.mint);
+      } else {
+        compiled = await compileLaunch(chain, intent, signer);
+      }
+    } else {
+      compiled = await compileTransfer(chain, intent, signer);
+    }
 
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
     const message = new TransactionMessage({
@@ -346,6 +364,7 @@ export const solanaAdapter: ChainAdapter = {
       promptfunFee: "0",
     };
 
+    const mintKp = "mintKeypair" in compiled ? (compiled as { mintKeypair: Keypair }).mintKeypair : null;
     const built: Built = {
       signer: signer.toBase58(),
       payload: Buffer.from(tx.serialize()).toString("base64"),
@@ -357,6 +376,9 @@ export const solanaAdapter: ChainAdapter = {
       validUntil: lastValidBlockHeight,
       tokenAddress: compiled.tokenAddress,
       extraSigners: compiled.extraSigners ?? [],
+      ...(mintKp
+        ? { coSignerSecrets: { [mintKp.publicKey.toBase58()]: Buffer.from(mintKp.secretKey).toString("base64") } }
+        : {}),
     };
     return built;
   },

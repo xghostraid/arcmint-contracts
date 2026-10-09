@@ -5,7 +5,7 @@ import type { BuildOptions } from "../chains/adapter.js";
 import { findChain, type ActionKind, type Chain } from "../chains/registry.js";
 import { impersonatesBrand, isMajorSymbol } from "../brand.js";
 import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
-import { PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
+import { generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
 import { IntentStore } from "./store.js";
 import { IntentError, type Built, type Intent, type LaunchParams, type TransferParams } from "./types.js";
 import { chainAllowsSponsoredLaunch, sponsorBudgetSnapshot } from "../sponsor/budget.js";
@@ -134,22 +134,49 @@ export class IntentService {
   private shouldOfferSponsoredLaunch(chain: Chain, intent: Intent): boolean {
     if (!chainAllowsSponsoredLaunch(chain)) return false;
     if (!sponsorBudgetSnapshot(this.config).sponsoredLaunchesEnabled) return false;
-    if ((intent.params as LaunchParams).venue === "pumpfun") return false;
-    return Boolean(this.sponsorSigner);
+    if (!this.sponsorSigner) return false;
+    const venue = (intent.params as LaunchParams).venue;
+    if (venue === "pumpfun") {
+      return chain.family === "solana" && chain.launchVenues.includes("pumpfun");
+    }
+    return true;
+  }
+
+  private sponsoredBuildOptions(intent: Intent): BuildOptions {
+    const params = intent.params as LaunchParams;
+    if (params.venue !== "pumpfun") return {};
+    const existing = intent.built?.coSignerSecrets;
+    if (existing) {
+      const [publicKey, secretB64] = Object.entries(existing)[0] ?? [];
+      if (publicKey && secretB64) {
+        return { sponsoredPumpMint: { publicKey, secretKey: Buffer.from(secretB64, "base64") } };
+      }
+    }
+    const mintKp = generatePumpMintKeypair();
+    return { sponsoredPumpMint: { publicKey: mintKp.publicKey.toBase58(), secretKey: mintKp.secretKey } };
   }
 
   private async attachSponsoredPreview(intent: Intent): Promise<Intent> {
     const sponsor = this.sponsorSigner!.publicKey;
-    const { built } = await this.buildInternal(intent, sponsor, {});
+    let working = intent;
+    const buildOpts = this.sponsoredBuildOptions(intent);
+    if ((intent.params as LaunchParams).venue === "pumpfun" && buildOpts.sponsoredPumpMint) {
+      const feeRecipient = this.config.sponsorFeeRecipient ?? sponsor;
+      working = {
+        ...intent,
+        params: { ...(intent.params as LaunchParams), feeRecipient },
+      };
+    }
+    const { built } = await this.buildInternal(working, sponsor, buildOpts);
     const at = now();
     const next: Intent = {
-      ...intent,
+      ...working,
       status: "awaiting_confirm",
       executionMode: "sponsor",
       built,
       instructionFingerprint: solanaInstructionFingerprint(built),
       updatedAt: at,
-      events: [...intent.events, { at, type: "previewed", detail: `Sponsored preview; fee paid by promptfun (${sponsor}).` }],
+      events: [...working.events, { at, type: "previewed", detail: `Sponsored preview; fee paid by promptfun (${sponsor}).` }],
     };
     this.store.save(next);
     return next;
@@ -337,7 +364,7 @@ export class IntentService {
     if (!this.sponsorSigner || !intent.instructionFingerprint) throw new IntentError("Sponsor signing is not available.", "sponsor_unconfigured");
     const chain = this.chainOrThrow(intent.chain, intent.kind);
     const sponsor = this.sponsorSigner.publicKey;
-    const { built } = await this.buildInternal(intent, sponsor, {});
+    const { built } = await this.buildInternal(intent, sponsor, this.sponsoredBuildOptions(intent));
     if (solanaInstructionFingerprint(built) !== intent.instructionFingerprint) {
       throw new IntentError("The live transaction no longer matches the preview. Nothing was sent.", "mismatch");
     }

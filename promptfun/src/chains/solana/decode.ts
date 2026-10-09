@@ -218,6 +218,33 @@ export function decodeInstructions(
       continue;
     }
 
+    if (ix.programId.equals(PUMP_FEE_PROGRAM)) {
+      const data = Buffer.from(ix.data);
+      if (data.subarray(0, 8).equals(PUMP_FEE_CREATE_SHARING)) {
+        out.pumpFeeSharing = { created: true, updated: out.pumpFeeSharing?.updated ?? false, recipients: out.pumpFeeSharing?.recipients ?? [] };
+        out.steps.push({ program: "pump.fun fees", text: "Create the creator fee-sharing config for this coin." });
+        continue;
+      }
+      if (data.subarray(0, 8).equals(PUMP_FEE_UPDATE_SHARES)) {
+        const recipients: Array<{ address: string; shareBps: number }> = [];
+        if (data.length >= 8 + 4) {
+          const count = data.readUInt32LE(8);
+          let off = 12;
+          for (let i = 0; i < count && off + 34 <= data.length; i += 1) {
+            const address = new PublicKey(data.subarray(off, off + 32)).toBase58();
+            const shareBps = data.readUInt16LE(off + 32);
+            recipients.push({ address, shareBps });
+            off += 34;
+          }
+        }
+        out.pumpFeeSharing = { created: out.pumpFeeSharing?.created ?? false, updated: true, recipients };
+        const summary = recipients.map((r) => `${short(r.address)} ${(r.shareBps / 100).toFixed(2)}%`).join(", ");
+        out.steps.push({ program: "pump.fun fees", text: `Lock creator fee shares: ${summary || "updated"}.` });
+        continue;
+      }
+      throw new UnknownInstructionError("Only pump.fun fee-sharing setup is allowed.");
+    }
+
     throw new UnknownInstructionError(`Program ${program} is not allowed in a promptfun transaction.`);
   }
   return out;

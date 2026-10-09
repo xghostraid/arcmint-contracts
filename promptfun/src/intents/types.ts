@@ -15,6 +15,8 @@ export interface LaunchParams {
   /** Revoke the mint authority after minting, so supply can never grow. */
   fixedSupply: boolean;
   venue: "spl" | "pumpfun" | "erc20";
+  /** Sponsored pump.fun: pubkey that receives locked creator fees (100%). */
+  feeRecipient?: string;
 }
 
 export interface TransferParams {
@@ -88,6 +90,8 @@ export interface Built {
   tokenAddress: string | null;
   /** Additional signers the approval page holds in the browser (pump.fun one-time mint key). */
   extraSigners: string[];
+  /** Server-held Ed25519 secrets (base64) for sponsored pump.fun mint co-signers; never exposed to clients. */
+  coSignerSecrets?: Record<string, string>;
 }
 
 export interface Receipt {

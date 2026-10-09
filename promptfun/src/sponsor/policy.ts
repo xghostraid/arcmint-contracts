@@ -2,8 +2,16 @@ import { SystemProgram, TransactionMessage, VersionedTransaction } from "@solana
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import type { Config } from "../config.js";
 import type { Built, Intent } from "../intents/types.js";
+import { PUMP_FEE_PROGRAM, PUMP_PROGRAM } from "../chains/solana/decode.js";
 
-const ALLOWED = new Set([SystemProgram.programId.toBase58(), TOKEN_PROGRAM_ID.toBase58(), TOKEN_2022_PROGRAM_ID.toBase58(), "ComputeBudget111111111111111111111111111111"]);
+const ALLOWED = new Set([
+  SystemProgram.programId.toBase58(),
+  TOKEN_PROGRAM_ID.toBase58(),
+  TOKEN_2022_PROGRAM_ID.toBase58(),
+  "ComputeBudget111111111111111111111111111111",
+  PUMP_PROGRAM.toBase58(),
+  PUMP_FEE_PROGRAM.toBase58(),
+]);
 
 export function checkSolanaSponsorPolicy(config: Config, intent: Intent, built: Built, unsignedPayloadBase64: string, sponsor: string): { ok: boolean; reason?: string } {
   if (intent.kind !== "launch_token") return { ok: false, reason: "Sponsored mode supports token launches only." };

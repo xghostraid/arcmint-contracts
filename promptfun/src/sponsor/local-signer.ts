@@ -29,7 +29,13 @@ export class LocalFeePayerSigner implements FeePayerSigner {
     if (!policy.ok) throw new IntentError(policy.reason ?? "Sponsor policy refused.", "policy_refused");
     void chainKey;
     const tx = VersionedTransaction.deserialize(Buffer.from(unsignedPayloadBase64, "base64"));
-    tx.sign([this.keypair]);
+    const signers = [this.keypair];
+    if (built.coSignerSecrets) {
+      for (const secretB64 of Object.values(built.coSignerSecrets)) {
+        signers.push(Keypair.fromSecretKey(Buffer.from(secretB64, "base64")));
+      }
+    }
+    tx.sign(signers);
     return Buffer.from(tx.serialize()).toString("base64");
   }
 }

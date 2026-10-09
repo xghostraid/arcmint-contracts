@@ -9,6 +9,8 @@ export interface SubmitResult {
 export interface BuildOptions {
   /** Public key of a one-time mint keypair generated and held only by the approval page (pump.fun). */
   mint?: string;
+  /** Sponsored pump.fun: mint keypair generated server-side at preview time. */
+  sponsoredPumpMint?: { publicKey: string; secretKey: Uint8Array };
 }
 
 /**

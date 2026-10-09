@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#07080c">
+<title>promptfun.fun · Say it in Claude. Approve in your wallet. Done.</title>
+<meta name="description" content="promptfun.fun connects Claude to the blockchain. Say what you want done, check a plain-language preview, approve it in your own wallet, and get a receipt checked against the chain. Solana first, EVM chains next.">
+<meta property="og:title" content="promptfun.fun">
+<meta property="og:description" content="Say it in Claude. Approve in your wallet. Done.">
+<meta property="og:type" content="website">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="promptfun.fun home">
+      <img src="/favicon.svg" alt="" width="26" height="26">
+      <span>promptfun<span class="brand-tld">.fun</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#chains">Chains</a>
+      <a href="#safety">Safety</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="btn btn-small" href="#connect">Connect to Claude</a>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="pill"><span class="dot" aria-hidden="true"></span>In testing · Solana first</p>
+        <h1 id="hero-title">Say it in Claude.<br>Approve in your wallet.<br><em>Done.</em></h1>
+        <p class="lede">promptfun.fun connects Claude to the blockchain. Ask for what you want, like “launch a token called Moonbeam”. You get a preview in plain words, you approve it in your own wallet, and you get a receipt checked against the chain.</p>
+        <div class="cta-row">
+          <a class="btn" href="#connect">Connect to Claude</a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <p class="fine">No sign-up. We never hold your keys. You approve every action yourself.</p>
+      </div>
+
+      <figure class="demo" data-demo data-stage="4" aria-labelledby="demo-caption">
+        <div class="demo-window">
+          <div class="demo-bar">
+            <span class="demo-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="demo-title">Claude</span>
+            <span class="demo-tag">promptfun.fun connected</span>
+          </div>
+          <div class="demo-body">
+            <p class="bubble bubble-you" data-step="1">Launch a token called Moonbeam, ticker BEAM.</p>
+
+            <div class="card card-preview" data-step="2">
+              <p class="card-head"><span class="card-kicker">Preview</span><span class="card-badge">Checked</span></p>
+              <p class="card-title">Create a new token</p>
+              <dl class="rows">
+                <div><dt>Name</dt><dd>Moonbeam</dd></div>
+                <div><dt>Ticker</dt><dd>BEAM</dd></div>
+                <div><dt>Network</dt><dd>Solana devnet</dd></div>
+                <div><dt>Who pays</dt><dd>Your wallet, network fee only</dd></div>
+              </dl>
+              <p class="card-action">Approve in your wallet <span aria-hidden="true">→</span></p>
+            </div>
+
+            <div class="card card-wallet" data-step="3">
+              <p class="card-head"><span class="card-kicker">Your wallet</span></p>
+              <p class="card-title">Approve this action?</p>
+              <div class="wallet-buttons" aria-hidden="true">
+                <span class="w-btn w-reject">Reject</span>
+                <span class="w-btn w-approve">Approve</span>
+              </div>
+            </div>
+
+            <div class="card card-receipt" data-step="4">
+              <p class="card-head"><span class="card-kicker">Receipt</span><span class="card-badge card-badge-ok">Confirmed onchain</span></p>
+              <p class="card-title">Moonbeam (BEAM) is live</p>
+              <p class="card-note">Read back from the chain, with a link to the public explorer.</p>
+            </div>
+          </div>
+        </div>
+        <figcaption id="demo-caption" class="demo-caption">An illustration of the flow. Nothing in this picture is a real transaction.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-title">Four steps. You’re in charge of the one that matters.</h2>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-num">01</span>
+          <h3>Say it</h3>
+          <p>Tell Claude what you want done, in your own words. Claude turns it into a clear request for promptfun.fun.</p>
+        </li>
+        <li class="step">
+          <span class="step-num">02</span>
+          <h3>See the preview</h3>
+          <p>promptfun.fun checks the request and builds the exact transaction. Then it reads it back to you in plain language: what happens, on which network, and what it costs.</p>
+        </li>
+        <li class="step step-key">
+          <span class="step-num">03</span>
+          <h3>Approve in your wallet</h3>
+          <p>Open the approval link and confirm in your own wallet. Nothing happens until you tap approve, and you can always say no.</p>
+        </li>
+        <li class="step">
+          <span class="step-num">04</span>
+          <h3>Get the receipt</h3>
+          <p>promptfun.fun looks the transaction up on the chain and checks it matches what you approved. Claude only says “done” once the chain confirms it.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" id="chains" aria-labelledby="chains-title">
+    <div class="wrap">
+      <p class="eyebrow">Chains</p>
+      <h2 id="chains-title">Solana first. EVM chains next.</h2>
+      <p class="section-lede">We list what works today and label everything else. Nothing on this page is live on mainnet yet.</p>
+
+      <div class="chains">
+        <article class="chain chain-first">
+          <div class="chain-head">
+            <h3>Solana</h3>
+            <span class="status status-testing">In testing</span>
+          </div>
+          <p class="chain-sub">The first chain. Being tested on Solana devnet, which uses test tokens with no real value.</p>
+          <ul class="chain-list">
+            <li><span>Launch a token</span><span class="status status-testing">Testing on devnet</span></li>
+            <li><span>Launch on pump.fun</span><span class="status status-soon">Coming soon</span></li>
+          </ul>
+          <p class="chain-note">pump.fun only runs on Solana mainnet, so pump.fun launches arrive with mainnet.</p>
+        </article>
+
+        <article class="chain">
+          <div class="chain-head">
+            <h3>EVM chains</h3>
+            <span class="status status-soon">Coming next</span>
+          </div>
+          <p class="chain-sub">Base, Ethereum and other EVM chains, with the same say-it, approve-it flow.</p>
+          <ul class="chain-list">
+            <li><span>Launch a token</span><span class="status status-soon">Coming soon</span></li>
+          </ul>
+          <p class="chain-note">Not available yet. We’ll add each chain here when it works end to end.</p>
+        </article>
+      </div>
+
+      <p class="later">Further out: swaps, payments and more. They’ll show up here once they’re real, not before.</p>
+    </div>
+  </section>
+
+  <section class="section section-connect" id="connect" aria-labelledby="connect-title">
+    <div class="wrap connect-grid">
+      <div>
+        <p class="eyebrow">Connect to Claude</p>
+        <h2 id="connect-title">Add it once. Then just ask.</h2>
+        <p class="section-lede">promptfun.fun is an MCP connector, the standard way to give Claude new abilities. No app to install and no account to make.</p>
+
+        <ol class="connect-steps">
+          <li>
+            <h3>Copy the connector link</h3>
+            <div class="link-box" aria-live="polite">
+              <code class="link-slot">Posted here at launch</code>
+              <button class="btn btn-small" type="button" disabled>Copy</button>
+            </div>
+            <p class="fine">The public link isn’t out yet. It goes here the day it opens.</p>
+          </li>
+          <li>
+            <h3>Add it to Claude</h3>
+            <p>In Claude, open Connectors, choose Add custom connector, name it promptfun.fun and paste the link.</p>
+          </li>
+          <li>
+            <h3>Ask for what you want</h3>
+            <p>Start a chat and say it. Claude shows you the preview and the approval link.</p>
+          </li>
+        </ol>
+      </div>
+
+      <div class="prompts" aria-labelledby="prompts-title">
+        <p class="prompts-title" id="prompts-title">Things to say</p>
+        <ul>
+          <li><span class="q">“</span>Launch a token called Moonbeam, ticker BEAM.<span class="q">”</span></li>
+          <li><span class="q">“</span>What can promptfun do right now?<span class="q">”</span></li>
+          <li><span class="q">“</span>Did my Moonbeam launch go through?<span class="q">”</span></li>
+        </ul>
+        <p class="fine">If something isn’t supported yet, promptfun.fun says so instead of guessing.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="safety" aria-labelledby="safety-title">
+    <div class="wrap">
+      <p class="eyebrow">Safety</p>
+      <h2 id="safety-title">Your wallet, your call. Every time.</h2>
+      <div class="safety">
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>
+          <h3>We never hold your keys</h3>
+          <p>promptfun.fun builds the transaction. Your wallet signs and sends it. We don’t store keys, seed phrases or funds, ever.</p>
+        </article>
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12.5l4.5 4.5 10.5-10.5"/></svg>
+          <h3>Nothing faked</h3>
+          <p>No made-up results and no pretend success. A receipt only says “confirmed” after we read the transaction back from the chain.</p>
+        </article>
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+          <h3>You see what you sign</h3>
+          <p>The preview is read from the transaction itself, not from Claude’s summary. What you approve is what goes onchain.</p>
+        </article>
+        <article class="tile">
+          <svg class="tile-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>
+          <h3>Claude can’t approve for you</h3>
+          <p>Claude can ask for an action, but only you can approve it, in your own wallet. Each approval covers one action and nothing else.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap faq-wrap">
+      <div>
+        <p class="eyebrow">FAQ</p>
+        <h2 id="faq-title">Before you plug it into Claude.</h2>
+      </div>
+      <div class="faq">
+        <details>
+          <summary>What is promptfun.fun?</summary>
+          <p>It’s a connector for Claude that turns what you ask for into a real onchain action. It prepares the transaction, shows you a plain-language preview, lets you approve it in your own wallet and hands back a receipt checked against the chain.</p>
+        </details>
+        <details>
+          <summary>Do I need to know about crypto?</summary>
+          <p>No. You need a Claude account and a wallet for the chain you’re using. promptfun.fun explains each action in plain words before you approve it.</p>
+        </details>
+        <details>
+          <summary>Is it live?</summary>
+          <p>Not yet. Token launches on Solana are being tested on devnet, which uses test tokens with no real value. pump.fun launches and EVM chains are coming. This page says when each one opens.</p>
+        </details>
+        <details>
+          <summary>Which chains does it support?</summary>
+          <p>Solana comes first. EVM chains such as Base and Ethereum come next. The Chains section above shows the current state of each one.</p>
+        </details>
+        <details>
+          <summary>Does promptfun.fun hold my money or keys?</summary>
+          <p>No. Your wallet signs and sends every transaction. promptfun.fun never sees your keys or seed phrase and never holds your funds.</p>
+        </details>
+        <details>
+          <summary>Can Claude do things without asking me?</summary>
+          <p>No. Claude can prepare an action, but nothing happens onchain until you approve it in your wallet. If you reject it, nothing is sent.</p>
+        </details>
+        <details>
+          <summary>What does it cost?</summary>
+          <p>Each chain charges a small network fee. Your wallet pays it, and the preview shows it before you approve. We’ll publish any promptfun.fun fee here before launch.</p>
+        </details>
+        <details>
+          <summary>Which Claude plans work?</summary>
+          <p>Any plan that lets you add a custom connector. promptfun.fun only needs one.</p>
+        </details>
+        <details>
+          <summary>What if something goes wrong?</summary>
+          <p>You get the real status. If the transaction failed, you rejected it or the approval link expired, Claude tells you that. It never says something worked when it didn’t.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section closer" aria-labelledby="closer-title">
+    <div class="wrap closer-inner">
+      <h2 id="closer-title">Say it. Approve it. <em>Done.</em></h2>
+      <p class="section-lede">Add promptfun.fun to Claude when it opens, and tell it what you want done.</p>
+      <div class="cta-row">
+        <a class="btn" href="#connect">Connect to Claude</a>
+        <a class="btn btn-ghost" href="#chains">What works today</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="22" height="22"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <p>In testing on Solana devnet. Not live on mainnet yet.</p>
+    <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+</body>
+</html>

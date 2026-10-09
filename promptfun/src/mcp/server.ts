@@ -40,7 +40,7 @@ function limitations(config: Config): string[] {
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
     "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. save_picture is panel-internal only.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
-    "Fees shown are network fees only. promptfun charges no fee.",
+    "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% of creator fees.",
   ];
 }
 

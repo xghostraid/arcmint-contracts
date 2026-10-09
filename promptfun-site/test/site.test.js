@@ -106,7 +106,7 @@ test("has every required section", () => {
   assert.match(html, /class="hero"/);
 });
 
-test("how-it-works is chat-first journey with PROMPT fee tiers, not numbered clone rows", () => {
+test("how-it-works is chat-first journey with 100% creator fees, not numbered clone rows", () => {
   const how = html.match(/<section class="section section-flow" id="how"[\s\S]*?<\/section>/)[0];
   assert.match(how, /class="chat-journey"/);
   assert.doesNotMatch(how, /class="flow-steps"/);
@@ -119,9 +119,10 @@ test("how-it-works is chat-first journey with PROMPT fee tiers, not numbered clo
   assert.match(how, /journey-upload-panel/);
   assert.match(how, /Mainnet pump\.fun is live/);
   assert.match(how, /Solana mainnet/);
-  assert.match(how, /70%/);
-  assert.match(how, /40%/);
-  assert.match(how, /\$PROMPT/);
+  assert.match(how, /100%/);
+  assert.match(how, /promptfun\.fun fee: 0%/i);
+  assert.doesNotMatch(how, /70%/);
+  assert.doesNotMatch(how, /40%/);
   assert.match(how, /pump\.fun creator fees/);
   assert.match(how, /creatorWallet/);
   assert.match(how, /class="fee-tier-cards"/);

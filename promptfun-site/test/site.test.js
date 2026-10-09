@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile, readdir, access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { join, relative, sep } from "node:path";
 import { handler, resolvePath } from "../server.js";
 
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const PUBLIC = fileURLToPath(new URL("../public/", import.meta.url));
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
 const text = html.replace(/<[^>]+>/g, " ");
@@ -16,15 +18,38 @@ test("brand is promptfun.fun, never the old placeholder", () => {
   assert.doesNotMatch(flat, /promptfun(?!\.fun)/, "the name is always promptfun.fun");
 });
 
-test("the site is for ChatGPT and never mentions Claude", async () => {
-  const files = (await readdir(PUBLIC, { recursive: true })).filter((f) => /\.(html|css|js|svg|md|txt)$/.test(f));
-  assert.ok(files.length >= 4);
+test("the site is for ChatGPT and never mentions Claude, anywhere in the folder", async () => {
+  // This file has to spell the word it forbids, so it is the one file not scanned.
+  const self = fileURLToPath(import.meta.url);
+  const files = (await readdir(ROOT, { recursive: true, withFileTypes: true }))
+    .filter((e) => e.isFile())
+    .map((e) => join(e.parentPath ?? e.path, e.name))
+    .filter((f) => f !== self && !f.split(sep).includes("node_modules"));
+  assert.ok(files.length >= 8);
   for (const file of files) {
-    const body = await readFile(`${PUBLIC}${file}`, "utf8");
-    assert.doesNotMatch(body, /claude/i, `"Claude" appears in public/${file}`);
+    const body = await readFile(file, "latin1");
+    assert.doesNotMatch(body, /claude/i, `"Claude" appears in ${relative(ROOT, file)}`);
   }
   assert.match(html, /<h1[^>]*>Say it in ChatGPT\./);
   assert.match(html, />Connect to ChatGPT</);
+});
+
+test("title, meta, alt, aria and caption text name ChatGPT and nothing else", () => {
+  const title = html.match(/<title>([^<]*)<\/title>/)[1];
+  const metas = [...html.matchAll(/<meta\b[^>]*\bcontent="([^"]*)"/g)].map((m) => m[1]);
+  const attrs = [...html.matchAll(/\b(?:alt|aria-label|title)="([^"]*)"/g)].map((m) => m[1]);
+  const captions = [...html.matchAll(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/g)].map((m) => m[1]);
+  assert.ok(metas.length >= 4 && attrs.length >= 1 && captions.length >= 1);
+  for (const value of [title, ...metas, ...attrs, ...captions]) {
+    assert.doesNotMatch(value, /claude/i, `"Claude" appears in: ${value}`);
+  }
+  for (const name of ["description", "og:description"]) {
+    const tag = html.match(new RegExp(`<meta\\b[^>]*(?:name|property)="${name}"[^>]*>`));
+    assert.ok(tag, `missing meta ${name}`);
+    assert.match(tag[0], /ChatGPT/, `meta ${name} should mention ChatGPT`);
+  }
+  assert.match(title, /ChatGPT/);
+  assert.match(html, /aria-label="Connect to ChatGPT"/);
 });
 
 test("has every required section", () => {

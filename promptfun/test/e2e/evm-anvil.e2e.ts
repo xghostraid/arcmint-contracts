@@ -46,9 +46,9 @@ test("capabilities list EVM chains in priority order with honest status", async 
   const r = await h.call("get_capabilities", {});
   const local = r.data.chains.find((c: any) => c.key === "evm-localnet");
   assert.deepEqual([local.enabled, local.status, local.chainId], [true, "verified", 31337]);
-  for (const key of ["ethereum-sepolia", "robinhood-testnet", "base-sepolia"]) {
+  for (const [key, status] of [["ethereum-sepolia", "configured"], ["robinhood-testnet", "verified"], ["base-sepolia", "configured"]]) {
     const chain = r.data.chains.find((c: any) => c.key === key);
-    assert.deepEqual([chain.enabled, chain.status], [true, "configured"], key);
+    assert.deepEqual([chain.enabled, chain.status], [true, status], key);
   }
   const mainnet = r.data.chains.find((c: any) => c.key === "robinhood");
   assert.deepEqual([mainnet.enabled, mainnet.status], [false, "gated"]);

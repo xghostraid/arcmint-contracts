@@ -38,6 +38,12 @@ const SPECS: Spec[] = [
   { key: "bnb", name: "BNB Smart Chain", chainId: 56, rpc: "https://bsc-dataseed.bnbchain.org", explorer: "https://bscscan.com", native: "BNB", stack: "pos", priority: 4, testnet: false, source: "https://docs.bnbchain.org/bnb-smart-chain/developers/json_rpc/json-rpc-endpoint/" },
 ];
 
+/** Public networks run end to end through the MCP tools and approval page, with every receipt read from chain. */
+const PUBLIC_RUNS: Record<string, string> = {
+  "robinhood-testnet":
+    "Run end to end on public Robinhood Chain Testnet on 2026-10-09 through the MCP tools and the approval page (scripts/evm-demo.ts): ERC-20 deploy 0x046eb9dc67e3e65795938f81d37c80d143414e96fc8d1fbb4f92b644283e28e5 (token 0x9381DFa468Bf1a15432EC0Ca3A2Aef84274FA5c6, deployed code byte-identical to promptfun's token), token transfer 0x5f693398390001d95eedf3d599c322ed3f2fb594796024705729a5394de5331b, ETH transfer 0x61d6027a1221a52af8cc7a37dbe3468a80d42958b9e9b16e862774da6f86d6dc, each receipt read from chain. Signed by an EIP-6963 test wallet, not yet by MetaMask itself.",
+};
+
 /** Set by the EVM adapter module when it is installed; until then EVM chains are listed but off. */
 let adapterReady = false;
 export function markEvmAdapterReady(): void {
@@ -62,9 +68,11 @@ export function evmChains(config: Config): EvmChain[] {
       name: spec.name,
       family: "evm",
       testnet: spec.testnet,
-      status: spec.local ? "verified" : spec.testnet ? "configured" : "gated",
+      status: spec.local || PUBLIC_RUNS[spec.key] ? "verified" : spec.testnet ? "configured" : "gated",
       evidence: spec.local
         ? "Automated end-to-end tests (test/e2e/evm-anvil.e2e.ts) deploy an ERC-20 and send ETH and tokens through the MCP server, approval API, and chain-read receipts against anvil. Local only: these transactions do not exist on any public network."
+        : PUBLIC_RUNS[spec.key]
+          ? PUBLIC_RUNS[spec.key]
         : spec.testnet
           ? `Network values from ${spec.source}. Same EVM adapter as the Anvil tests, but not yet run end to end on this network.`
           : `Real-money network, values from ${spec.source}. Never broadcast by promptfun; off unless explicitly enabled.`,

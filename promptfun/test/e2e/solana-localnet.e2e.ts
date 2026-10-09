@@ -30,7 +30,7 @@ test("capabilities list Solana chains with honest status", async () => {
   assert.equal(local.status, "verified");
   const robinhood = r.data.chains.find((c: any) => c.key === "robinhood-testnet");
   assert.equal(robinhood.chainId, 46630);
-  assert.equal(robinhood.status, "configured");
+  assert.equal(robinhood.status, "verified");
   assert.equal(r.data.promptfunFee, "0");
 });
 

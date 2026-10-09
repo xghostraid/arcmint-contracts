@@ -14,9 +14,9 @@ const LIMITATIONS = [
   "The user must approve each action in their own wallet on the approval page; ChatGPT's confirmation is not a transaction approval.",
   "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
   "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
-  "EVM adapter (Ethereum, Robinhood Chain, Base, then others) is not built yet; EVM chains are listed but disabled.",
+  "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
   "No image or IPFS upload: pass an existing metadata URL.",
-  "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) in a desktop browser.",
+  "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
   "Fees shown are network fees only. promptfun charges no fee.",
 ];
 

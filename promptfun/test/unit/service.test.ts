@@ -81,7 +81,7 @@ test("EVM priority order and Robinhood Chain values match the official docs", ()
   const firstThree = [...new Set(evm.filter((c) => c.priority >= 1 && c.priority <= 3).sort((a, b) => a.priority - b.priority).map((c) => c.name.split(" ")[0]))];
   assert.deepEqual(firstThree, ["Ethereum", "Robinhood", "Base"]);
   const rh = evm.find((c) => c.key === "robinhood-testnet");
-  assert.deepEqual([rh.chainId, rh.rpcUrl, rh.explorerUrl, rh.status], [46630, "https://rpc.testnet.chain.robinhood.com", "https://explorer.testnet.chain.robinhood.com", "configured"]);
+  assert.deepEqual([rh.chainId, rh.rpcUrl, rh.explorerUrl, rh.status], [46630, "https://rpc.testnet.chain.robinhood.com", "https://explorer.testnet.chain.robinhood.com", "verified"]);
   const rhMain = evm.find((c) => c.key === "robinhood");
   assert.deepEqual([rhMain.chainId, rhMain.status], [4663, "gated"]);
   assert.ok(evm.filter((c) => !c.testnet).every((c) => c.status === "gated"));

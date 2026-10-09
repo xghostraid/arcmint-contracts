@@ -15,7 +15,8 @@ Say what you want in chat ("launch a token called Moon with a million supply", "
 | Solana devnet | Token-2022 SPL | SOL, SPL | **verified**: public devnet run on 2026-10-09 (below), signed by a Wallet Standard test wallet. Not yet signed with Phantom itself. |
 | Solana mainnet | pump.fun only | — | **gated** behind `PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1`. The transaction is built with the official `@pump-fun/pump-sdk` and decoded, but promptfun has never broadcast one. |
 | Local EVM (Anvil) | fixed-supply ERC-20 | ETH, ERC-20 | **verified**: `npm run test:e2e` and a browser run with an EIP-6963 test wallet (`npm run demo:evm`) |
-| Ethereum Sepolia, Robinhood Chain Testnet, Base Sepolia (in that order), then Arbitrum Sepolia, OP Sepolia, Polygon Amoy, BNB Testnet | fixed-supply ERC-20 | native, ERC-20 | **configured**: same adapter as Anvil, but not run on these networks yet, because the demo key has no testnet ETH |
+| Robinhood Chain Testnet (46630) | fixed-supply ERC-20 | ETH, ERC-20 | **verified**: public testnet run on 2026-10-09 (below), signed by an EIP-6963 test wallet. Not yet signed with MetaMask itself. |
+| Ethereum Sepolia, Base Sepolia, then Arbitrum Sepolia, OP Sepolia, Polygon Amoy, BNB Testnet | fixed-supply ERC-20 | native, ERC-20 | **configured**: same adapter as Anvil and Robinhood Chain Testnet, but not run on these networks yet, because the demo key has no testnet ETH there |
 | The matching EVM mainnets | fixed-supply ERC-20 | native, ERC-20 | **gated** behind `PROMPTFUN_ENABLE_EVM_MAINNETS=1`. Never broadcast. |
 
 ### Devnet evidence (2026-10-09)
@@ -27,6 +28,16 @@ Driven through the MCP tools with the official MCP SDK client (`scripts/devnet-d
 - SOL transfer: tx [`2o5CqE8g…4KsQ`](https://explorer.solana.com/tx/2o5CqE8gtZGhiAxCKGht5awAQmGBahvXxLaYDf1gmd6c6m5CwW7U5X1BcAnAhLvMk9Un5xNBkfYnBSeNNj5K4KsQ?cluster=devnet).
 
 The wallet was the **demo test wallet** in `scripts/demo-wallet.ts`. It's a Wallet Standard wallet that the page discovers the same way it discovers Phantom, with the devnet key held by the test harness. Every signing request shows a visible prompt labelled as a test wallet.
+
+### Robinhood Chain Testnet evidence (2026-10-09)
+
+Driven the same way with `scripts/evm-demo.ts` and the EIP-6963 test wallet in `scripts/demo-evm-wallet.ts`, from `0x618E2D806D8C6826F9e403ffB23cDF629156F521`.
+
+- Launch: token [`0x9381DFa4…FA5c6`](https://explorer.testnet.chain.robinhood.com/address/0x9381DFa468Bf1a15432EC0Ca3A2Aef84274FA5c6), tx [`0x046eb9dc…28e5`](https://explorer.testnet.chain.robinhood.com/tx/0x046eb9dc67e3e65795938f81d37c80d143414e96fc8d1fbb4f92b644283e28e5). The deployed code is byte-identical to promptfun's token, and name, symbol, decimals, supply, and the deployer's balance were read back.
+- Token transfer: tx [`0x5f693398…331b`](https://explorer.testnet.chain.robinhood.com/tx/0x5f693398390001d95eedf3d599c322ed3f2fb594796024705729a5394de5331b), checked against the Transfer event.
+- ETH transfer: tx [`0x61d6027a…d6dc`](https://explorer.testnet.chain.robinhood.com/tx/0x61d6027a1221a52af8cc7a37dbe3468a80d42958b9e9b16e862774da6f86d6dc).
+
+The three cost about 0.0000063 ETH in network fees together.
 
 ## Quick start (local)
 
@@ -122,7 +133,7 @@ npm run demo:evm                  # browser run on anvil with the EIP-6963 test 
 
 ## Not done yet
 
-- Public EVM testnet runs. They need testnet ETH for the demo key on Sepolia, Robinhood Chain Testnet, and Base Sepolia.
+- Public Ethereum Sepolia and Base Sepolia runs. They need testnet ETH for the demo key on those networks.
 - Sponsored (walletless) launches inside ChatGPT. The design is in progress; the approval page stays as the bring-your-own-wallet path.
 - OAuth, which is required before mainnets go on a shared server.
 - WalletConnect (mobile) and passkeys.

@@ -12,21 +12,34 @@ import { PICTURE_URI, pictureHtml } from "./picture.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
 
-const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer. Solana mainnet pump.fun launches are live: the user approves on the approval page in their wallet (real SOL). On Solana devnet with sponsored launches enabled, prepare_launch can be read-only and confirm_launch sends with no wallet. ${SHORT} never holds user keys. Call get_capabilities first. After prepare_*, use the card or approval link, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
-
 import type { Config } from "../config.js";
+
+function serverInstructions(config: Config): string {
+  const sponsoredMainnet = config.enableSponsoredMainnet && config.enableSponsoredLaunches && config.enablePumpfunMainnet;
+  const launchPath = sponsoredMainnet
+    ? "Default: Solana mainnet pump.fun with no wallet — prepare_launch returns the card, the user taps Launch it, confirm_launch sends (promptfun pays network fees from the sponsor wallet; real mainnet SOL)."
+    : config.enablePumpfunMainnet
+      ? "Solana mainnet pump.fun is live via the approval page and the user's wallet (real SOL)."
+      : "Solana mainnet is off until PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1.";
+  return `${BRAND} turns a request into a token launch or transfer. ${launchPath} Devnet remains for optional testing. ${SHORT} never holds user keys. Call get_capabilities first (recommendedLaunchChain is solana-mainnet when pump.fun mainnet is on). After prepare_*, use the in-chat card (Launch it for sponsored launches) or the approval link for wallet mode, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
+}
 
 function limitations(config: Config): string[] {
   const mainnetLive = config.enablePumpfunMainnet;
-  const sponsoredMainnet = config.enableSponsoredMainnet;
+  const sponsoredMainnet = config.enableSponsoredMainnet && config.enableSponsoredLaunches;
+  const budget = sponsorBudgetSnapshot(config);
   return [
     mainnetLive
-      ? "Solana mainnet (pump.fun) is live via wallet approval. Default chain: solana-mainnet. Real SOL is spent; the preview shows the fee before the user approves."
+      ? sponsoredMainnet && budget.sponsoredMainnetEnabled
+        ? "Solana mainnet (pump.fun) is live with sponsored launch (no wallet): default chain solana-mainnet; user taps Launch it on the card; promptfun pays network fees from the funded sponsor wallet (allowlisted pump.fun programs only). Real mainnet SOL is spent from the sponsor balance."
+        : "Solana mainnet (pump.fun) is live. Default chain: solana-mainnet. Real SOL is spent; the preview shows the fee before the user approves."
       : "Solana mainnet is off until PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1.",
-    sponsoredMainnet
-      ? "Sponsored mainnet pump.fun: PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 with a funded sponsor wallet (allowlisted pump.fun programs only). Otherwise mainnet launches require the user's wallet."
-      : "Sponsored launches (no wallet) run on Solana testnets only when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set. SPL is default on devnet; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1. Mainnet pump.fun without a wallet needs PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and mainnet SOL on the sponsor pubkey.",
-    "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
+    sponsoredMainnet && budget.sponsoredMainnetEnabled
+      ? "Wallet approval on the /approve page is a fallback when sponsored mode is paused or for transfers. Public launches should use prepare_launch on solana-mainnet and confirm_launch from the card."
+      : sponsoredMainnet
+        ? "Sponsored mainnet needs PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and mainnet SOL on the sponsor pubkey."
+        : "Sponsored launches (no wallet) run on Solana testnets when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set. Mainnet pump.fun without a wallet needs PROMPTFUN_ENABLE_SPONSORED_MAINNET=1.",
+    "Claude's Allow on a write tool approves the tool call, not an onchain transaction. Sponsored sends only happen after the user taps Launch it on the card (confirm_launch).",
     config.oauthRequired
       ? "OAuth required: Claude must sign in (Bearer token on /mcp)."
       : config.oauthEnabled
@@ -51,8 +64,9 @@ function hosts(config: Config) {
         : "Custom connector: Customize → Connectors → Add custom connector, URL https://<promptfun-host>/mcp, Authentication: No sign in.",
       notes: [
         "Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise, on web, desktop and mobile. Add it on web or desktop first; it then appears on mobile.",
-        "prepare_launch is read-only; sponsored sends use confirm_launch from the in-chat card. prepare_transfer still opens the approval page.",
-        "The card renders inline. Opening the approval page shows Claude's external-link confirmation, which custom connectors always get.",
+        "prepare_launch is read-only; on solana-mainnet with sponsored mode, the card shows Launch it and confirm_launch sends with no wallet. prepare_transfer still opens the approval page.",
+        "The card renders inline. Default launch path is in-chat confirm (like getplugged), not the wallet approval page.",
+        "Opening the approval page shows Claude's external-link confirmation, which custom connectors always get when wallet mode is used.",
         "Claude allows 240 seconds per tool call; every promptfun tool returns in seconds.",
       ],
     },
@@ -83,7 +97,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
   const config = service.config;
   const LIMITATIONS = limitations(config);
   const HOSTS = hosts(config);
-  const server = new McpServer({ name: SHORT, title: BRAND, version: VERSION }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: SHORT, title: BRAND, version: VERSION }, { instructions: serverInstructions(config) });
 
   const view = (id: string) => {
     const intent = service.get(id);
@@ -123,7 +137,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         text: cardHtml(),
         _meta: {
           ui: { prefersBorder: true, csp: { connectDomains: [], resourceDomains: [] } },
-          "openai/widgetDescription": "Shows the prepared action, the decoded transaction, the network fee, and status, with a button to approve in the user's wallet.",
+          "openai/widgetDescription": "Shows the prepared launch, decoded transaction, network fee, and status. Sponsored launches use Launch it in chat; wallet mode opens the approval page.",
           "openai/widgetCSP": { connect_domains: [], resource_domains: [], redirect_domains: [new URL(config.publicUrl).origin] },
         },
       }],
@@ -284,9 +298,9 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     "prepare_launch",
     {
       title: "Prepare a token launch",
-      description: "Use when the user wants to create a new token. Read-only: simulates and returns the card. On sponsored Solana testnets (SPL, not pump.fun) the card shows Launch it and confirm_launch sends with promptfun paying the network fee. Otherwise the user opens approveUrl and signs in their wallet. Nothing is broadcast by this call.",
+      description: "Use when the user wants to create a new token. Read-only: simulates and returns the card. On solana-mainnet with sponsored mode (and on sponsored testnets), the card shows Launch it and confirm_launch sends with promptfun paying the network fee — no wallet. Otherwise the user opens approveUrl and signs in their wallet. Nothing is broadcast by this call.",
       inputSchema: z.object({
-        chain: z.string().describe("Chain key from get_capabilities, e.g. solana-mainnet for pump.fun"),
+        chain: z.string().optional().describe("Chain key from get_capabilities. Defaults to recommendedLaunchChain (solana-mainnet when pump.fun mainnet is live)."),
         name: z.string().min(1).max(32),
         symbol: z.string().min(1).max(10),
         supply: decimalInput.optional().describe("Whole tokens, e.g. \"1000000\". Default 1000000000. pump.fun is always 1000000000."),
@@ -306,7 +320,11 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     },
     async (args) => {
       try {
-        const intent = await service.prepareLaunch({ ...args, supply: args.supply === undefined ? undefined : decimalText(args.supply) });
+        const intent = await service.prepareLaunch({
+          ...args,
+          chain: args.chain?.trim() || recommendedLaunchChainKey(config) || undefined,
+          supply: args.supply === undefined ? undefined : decimalText(args.supply),
+        });
         return intentResult(intent.id);
       } catch (err) {
         return fail(err);

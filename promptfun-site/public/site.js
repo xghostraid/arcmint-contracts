@@ -1,4 +1,20 @@
 (() => {
+  const copyMcp = document.querySelector("[data-copy-mcp]");
+  const mcpUrl = document.getElementById("mcp-url");
+  if (copyMcp && mcpUrl) {
+    copyMcp.addEventListener("click", async () => {
+      const text = mcpUrl.textContent.trim();
+      try {
+        await navigator.clipboard.writeText(text);
+        copyMcp.textContent = "Copied";
+        setTimeout(() => { copyMcp.textContent = "Copy"; }, 2000);
+      } catch {
+        copyMcp.textContent = "Copy failed";
+        setTimeout(() => { copyMcp.textContent = "Copy"; }, 2000);
+      }
+    });
+  }
+
   const nav = document.querySelector("[data-nav]");
   if (nav) {
     const onScroll = () => nav.classList.toggle("is-scrolled", window.scrollY > 8);

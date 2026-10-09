@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
 import { BRAND, SHORT, VERSION } from "../brand.js";
 import { adapterFor } from "../chains/index.js";
-import { allChains } from "../chains/registry.js";
+import { chainsForCapabilities, recommendedLaunchChainKey } from "../chains/registry.js";
 import type { IntentService } from "../intents/service.js";
 import type { CoinIndexService } from "../indexer/service.js";
 import type { CoinDetail } from "../api/types.js";
@@ -12,23 +12,30 @@ import { PICTURE_URI, pictureHtml } from "./picture.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
 
-const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer. On supported Solana testnets with sponsored launches enabled, prepare_launch is a read-only preview and the user taps Launch it on the card (confirm_launch) with no wallet. Otherwise the user approves on the approval page in their own wallet. ${SHORT} never holds user keys. Call get_capabilities first. After prepare_*, use the card or approval link, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
+const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer. Solana mainnet pump.fun launches are live: the user approves on the approval page in their wallet (real SOL). On Solana devnet with sponsored launches enabled, prepare_launch can be read-only and confirm_launch sends with no wallet. ${SHORT} never holds user keys. Call get_capabilities first. After prepare_*, use the card or approval link, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
 
 import type { Config } from "../config.js";
 
 function limitations(config: Config): string[] {
+  const mainnetLive = config.enablePumpfunMainnet;
+  const sponsoredMainnet = config.enableSponsoredMainnet;
   return [
-    "Sponsored launches on Solana testnets: when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. SPL is default; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1. Creator fees lock to creatorWallet, or to the signed-in user's claim-later Privy Solana wallet when PROMPTFUN_PRIVY_* is set, otherwise PROMPTFUN_SPONSOR_FEE_RECIPIENT (defaults to sponsor). Mainnet pump.fun stays wallet-approved until OAuth lands.",
+    mainnetLive
+      ? "Solana mainnet (pump.fun) is live via wallet approval. Default chain: solana-mainnet. Real SOL is spent; the preview shows the fee before the user approves."
+      : "Solana mainnet is off until PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1.",
+    sponsoredMainnet
+      ? "Sponsored mainnet pump.fun: PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 with a funded sponsor wallet (allowlisted pump.fun programs only). Otherwise mainnet launches require the user's wallet."
+      : "Sponsored launches (no wallet) run on Solana testnets only when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set. SPL is default on devnet; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1. Mainnet pump.fun without a wallet needs PROMPTFUN_ENABLE_SPONSORED_MAINNET=1 and mainnet SOL on the sponsor pubkey.",
     "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
     config.oauthRequired
-      ? "OAuth required: Claude must sign in (Bearer token on /mcp). Mainnets stay off until ops enables them."
+      ? "OAuth required: Claude must sign in (Bearer token on /mcp)."
       : config.oauthEnabled
-        ? "OAuth is available but optional; set PROMPTFUN_OAUTH_REQUIRED=1 on shared servers. Mainnets stay off until ops enables them."
-        : "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
-    "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
+        ? "OAuth is available but optional; set PROMPTFUN_OAUTH_REQUIRED=1 on shared servers."
+        : "No OAuth yet: the connector is no-sign-in on this host.",
+    "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
     "Picture upload: JPEG/PNG up to 15 MB, EXIF stripped, pinned to IPFS (Kubo when PROMPTFUN_KUBO_API_URL is set, otherwise in-memory for dev).",
-    "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
+    "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown are network fees only. promptfun charges no fee.",
   ];
 }
@@ -132,7 +139,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
       annotations: READ,
     },
     async () => {
-      const chains = allChains(config).map((c) => ({
+      const chains = chainsForCapabilities(config).map((c) => ({
         key: c.key,
         name: c.name,
         family: c.family,
@@ -156,6 +163,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         }],
         structuredContent: {
           version: VERSION,
+          recommendedLaunchChain: recommendedLaunchChainKey(config),
           chains,
           limitations: LIMITATIONS,
           hosts: HOSTS,
@@ -277,7 +285,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
       title: "Prepare a token launch",
       description: "Use when the user wants to create a new token. Read-only: simulates and returns the card. On sponsored Solana testnets (SPL, not pump.fun) the card shows Launch it and confirm_launch sends with promptfun paying the network fee. Otherwise the user opens approveUrl and signs in their wallet. Nothing is broadcast by this call.",
       inputSchema: z.object({
-        chain: z.string().describe("Chain key from get_capabilities, e.g. solana-devnet"),
+        chain: z.string().describe("Chain key from get_capabilities, e.g. solana-mainnet for pump.fun"),
         name: z.string().min(1).max(32),
         symbol: z.string().min(1).max(10),
         supply: decimalInput.optional().describe("Whole tokens, e.g. \"1000000\". Default 1000000000. pump.fun is always 1000000000."),
@@ -343,7 +351,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
       title: "Prepare a transfer",
       description: "Use this when the user wants to send the native coin (e.g. SOL) or a token to an address. Prepares it only: returns an approval link where the user reviews the exact transaction and network fee and signs in their own wallet. Nothing is sent by this call.",
       inputSchema: z.object({
-        chain: z.string().describe("Chain key from get_capabilities, e.g. solana-devnet"),
+        chain: z.string().describe("Chain key from get_capabilities, e.g. solana-mainnet for pump.fun"),
         asset: z.string().describe('"native" for SOL/ETH, a listed symbol, or a token mint/contract address'),
         amount: decimalInput.describe("Amount in whole units, e.g. \"0.01\""),
         to: z.string().describe("Recipient wallet address"),

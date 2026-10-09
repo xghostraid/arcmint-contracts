@@ -20,6 +20,11 @@ export interface Config {
   /** HMAC secret for OAuth access tokens (auth slice; MCP stays no-sign-in until wired). */
   oauthSigningSecret: string;
   oauthExposeMagicLink: boolean;
+  oauthEnabled: boolean;
+  oauthRequired: boolean;
+  /** Estimated monthly USD cap for sponsored launches (0 = unlimited tracking only). */
+  monthlyBudgetUsd: number;
+  opsToken: string | null;
   /** Solana pubkey that receives 100% creator fees on sponsored pump.fun launches (defaults to sponsor). */
   sponsorFeeRecipient: string | null;
   enablePumpfunDevnet: boolean;
@@ -53,6 +58,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ipfsImageServePath: env.PROMPTFUN_IPFS_IMAGE_PATH === "0" ? null : env.PROMPTFUN_IPFS_IMAGE_PATH || "/api/img",
     oauthSigningSecret: env.PROMPTFUN_OAUTH_SIGNING_SECRET?.trim() || "dev-only-change-me",
     oauthExposeMagicLink: flag(env.PROMPTFUN_OAUTH_EXPOSE_MAGIC_LINK),
+    oauthRequired: flag(env.PROMPTFUN_OAUTH_REQUIRED),
+    oauthEnabled: flag(env.PROMPTFUN_OAUTH_ENABLED) || flag(env.PROMPTFUN_OAUTH_REQUIRED),
+    monthlyBudgetUsd: Number(env.PROMPTFUN_MONTHLY_BUDGET_USD || "300"),
+    opsToken: env.PROMPTFUN_OPS_TOKEN?.trim() || null,
     sponsorFeeRecipient: env.PROMPTFUN_SPONSOR_FEE_RECIPIENT?.trim() || null,
     enablePumpfunDevnet: flag(env.PROMPTFUN_ENABLE_PUMPFUN_DEVNET),
     env,

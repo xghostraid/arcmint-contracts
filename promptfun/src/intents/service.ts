@@ -13,6 +13,10 @@ import { createFeePayerSigner } from "../sponsor/local-signer.js";
 import type { FeePayerSigner } from "../sponsor/types.js";
 import { solanaInstructionFingerprint } from "../sponsor/fingerprint.js";
 import type { PictureService } from "../pictures/service.js";
+import type { AuthenticatedUser } from "../auth/types.js";
+import type { PlatformStore } from "../platform/store.js";
+import { assertLaunchQuota } from "../platform/quota.js";
+import { assertMonthlyBudget, monthKeyUtc, recordSponsorSpendUsd } from "../platform/budget-ledger.js";
 
 const U64_MAX = (1n << 64n) - 1n;
 
@@ -47,11 +51,25 @@ function now(): string {
 export class IntentService {
   private poller: NodeJS.Timeout | null = null;
   private polling = false;
+  private caller: AuthenticatedUser | null = null;
 
   private readonly sponsorSigner: FeePayerSigner | null;
 
-  constructor(readonly config: Config, readonly store: IntentStore, readonly pictures: PictureService) {
+  constructor(
+    readonly config: Config,
+    readonly store: IntentStore,
+    readonly pictures: PictureService,
+    readonly platform: PlatformStore | null = null,
+  ) {
     this.sponsorSigner = createFeePayerSigner(config);
+  }
+
+  setCaller(user: AuthenticatedUser | null): void {
+    this.caller = user;
+  }
+
+  clearCaller(): void {
+    this.caller = null;
   }
 
   async buildMetadataUri(input: {
@@ -359,6 +377,17 @@ export class IntentService {
     if (intent.executionMode !== "sponsor" || intent.status !== "awaiting_confirm") {
       throw new IntentError("This request is not waiting for in-chat confirmation.", "wrong_state");
     }
+    if (this.config.oauthRequired && !this.caller) {
+      throw new IntentError("Sign in is required for sponsored launches.", "unauthorized");
+    }
+    if (this.platform && this.caller) {
+      try {
+        assertLaunchQuota(this.platform, this.caller.sub);
+        assertMonthlyBudget(this.platform, this.config.monthlyBudgetUsd, monthKeyUtc());
+      } catch (err) {
+        throw new IntentError((err as Error).message, "quota_exceeded");
+      }
+    }
     const budget = sponsorBudgetSnapshot(this.config);
     if (!budget.sponsoredLaunchesEnabled) throw new IntentError(budget.pauseReason ?? "Sponsored launches are paused.", "sponsor_paused");
     if (!this.sponsorSigner || !intent.instructionFingerprint) throw new IntentError("Sponsor signing is not available.", "sponsor_unconfigured");
@@ -371,7 +400,13 @@ export class IntentService {
     if (!built.simulation.ok) throw new IntentError(`Simulation failed: ${built.simulation.error ?? "unknown"}`, "simulation_failed");
     const signed = await this.sponsorSigner.signSolanaTransaction(chain.key, intent, built, built.payload);
     const withBuilt = this.update(intent, { status: "built", built, error: null }, "confirmed_in_chat", "User confirmed launch in chat.");
-    return this.submit(withBuilt.id, signed);
+    const submitted = await this.submit(withBuilt.id, signed);
+    if (this.platform && this.caller) {
+      this.platform.recordLaunchQuota(this.caller.sub);
+      const usd = built.cost.usd ? Number.parseFloat(built.cost.usd) : 0.05;
+      recordSponsorSpendUsd(this.platform, this.caller.sub, Number.isFinite(usd) ? usd : 0.05, monthKeyUtc());
+    }
+    return submitted;
   }
 
   async submit(id: string, walletPayload: string): Promise<Intent> {

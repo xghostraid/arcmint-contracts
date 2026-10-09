@@ -16,6 +16,11 @@ import { CoinIndexStore } from "./indexer/store.js";
 import { CoinIndexService, handleCoinsApi } from "./indexer/service.js";
 import { intentView } from "./mcp/view.js";
 import { approvePage, homePage, notFoundPage, type EvmWalletChain } from "./web/page.js";
+import { OAuthServer } from "./auth/oauth-server.js";
+import { authenticateBearer, mcpUnauthorizedHeaders } from "./auth/mcp.js";
+import { handleOAuthRoutes } from "./auth/routes.js";
+import { PlatformStore, platformDbPath } from "./platform/store.js";
+import { handleOpsRoutes, handleStatusApi } from "./api/status.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = [path.resolve(here, "../public"), path.resolve(here, "../../public")].find((dir) => fs.existsSync(dir))!;
@@ -79,7 +84,9 @@ export function createApp(config: Config): App {
   const pictureStore = new PictureStore(config.dbPath);
   const pictures = new PictureService(config, pictureStore);
   const coinStore = new CoinIndexStore(config.dbPath);
-  const service = new IntentService(config, store, pictures);
+  const platform = config.oauthEnabled ? new PlatformStore(platformDbPath(config.dbPath)) : null;
+  const oauth = platform ? new OAuthServer(config, platform) : null;
+  const service = new IntentService(config, store, pictures, platform);
   const coins = new CoinIndexService(config, store, coinStore);
   const mcp = createMcpHandler(() => buildServer(service, coins), { legacy: "stateless" });
   const mcpNode = toNodeHandler(mcp);
@@ -99,10 +106,32 @@ export function createApp(config: Config): App {
     try {
       if (pathname === "/mcp" || pathname.startsWith("/mcp/")) {
         if (!hostCheck(req, res)) return;
+        if (config.oauthRequired) {
+          const user = authenticateBearer(config, req);
+          if (!user) {
+            for (const [k, v] of Object.entries(mcpUnauthorizedHeaders(config))) res.setHeader(k, v);
+            return json(res, 401, { error: "invalid_token", error_description: "Bearer access token required." });
+          }
+          service.setCaller(user);
+          try {
+            await mcpNode(req, res);
+          } finally {
+            service.clearCaller();
+          }
+          return;
+        }
         await mcpNode(req, res);
         return;
       }
-      if (pathname.startsWith("/.well-known/oauth")) return json(res, 404, { error: "No OAuth on this server (v1 is no-sign-in)." });
+
+      if (config.oauthEnabled && oauth) {
+        if (await handleOAuthRoutes(req, res, pathname, url, config, oauth, (status, body) => json(res, status, body), (status, type, body) => send(res, status, type, body))) return;
+      } else if (pathname.startsWith("/.well-known/oauth") || pathname.startsWith("/oauth/")) {
+        return json(res, 404, { error: "No OAuth on this server (v1 is no-sign-in)." });
+      }
+
+      if (handleStatusApi(req, res, pathname, json, config, platform)) return;
+      if (await handleOpsRoutes(req, res, pathname, json, config, () => readJson(req))) return;
 
       if (handleCoinsApi(req, res, pathname, url, coins, (status, body) => json(res, status, body))) return;
 
@@ -209,9 +238,12 @@ export function createApp(config: Config): App {
         server.listen(config.port, config.host, () => {
           const address = server.address();
           const port = typeof address === "object" && address ? address.port : config.port;
+          const host = config.host === "0.0.0.0" ? "127.0.0.1" : config.host;
+          const base = `http://${host}:${port}`;
+          if (!process.env.PROMPTFUN_PUBLIC_URL || config.port === 0) config.publicUrl = base;
           service.startPoller();
           coins.start();
-          resolve(`http://${config.host}:${port}`);
+          resolve(base);
         });
       }),
     close: async () => {
@@ -223,6 +255,7 @@ export function createApp(config: Config): App {
       store.close();
       pictureStore.close();
       coinStore.close();
+      platform?.close();
     },
   };
 }

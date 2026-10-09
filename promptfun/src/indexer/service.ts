@@ -23,6 +23,7 @@ export interface CoinQuery {
 export class CoinIndexService {
   private timer: NodeJS.Timeout | null = null;
   private refreshing = false;
+  private stopped = false;
 
   constructor(
     readonly config: Config,
@@ -37,11 +38,13 @@ export class CoinIndexService {
   }
 
   stop(): void {
+    this.stopped = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
   }
 
   private async bootstrap(): Promise<void> {
+    if (this.stopped) return;
     for (const coin of syncCoinsFromIntents(this.config, this.intents)) {
       this.store.upsert(coin);
     }
@@ -57,6 +60,7 @@ export class CoinIndexService {
   }
 
   async refreshAll(): Promise<void> {
+    if (this.stopped) return;
     if (this.refreshing) return;
     this.refreshing = true;
     try {

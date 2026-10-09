@@ -1,9 +1,10 @@
 import type { Config } from "../config.js";
 import type { Chain } from "../chains/registry.js";
+import { isRuntimeSponsorPaused } from "../ops/runtime.js";
 import type { SponsorBudgetSnapshot } from "./types.js";
 
 export function sponsorBudgetSnapshot(config: Config): SponsorBudgetSnapshot {
-  if (config.sponsorKillSwitch) {
+  if (config.sponsorKillSwitch || isRuntimeSponsorPaused()) {
     return { killSwitch: true, sponsoredLaunchesEnabled: false, pauseReason: "promptfun isn't paying for launches right now. Use your own wallet instead." };
   }
   if (!config.enableSponsoredLaunches) {

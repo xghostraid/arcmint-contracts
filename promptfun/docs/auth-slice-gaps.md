@@ -1,20 +1,21 @@
 # OAuth / quotas / ops slice — integration gaps
 
-The auth foundation from PR #8 lives under `promptfun/src/auth/` and `promptfun/src/platform/` but is **not** wired into the running server yet.
+The auth foundation lives under `promptfun/src/auth/` and `promptfun/src/platform/`.
 
-## Landed in tree
+## Wired when `PROMPTFUN_OAUTH_ENABLED=1` (or `PROMPTFUN_OAUTH_REQUIRED=1`)
 
-- Token helpers (`auth/token.ts`), PKCE (`auth/pkce.ts`), Bearer parsing (`auth/mcp.ts`).
-- RFC 9728-style metadata builders (`auth/metadata.ts`).
-- Magic-link OAuth server class (`auth/oauth-server.ts`) backed by `platform/store.ts`.
-- Install/bootstrap scripts under `promptfun/scripts/` for a fuller slice tarball (not committed).
+- RFC 9728 metadata at `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`.
+- HTTP routes: `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/magic/verify` (`auth/routes.ts`).
+- `PROMPTFUN_OAUTH_REQUIRED=1` gates `/mcp` with `authenticateBearer` + `WWW-Authenticate` (`auth/mcp.ts`).
+- Public `GET /api/status` (no secrets).
+- Quotas (2/day, 5/month UTC) and monthly budget ledger on sponsored `confirm_launch` when a signed-in user is present.
+- Ops: `POST /ops/sponsor-pause` with `Authorization: Bearer $PROMPTFUN_OPS_TOKEN` toggles runtime sponsor pause (env `PROMPTFUN_SPONSOR_KILL_SWITCH` still wins).
 
-## Still missing before production OAuth
+## Still missing
 
-- HTTP routes: `/oauth/register`, `/oauth/authorize`, `/oauth/token`, `/oauth/magic/verify` (replace `404` stubs on `/.well-known/oauth*` in `app.ts`).
-- `PROMPTFUN_OAUTH_REQUIRED=1` gate on `/mcp` using `authenticateBearer` + `WWW-Authenticate`.
-- Quotas (2/day, 5/month), monthly budget ledger, kill-switch ops API.
 - `ClaimLaterWalletProvider` / Privy integration and `docs/custody.md`.
-- Unit tests: `oauth.test.ts`, `quota-budget.test.ts`, `wallet-provider.test.ts`.
+- `wallet-provider.test.ts`.
+- Email delivery for magic links (dev exposes link when `PROMPTFUN_OAUTH_EXPOSE_MAGIC_LINK=1`).
+- Payout cron and full ops dashboard.
 
-MCP `get_capabilities` still documents **No sign in** until the above ships.
+MCP `get_capabilities` reflects OAuth optional vs required from config.

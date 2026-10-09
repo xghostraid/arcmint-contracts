@@ -14,31 +14,43 @@ import { intentText, intentView } from "./view.js";
 
 const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer. On supported Solana testnets with sponsored launches enabled, prepare_launch is a read-only preview and the user taps Launch it on the card (confirm_launch) with no wallet. Otherwise the user approves on the approval page in their own wallet. ${SHORT} never holds user keys. Call get_capabilities first. After prepare_*, use the card or approval link, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
 
-const LIMITATIONS = [
-  "Sponsored launches on Solana testnets: when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. SPL is default; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1 and locks 100% creator fees to PROMPTFUN_SPONSOR_FEE_RECIPIENT (defaults to sponsor). Mainnet pump.fun stays wallet-approved until OAuth lands.",
-  "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
-  "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
-  "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
-  "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-  "Picture upload: JPEG/PNG up to 15 MB, EXIF stripped, pinned to IPFS (Kubo when PROMPTFUN_KUBO_API_URL is set, otherwise in-memory for dev).",
-  "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
-  "Fees shown are network fees only. promptfun charges no fee.",
-];
+import type { Config } from "../config.js";
+
+function limitations(config: Config): string[] {
+  return [
+    "Sponsored launches on Solana testnets: when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. SPL is default; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1 and locks 100% creator fees to PROMPTFUN_SPONSOR_FEE_RECIPIENT (defaults to sponsor). Mainnet pump.fun stays wallet-approved until OAuth lands.",
+    "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
+    config.oauthRequired
+      ? "OAuth required: Claude must sign in (Bearer token on /mcp). Mainnets stay off until ops enables them."
+      : config.oauthEnabled
+        ? "OAuth is available but optional; set PROMPTFUN_OAUTH_REQUIRED=1 on shared servers. Mainnets stay off until ops enables them."
+        : "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
+    "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
+    "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
+    "Picture upload: JPEG/PNG up to 15 MB, EXIF stripped, pinned to IPFS (Kubo when PROMPTFUN_KUBO_API_URL is set, otherwise in-memory for dev).",
+    "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
+    "Fees shown are network fees only. promptfun charges no fee.",
+  ];
+}
 
 /** v1 targets Claude custom connectors; same Streamable HTTP / MCP Apps card at /mcp. */
-const HOSTS = [
-  {
-    host: "claude",
-    role: "primary",
-    connect: "Custom connector: Customize → Connectors → Add custom connector, URL https://<promptfun-host>/mcp, Authentication: No sign in.",
-    notes: [
-      "Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise, on web, desktop and mobile. Add it on web or desktop first; it then appears on mobile.",
-      "prepare_launch is read-only; sponsored sends use confirm_launch from the in-chat card. prepare_transfer still opens the approval page.",
-      "The card renders inline. Opening the approval page shows Claude's external-link confirmation, which custom connectors always get.",
-      "Claude allows 240 seconds per tool call; every promptfun tool returns in seconds.",
-    ],
-  },
-] as const;
+function hosts(config: Config) {
+  return [
+    {
+      host: "claude",
+      role: "primary" as const,
+      connect: config.oauthRequired
+        ? "Custom connector: Add https://<promptfun-host>/mcp with OAuth (PKCE). Metadata at /.well-known/oauth-protected-resource."
+        : "Custom connector: Customize → Connectors → Add custom connector, URL https://<promptfun-host>/mcp, Authentication: No sign in.",
+      notes: [
+        "Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise, on web, desktop and mobile. Add it on web or desktop first; it then appears on mobile.",
+        "prepare_launch is read-only; sponsored sends use confirm_launch from the in-chat card. prepare_transfer still opens the approval page.",
+        "The card renders inline. Opening the approval page shows Claude's external-link confirmation, which custom connectors always get.",
+        "Claude allows 240 seconds per tool call; every promptfun tool returns in seconds.",
+      ],
+    },
+  ];
+}
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; structuredContent?: Record<string, unknown>; isError?: boolean };
 
@@ -62,6 +74,8 @@ function decimalText(value: string | number): string {
 
 export function buildServer(service: IntentService, coins?: CoinIndexService): McpServer {
   const config = service.config;
+  const LIMITATIONS = limitations(config);
+  const HOSTS = hosts(config);
   const server = new McpServer({ name: SHORT, title: BRAND, version: VERSION }, { instructions: INSTRUCTIONS });
 
   const view = (id: string) => {

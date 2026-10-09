@@ -53,6 +53,20 @@ export class PlatformStore {
         email TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS launch_quota_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sub TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_launch_quota_sub_time ON launch_quota_events (sub, created_at);
+      CREATE TABLE IF NOT EXISTS sponsor_spend (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sub TEXT NOT NULL,
+        month_key TEXT NOT NULL,
+        usd_estimate REAL NOT NULL,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_sponsor_spend_month ON sponsor_spend (month_key);
     `);
   }
 
@@ -104,6 +118,24 @@ export class PlatformStore {
     if (!row || row.expiresAt < Date.now()) return null;
     this.db.prepare("DELETE FROM oauth_codes WHERE code = ?").run(code);
     return row;
+  }
+
+  recordLaunchQuota(sub: string): void {
+    this.db.prepare("INSERT INTO launch_quota_events (sub, created_at) VALUES (?, ?)").run(sub, Date.now());
+  }
+
+  countLaunchesSince(sub: string, sinceMs: number): number {
+    const row = this.db.prepare("SELECT COUNT(*) AS c FROM launch_quota_events WHERE sub = ? AND created_at >= ?").get(sub, sinceMs) as { c: number };
+    return row.c;
+  }
+
+  addSponsorSpend(sub: string, usdEstimate: number, monthKey: string): void {
+    this.db.prepare("INSERT INTO sponsor_spend (sub, month_key, usd_estimate, created_at) VALUES (?, ?, ?, ?)").run(sub, monthKey, usdEstimate, Date.now());
+  }
+
+  sumSponsorSpend(monthKey: string): number {
+    const row = this.db.prepare("SELECT COALESCE(SUM(usd_estimate), 0) AS s FROM sponsor_spend WHERE month_key = ?").get(monthKey) as { s: number };
+    return row.s;
   }
 
   close(): void {

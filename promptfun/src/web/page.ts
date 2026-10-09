@@ -25,7 +25,16 @@ export function notFoundPage(): string {
 }
 
 /** Server-rendered summary; /static/approve.js connects the wallet and fills in the exact transaction. */
-export function approvePage(view: IntentView, walletChain: string | null, family: string): string {
+/** Parameters for wallet_addEthereumChain, so the wallet can switch to (or add) the intent's network. */
+export interface EvmWalletChain {
+  chainId: string;
+  chainName: string;
+  rpcUrls: string[];
+  nativeCurrency: { name: string; symbol: string; decimals: number };
+  blockExplorerUrls?: string[];
+}
+
+export function approvePage(view: IntentView, walletChain: string | null, family: string, evm: EvmWalletChain | null = null): string {
   const unverified = view.chainStatus === "verified" ? "" : `<p class="warn" id="chain-warning">${view.chainStatus === "gated"
     ? `Real-money network. ${esc(BRAND)} has not verified this path end to end.`
     : `${esc(view.chainName)} is configured but not yet verified end to end by ${esc(BRAND)}.`}</p>`;
@@ -34,7 +43,7 @@ export function approvePage(view: IntentView, walletChain: string | null, family
 <h1 id="summary">${esc(view.summary)}</h1>
 <p class="muted">${esc(view.chainName)} · status: ${esc(view.chainStatus)} · expires ${esc(new Date(view.expiresAt).toUTCString())}</p>
 ${unverified}
-<section id="app" data-intent="${esc(view.intentId)}" data-family="${esc(family)}" data-wallet-chain="${esc(walletChain ?? "")}">
+<section id="app" data-intent="${esc(view.intentId)}" data-family="${esc(family)}" data-wallet-chain="${esc(walletChain ?? "")}"${evm ? ` data-evm="${esc(JSON.stringify(evm))}"` : ""}>
   <div id="wallets"><h2>1. Connect your wallet</h2><p class="muted" id="wallet-hint">Looking for wallets…</p><div id="wallet-list" class="buttons"></div></div>
   <div id="preview" hidden><h2>2. Review the exact transaction</h2>
     <p class="muted">Decoded from the transaction your wallet will sign:</p><ol id="steps"></ol>

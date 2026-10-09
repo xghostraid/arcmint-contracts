@@ -1,11 +1,14 @@
-// promptfun approval page. Runs in the user's browser: discovers Wallet Standard wallets, asks the server to
-// compile the exact transaction, shows the decoded preview and network fee, has the wallet sign, and reads the receipt.
-// No key ever leaves the wallet. The pump.fun one-time mint key (if any) is generated here and never sent.
+// promptfun approval page. Runs in the user's browser: discovers wallets (Wallet Standard on Solana, EIP-6963 on EVM),
+// asks the server to compile the exact transaction, shows the decoded preview and network fee, has the wallet sign,
+// and reads the receipt. No key ever leaves the wallet. The pump.fun one-time mint key (if any) is generated here
+// and never sent.
 (() => {
   "use strict";
   const app = document.getElementById("app");
   const intentId = app.dataset.intent;
   const walletChain = app.dataset.walletChain;
+  const family = app.dataset.family;
+  const evmChain = app.dataset.evm ? JSON.parse(app.dataset.evm) : null;
   const $ = (id) => document.getElementById(id);
   const wallets = [];
   let account = null;
@@ -55,15 +58,54 @@
     return () => {};
   }
   const api0 = Object.freeze({ register });
-  window.addEventListener("wallet-standard:register-wallet", (event) => event.detail(api0));
-  window.dispatchEvent(new CustomEvent("wallet-standard:app-ready", { detail: api0 }));
+  if (family === "solana") {
+    window.addEventListener("wallet-standard:register-wallet", (event) => event.detail(api0));
+    window.dispatchEvent(new CustomEvent("wallet-standard:app-ready", { detail: api0 }));
+  }
+
+  // EIP-6963 multi-wallet discovery: https://eips.ethereum.org/EIPS/eip-6963
+  if (family === "evm") {
+    window.addEventListener("eip6963:announceProvider", (event) => {
+      const { info, provider } = event.detail || {};
+      if (!info || !provider || wallets.some((w) => w.uuid === info.uuid)) return;
+      wallets.push({ uuid: info.uuid, name: info.name, icon: info.icon, provider });
+      renderWallets();
+    });
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+    setTimeout(() => {
+      if (!wallets.length && window.ethereum) {
+        wallets.push({ uuid: "injected", name: "Browser wallet", icon: "", provider: window.ethereum });
+        renderWallets();
+      }
+    }, 1200);
+  }
+
+  async function ensureEvmChain(provider) {
+    const current = await provider.request({ method: "eth_chainId" });
+    if (String(current).toLowerCase() === evmChain.chainId) return;
+    try {
+      await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: evmChain.chainId }] });
+    } catch (err) {
+      if (err && err.code === 4902) {
+        await provider.request({ method: "wallet_addEthereumChain", params: [evmChain] });
+      } else {
+        throw new Error(`Switch your wallet to ${evmChain.chainName} to continue.`);
+      }
+    }
+    const after = await provider.request({ method: "eth_chainId" });
+    if (String(after).toLowerCase() !== evmChain.chainId) throw new Error(`Your wallet is not on ${evmChain.chainName}.`);
+  }
 
   function renderWallets() {
     const list = $("wallet-list");
     list.replaceChildren();
-    text($("wallet-hint"), wallets.length ? "Pick the wallet you want to use." : "No Solana wallet found. Install Phantom, Solflare or Backpack, then reload.");
+    text($("wallet-hint"), wallets.length
+      ? "Pick the wallet you want to use."
+      : family === "evm"
+        ? "No EVM wallet found. Install MetaMask, Rabby or Coinbase Wallet, then reload."
+        : "No Solana wallet found. Install Phantom, Solflare or Backpack, then reload.");
     for (const w of wallets) {
-      const btn = node("button", { type: "button", className: "wallet" }, [node("img", { src: w.icon, alt: "" }), w.name]);
+      const btn = node("button", { type: "button", className: "wallet" }, [...(w.icon ? [node("img", { src: w.icon, alt: "" })] : []), w.name]);
       btn.dataset.wallet = w.name;
       btn.addEventListener("click", () => connect(w, btn));
       list.append(btn);
@@ -75,6 +117,15 @@
     setError("");
     btn.disabled = true;
     try {
+      if (family === "evm") {
+        const accounts = await w.provider.request({ method: "eth_requestAccounts" });
+        if (!accounts || !accounts[0]) throw new Error("The wallet did not share an account.");
+        await ensureEvmChain(w.provider);
+        wallet = w;
+        account = { address: accounts[0] };
+        await build();
+        return;
+      }
       const { accounts } = await w.features["standard:connect"].connect();
       const acct = (accounts || []).find((a) => (a.chains || []).length === 0 || a.chains.includes(walletChain)) || accounts[0];
       if (!acct) throw new Error("The wallet did not share an account.");
@@ -152,6 +203,10 @@
     const btn = $("approve");
     btn.disabled = true;
     try {
+      if (family === "evm") {
+        await approveEvm();
+        return;
+      }
       let wire = fromB64(built.payload);
       if (built.extraSigners.length && mintKey) {
         const pub = new Uint8Array(await crypto.subtle.exportKey("raw", mintKey.publicKey));
@@ -180,6 +235,23 @@
     } finally {
       btn.disabled = false;
     }
+  }
+
+  async function approveEvm() {
+    await ensureEvmChain(wallet.provider);
+    const call = JSON.parse(built.payload);
+    const tx = { from: call.from, data: call.data, value: call.value, chainId: call.chainId };
+    if (call.to) tx.to = call.to;
+    let hash;
+    try {
+      hash = await wallet.provider.request({ method: "eth_sendTransaction", params: [tx] });
+    } catch (err) {
+      await api("/reject", { reason: (err && err.message) || "Declined in wallet" }).catch(() => {});
+      throw new Error(err && err.code === 4001 ? "You declined in your wallet. Nothing was sent." : `The wallet did not send it: ${(err && err.message) || err}`);
+    }
+    const view = await api("/submit", { transactionHash: hash });
+    showResult(view);
+    poll();
   }
 
   function link(href, label) { return node("a", { href, textContent: label, target: "_blank", rel: "noopener noreferrer" }); }

@@ -12,6 +12,7 @@ interface Spec {
   priority: number;
   testnet: boolean;
   source: string;
+  local?: boolean;
 }
 
 /**
@@ -20,6 +21,7 @@ interface Spec {
  * (eth_chainId on both public RPCs, 2026-10-09).
  */
 const SPECS: Spec[] = [
+  { key: "evm-localnet", name: "Local EVM (Anvil)", chainId: 31337, rpc: "http://127.0.0.1:8545", explorer: "", native: "ETH", stack: "l1", priority: 0, testnet: true, source: "https://getfoundry.sh/anvil/overview", local: true },
   { key: "ethereum-sepolia", name: "Ethereum Sepolia", chainId: 11155111, rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://sepolia.etherscan.io", native: "ETH", stack: "l1", priority: 1, testnet: true, source: "https://ethereum.org/en/developers/docs/networks/" },
   { key: "ethereum", name: "Ethereum", chainId: 1, rpc: "https://ethereum-rpc.publicnode.com", explorer: "https://etherscan.io", native: "ETH", stack: "l1", priority: 1, testnet: false, source: "https://ethereum.org/en/developers/docs/networks/" },
   { key: "robinhood-testnet", name: "Robinhood Chain Testnet", chainId: 46630, rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", native: "ETH", stack: "arbitrum-nitro", priority: 2, testnet: true, source: "https://docs.robinhood.com/chain/connecting/" },
@@ -49,8 +51,10 @@ function rpc(env: NodeJS.ProcessEnv, key: string, fallback: string): string {
 export function evmChains(config: Config): EvmChain[] {
   return SPECS.map((spec): EvmChain => {
     const disabledReason = !adapterReady
-      ? "The EVM adapter is not built yet. Solana ships first; EVM order is Ethereum, Robinhood Chain, Base."
-      : !spec.testnet && !config.enableEvmMainnets
+      ? "The EVM adapter is not installed."
+      : spec.local && !config.enableLocalnet
+        ? "Set PROMPTFUN_ENABLE_LOCALNET=1 and run anvil."
+        : !spec.testnet && !config.enableEvmMainnets
         ? "Mainnet is off. Set PROMPTFUN_ENABLE_EVM_MAINNETS=1 (real funds; single-user local runs only until OAuth lands)."
         : undefined;
     return {
@@ -58,17 +62,19 @@ export function evmChains(config: Config): EvmChain[] {
       name: spec.name,
       family: "evm",
       testnet: spec.testnet,
-      status: spec.testnet ? "configured" : "gated",
-      evidence: spec.testnet
-        ? `Network values from ${spec.source}. Not yet run end to end by promptfun.`
-        : `Real-money network, values from ${spec.source}. Never broadcast by promptfun; off unless explicitly enabled.`,
+      status: spec.local ? "verified" : spec.testnet ? "configured" : "gated",
+      evidence: spec.local
+        ? "Automated end-to-end tests (test/e2e/evm-anvil.e2e.ts) deploy an ERC-20 and send ETH and tokens through the MCP server, approval API, and chain-read receipts against anvil. Local only: these transactions do not exist on any public network."
+        : spec.testnet
+          ? `Network values from ${spec.source}. Same EVM adapter as the Anvil tests, but not yet run end to end on this network.`
+          : `Real-money network, values from ${spec.source}. Never broadcast by promptfun; off unless explicitly enabled.`,
       rpcUrl: rpc(config.env, spec.key, spec.rpc),
       nativeSymbol: spec.native,
       nativeDecimals: 18,
       actions: ["launch_token", "transfer"],
       tokens: [],
       chainId: spec.chainId,
-      explorerUrl: spec.explorer,
+      explorerUrl: spec.explorer || null,
       stack: spec.stack,
       priority: spec.priority,
       disabledReason,

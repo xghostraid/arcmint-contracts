@@ -11,7 +11,7 @@ import { IntentStore } from "./intents/store.js";
 import { IntentError } from "./intents/types.js";
 import { buildServer } from "./mcp/server.js";
 import { intentView } from "./mcp/view.js";
-import { approvePage, homePage, notFoundPage } from "./web/page.js";
+import { approvePage, homePage, notFoundPage, type EvmWalletChain } from "./web/page.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = [path.resolve(here, "../public"), path.resolve(here, "../../public")].find((dir) => fs.existsSync(dir))!;
@@ -109,7 +109,7 @@ export function createApp(config: Config): App {
           return json(res, 200, { view: intentView(config, result.intent, service.approveUrl(id)), built: { payload: result.built.payload, extraSigners: result.built.extraSigners } });
         }
         if (action === "/submit") {
-          await service.submit(id, String(body.signedTransaction ?? ""));
+          await service.submit(id, String(body.signedTransaction ?? body.transactionHash ?? ""));
           return json(res, 200, intentPublic(id));
         }
         service.walletRejected(id, String(body.reason ?? ""));
@@ -128,7 +128,16 @@ export function createApp(config: Config): App {
         }
         const chain = findChain(config, intent.chain);
         const walletChain = chain?.family === "solana" ? chain.walletChain : chain?.family === "evm" ? `eip155:${chain.chainId}` : null;
-        return send(res, 200, "text/html; charset=utf-8", approvePage(intentView(config, intent, service.approveUrl(intent.id)), walletChain, intent.family));
+        const evm: EvmWalletChain | null = chain?.family === "evm"
+          ? {
+            chainId: `0x${chain.chainId.toString(16)}`,
+            chainName: chain.name,
+            rpcUrls: [chain.rpcUrl],
+            nativeCurrency: { name: chain.nativeSymbol === "ETH" ? "Ether" : chain.nativeSymbol, symbol: chain.nativeSymbol, decimals: 18 },
+            ...(chain.explorerUrl ? { blockExplorerUrls: [chain.explorerUrl] } : {}),
+          }
+          : null;
+        return send(res, 200, "text/html; charset=utf-8", approvePage(intentView(config, intent, service.approveUrl(intent.id)), walletChain, intent.family, evm));
       }
 
       const file = STATIC[pathname];

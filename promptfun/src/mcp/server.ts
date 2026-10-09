@@ -6,22 +6,23 @@ import { allChains } from "../chains/registry.js";
 import type { IntentService } from "../intents/service.js";
 import { IntentError } from "../intents/types.js";
 import { CARD_URI, cardHtml } from "./card.js";
+import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
 
-const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer that the user approves in their own wallet. Nothing moves until they sign on the approval page; ${SHORT} never holds keys and never executes on its own. Call get_capabilities first for chains and their honest status. After prepare_*, give the user the approval link, then call get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
+const INSTRUCTIONS = `${BRAND} turns a request into a token launch or transfer. On supported Solana testnets with sponsored launches enabled, prepare_launch is a read-only preview and the user taps Launch it on the card (confirm_launch) with no wallet. Otherwise the user approves on the approval page in their own wallet. ${SHORT} never holds user keys. Call get_capabilities first. After prepare_*, use the card or approval link, then get_action_status for the chain-read receipt. Never claim success before status is confirmed.`;
 
 const LIMITATIONS = [
-  "Today the user approves each action in their own wallet on the approval page. The host's tool approval (Claude's Allow, ChatGPT's confirm) approves the tool call, not a transaction.",
-  "Sponsored launches, where promptfun pays and the user confirms in chat with no wallet, are designed but not built yet.",
+  "Sponsored SPL launches on Solana testnets (not pump.fun): when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. pump.fun stays wallet-approved until the pump module lands.",
+  "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
   "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
   "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
   "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-  "No image or IPFS upload: pass an existing metadata URL.",
+  "No image or IPFS upload in v1: pass an existing metadata URL.",
   "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
   "Fees shown are network fees only. promptfun charges no fee.",
 ];
 
-/** How each host reaches this same /mcp endpoint. Both use standard MCP, Streamable HTTP and the MCP Apps card. */
+/** v1 targets Claude custom connectors; same Streamable HTTP / MCP Apps card at /mcp. */
 const HOSTS = [
   {
     host: "claude",
@@ -29,18 +30,9 @@ const HOSTS = [
     connect: "Custom connector: Customize → Connectors → Add custom connector, URL https://<promptfun-host>/mcp, Authentication: No sign in.",
     notes: [
       "Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise, on web, desktop and mobile. Add it on web or desktop first; it then appears on mobile.",
-      "Claude asks the user to Allow write tools (prepare_*) unless they chose Always allow. Read-only tools run without a prompt.",
+      "prepare_launch is read-only; sponsored sends use confirm_launch from the in-chat card. prepare_transfer still opens the approval page.",
       "The card renders inline. Opening the approval page shows Claude's external-link confirmation, which custom connectors always get.",
       "Claude allows 240 seconds per tool call; every promptfun tool returns in seconds.",
-    ],
-  },
-  {
-    host: "chatgpt",
-    role: "secondary",
-    connect: "Developer-mode custom app with the same URL and no authentication.",
-    notes: [
-      "Write tools in custom apps are a beta for ChatGPT Business, Enterprise and Edu on web. Pro gets read-only tools, and mobile isn't supported.",
-      "The card opens the approval page with ui/open-link, falling back to window.openai.openExternal.",
     ],
   },
 ] as const;
@@ -125,7 +117,15 @@ export function buildServer(service: IntentService): McpServer {
             "Hosts:", ...HOSTS.map((h) => `- ${h.host} (${h.role}): ${h.connect} ${h.notes.join(" ")}`),
           ].join("\n"),
         }],
-        structuredContent: { version: VERSION, chains, limitations: LIMITATIONS, hosts: HOSTS, promptfunFee: "0" },
+        structuredContent: {
+          version: VERSION,
+          chains,
+          limitations: LIMITATIONS,
+          hosts: HOSTS,
+          promptfunFee: "0",
+          sponsoredLaunches: sponsorBudgetSnapshot(config),
+          sponsorPublicKey: service.sponsorPublicKey?.() ?? null,
+        },
       };
     },
   );
@@ -134,7 +134,7 @@ export function buildServer(service: IntentService): McpServer {
     "prepare_launch",
     {
       title: "Prepare a token launch",
-      description: "Use this when the user wants to create a new token. Prepares it only: returns an approval link where the user reviews the exact transaction and network fee and signs in their own wallet. Solana devnet launches a Token-2022 SPL token whose full supply goes to the user's wallet. Nothing is sent by this call.",
+      description: "Use when the user wants to create a new token. Read-only: simulates and returns the card. On sponsored Solana testnets (SPL, not pump.fun) the card shows Launch it and confirm_launch sends with promptfun paying the network fee. Otherwise the user opens approveUrl and signs in their wallet. Nothing is broadcast by this call.",
       inputSchema: z.object({
         chain: z.string().describe("Chain key from get_capabilities, e.g. solana-devnet"),
         name: z.string().min(1).max(32),
@@ -147,7 +147,7 @@ export function buildServer(service: IntentService): McpServer {
         venue: z.enum(["spl", "pumpfun", "erc20"]).optional(),
         idempotencyKey: z.string().max(64).optional(),
       }),
-      annotations: WRITE,
+      annotations: READ,
       _meta: CARD_META,
     },
     async (args) => {
@@ -158,6 +158,38 @@ export function buildServer(service: IntentService): McpServer {
         return fail(err);
       }
     },
+  );
+
+  const confirmLaunchHandler = async ({ intentId }: { intentId: string }): Promise<ToolResult> => {
+    try {
+      const intent = await service.confirmLaunch(intentId);
+      return intentResult(intent.id);
+    } catch (err) {
+      return fail(err);
+    }
+  };
+
+  server.registerTool(
+    "confirm_launch",
+    {
+      title: "Confirm a sponsored launch",
+      description: "Called from the in-chat card (Launch it) after prepare_launch when promptfun pays. Signs with the sponsor fee payer and submits. Do not call unless the user confirmed on the card.",
+      inputSchema: z.object({ intentId: z.string() }),
+      annotations: WRITE,
+      _meta: { ...CARD_META, "ui/visibility": "app" },
+    },
+    confirmLaunchHandler,
+  );
+
+  server.registerTool(
+    "confirm_launch_by_text",
+    {
+      title: "Confirm a sponsored launch (text)",
+      description: "Same as confirm_launch for hosts and tests that cannot invoke app-only tools from the card iframe.",
+      inputSchema: z.object({ intentId: z.string() }),
+      annotations: WRITE,
+    },
+    confirmLaunchHandler,
   );
 
   server.registerTool(

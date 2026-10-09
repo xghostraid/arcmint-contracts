@@ -317,6 +317,8 @@ test("server serves the page with strict headers and refuses traversal", async (
     assert.equal(res.headers.get("referrer-policy"), "no-referrer");
     assert.equal((await fetch(`${base}/nope.html`)).status, 404);
     assert.equal((await fetch(`${base}/explore/`)).status, 200);
+    assert.equal((await fetch(`${base}/explore`)).status, 200);
+    assert.equal((await fetch(`${base}/docs`)).status, 200);
     assert.equal((await fetch(`${base}/docs/`)).status, 200);
     assert.equal((await fetch(`${base}/terms/`)).status, 200);
     assert.equal((await fetch(`${base}/privacy/`)).status, 200);

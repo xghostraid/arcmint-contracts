@@ -10,7 +10,11 @@ npm test
 npm start
 ```
 
-Open `http://127.0.0.1:4321/`. Subpages: `/docs`, `/explore`, `/terms`, `/privacy`.
+Open `http://127.0.0.1:4321/`. Subpages: `/docs`, `/explore`, `/terms`, `/privacy` (with or without a trailing slash).
+
+## Deploy on Vercel
+
+Set the project **Root Directory** to `promptfun-site`. Static files are served from `public/`; `vercel.json` rewrites extensionless routes (`/explore`, `/docs`, …) to each folder’s `index.html`, matching `server.js`. For local preview, use `npm start` (Node static server with the same path rules).
 
 ## Honest-copy rules (enforced in tests)
 

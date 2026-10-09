@@ -28,7 +28,12 @@ export const HEADERS = {
 
 export function resolvePath(urlPath) {
   const clean = decodeURIComponent(urlPath.split("?")[0]);
-  const rel = clean.endsWith("/") ? `${clean}index.html` : clean;
+  let rel = clean.replace(/^\/+/, "");
+  if (!rel || rel.endsWith("/")) {
+    rel = `${rel}index.html`;
+  } else if (!extname(rel)) {
+    rel = `${rel}/index.html`;
+  }
   const full = normalize(join(ROOT, rel));
   return full.startsWith(ROOT) ? full : null;
 }

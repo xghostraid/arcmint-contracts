@@ -36,28 +36,16 @@ test("Claude is the main host: in the title, the hero headline and the primary C
   assert.match(closer, /<a class="btn"[^>]*>Add to Claude<\/a>/);
 });
 
-test("Connect lists the Claude steps first, as Anthropic documents them, then ChatGPT", () => {
+test("Connect lists the Claude steps as Anthropic documents them", () => {
   const connect = html.match(/<section[^>]*id="connect"[\s\S]*?<\/section>/)[0];
-  const steps = connect.indexOf('<ol class="connect-steps">');
-  const chatgpt = connect.indexOf("ChatGPT");
-  assert.ok(steps > 0 && chatgpt > steps, "Claude steps come before any ChatGPT mention");
   assert.match(connect, /Customize → Connectors/);
   assert.match(connect, /Add custom connector/);
-  assert.match(connect, /<aside class="host-alt" data-chatgpt[\s\S]*?Also works in ChatGPT/);
+  assert.match(connect, /approve in your wallet/);
   assert.match(html, /href="https:\/\/support\.claude\.com\/en\/articles\/11175166-[^"]*"/);
 });
 
-test("every ChatGPT mention carries its plan caveat", () => {
-  const blocks = [...html.matchAll(/<(aside|details)\b[^>]*\bdata-chatgpt\b[^>]*>[\s\S]*?<\/\1>/g)].map((m) => m[0]);
-  assert.ok(blocks.length >= 3, "the hero note, the Connect box and the plans FAQ");
-  let rest = html;
-  for (const block of blocks) {
-    rest = rest.replace(block, "");
-    assert.match(block, /ChatGPT/);
-    assert.match(block, /Business, Enterprise or Edu/, `missing the plan caveat in: ${block.slice(0, 80)}`);
-    assert.match(block, /on the web/, `missing "on the web" in: ${block.slice(0, 80)}`);
-  }
-  assert.doesNotMatch(rest, /chatgpt/i, "ChatGPT is mentioned outside a caveated data-chatgpt block");
+test("the site is Claude-only: ChatGPT is not mentioned anywhere on the home page", () => {
+  assert.doesNotMatch(html, /chatgpt/i);
 });
 
 test("has every required section", () => {
@@ -135,8 +123,12 @@ test("the hero demo is labelled as an illustration", () => {
   assert.match(html, /An illustration of the flow\. Nothing in this picture is a real transaction\./);
 });
 
-test("the in-chat flow is the headline, and unbuilt parts say they're being built", () => {
-  assert.match(html, /<h1[^>]*>Say it in Claude\.<br>Approve in chat\.<br><em>Done\.<\/em><\/h1>/);
+test("the wallet flow is the headline, demo shows Preview then Wallet then Receipt, and unbuilt parts say they're being built", () => {
+  assert.match(html, /<h1[^>]*>Say it in Claude\.<br>Approve in your wallet\.<br><em>Done\.<\/em><\/h1>/);
+  const demo = html.match(/<figure class="demo"[\s\S]*?<\/figure>/)[0];
+  assert.match(demo, /card-preview[\s\S]*Preview[\s\S]*Approve in your wallet/);
+  assert.match(demo, /card-wallet[\s\S]*Your wallet[\s\S]*Approve this action/);
+  assert.match(demo, /card-receipt[\s\S]*Receipt[\s\S]*Confirmed onchain/);
   const caption = html.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/)[1];
   assert.match(caption, /being built/i, "the demo shows the walletless flow, so its caption must say it's being built");
 
@@ -152,9 +144,33 @@ test("the in-chat flow is the headline, and unbuilt parts say they're being buil
   }
   assert.match(main, /Launch with no wallet, fee paid by promptfun\.fun<\/span><span class="status status-building">Being built/);
 
-  assert.match(html, /Prefer your own wallet\? You can approve in it instead\./, "bring-your-own-wallet stays an option");
   assert.match(html, /If you’d rather use your own wallet, you can\./);
   assert.match(main, /Launch a token with your own wallet<\/span><span class="status status-testing">Testing on devnet/);
+});
+
+test("Terms, Privacy, Docs and Explore pages exist and stay Claude-only", async () => {
+  for (const path of ["/terms/", "/privacy/", "/docs/", "/explore/"]) {
+    const page = await readFile(new URL(`../public${path}index.html`, import.meta.url), "utf8");
+    assert.match(page, /Claude/i, `${path} should mention Claude`);
+    assert.doesNotMatch(page, /chatgpt/i, `${path} must not mention ChatGPT`);
+  }
+  const explore = await readFile(new URL("../public/explore/index.html", import.meta.url), "utf8");
+  assert.match(explore, /data-explore/);
+  assert.match(explore, /\/explore\.js/);
+  assert.match(explore, /n\/a/, "explore copy explains honest empty values");
+  const terms = await readFile(new URL("../public/terms/index.html", import.meta.url), "utf8");
+  assert.match(terms, /Draft · not legal advice/);
+  const docs = await readFile(new URL("../public/docs/index.html", import.meta.url), "utf8");
+  assert.match(docs, /Sixty seconds to set up/);
+  assert.match(docs, /Customize → Connectors/);
+});
+
+test("home links to Docs, Explore, Terms and Privacy", () => {
+  assert.match(html, /href="\/docs"/);
+  assert.match(html, /href="\/explore"/);
+  assert.match(html, /href="\/terms"/);
+  assert.match(html, /href="\/privacy"/);
+  assert.match(html, /data-live-stats/);
 });
 
 const ART = fileURLToPath(new URL("../public/art/", import.meta.url));
@@ -249,6 +265,10 @@ test("server serves the page with strict headers and refuses traversal", async (
     assert.match(res.headers.get("content-security-policy"), /script-src 'self'/);
     assert.equal(res.headers.get("referrer-policy"), "no-referrer");
     assert.equal((await fetch(`${base}/nope.html`)).status, 404);
+    assert.equal((await fetch(`${base}/explore/`)).status, 200);
+    assert.equal((await fetch(`${base}/docs/`)).status, 200);
+    assert.equal((await fetch(`${base}/terms/`)).status, 200);
+    assert.equal((await fetch(`${base}/privacy/`)).status, 200);
     assert.equal((await fetch(`${base}/`, { method: "POST" })).status, 405);
   } finally {
     server.close();

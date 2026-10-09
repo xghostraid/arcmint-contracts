@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fff4e0">
+<title>Docs · promptfun.fun</title>
+<meta name="description" content="Connect promptfun.fun to Claude in three steps, then launch tokens with a preview, wallet approval and a chain-checked receipt.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="promptfun.fun home">
+      <img src="/favicon.svg" alt="" width="32" height="32">
+      <span>promptfun<span class="brand-tld">.fun</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="/docs" aria-current="page">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/#how">How it works</a>
+      <a href="/#chains">Chains</a>
+    </nav>
+    <a class="btn btn-small" href="/#connect">Add to Claude</a>
+  </div>
+</header>
+
+<main id="main" class="subpage prose">
+  <section class="section section-tight" aria-labelledby="docs-title">
+    <div class="wrap docs-grid">
+      <div>
+        <p class="eyebrow">Docs</p>
+        <h1 id="docs-title">promptfun.fun in Claude</h1>
+        <p class="section-lede">promptfun.fun is a remote MCP connector. Claude calls it to prepare blockchain actions, show you a plain-language preview, and return a receipt checked against the chain.</p>
+
+        <h2 id="setup">Sixty seconds to set up</h2>
+        <p>Same three steps as adding any Claude custom connector. No promptfun.fun account.</p>
+        <ol class="connect-steps connect-steps-docs">
+          <li>
+            <h3>Copy the connector link</h3>
+            <p>The public HTTPS link to <code class="inline-code">/mcp</code> is posted on the home page the day the connector opens. Until then, nothing is published here on purpose.</p>
+          </li>
+          <li>
+            <h3>Add it to Claude</h3>
+            <p>On claude.ai or in Claude Desktop: <strong>Customize → Connectors → + Add → Add custom connector</strong>. Name it promptfun.fun, paste the link, choose <strong>No sign-in</strong> if asked, then Continue and Add.</p>
+            <p class="fine">Works on Claude Free (one custom connector), Pro, Max, Team and Enterprise. On Team and Enterprise, an Owner adds it for the organization first.</p>
+          </li>
+          <li>
+            <h3>Turn it on and ask</h3>
+            <p>In a chat, open <strong>+ → Connectors</strong> and switch promptfun.fun on. Say what you want, for example “Launch a token called Moonbeam, ticker BEAM.” Claude shows the preview; you approve in your wallet (or in chat once sponsored launch ships); the receipt comes back in the same chat.</p>
+          </li>
+        </ol>
+
+        <h2 id="launch">Launching a token</h2>
+        <ol class="docs-flow">
+          <li>Ask in plain language. Claude fills in name and ticker if you did not specify them.</li>
+          <li>promptfun.fun builds the exact transaction and reads it back in the preview: network, fee payer and what gets created.</li>
+          <li>You approve in your wallet today on Solana devnet. Sponsored launch with no wallet is <span class="status status-building">Being built</span>.</li>
+          <li>After confirmation, Claude returns a receipt with explorer links and a ready-to-post message for X. Nothing is marked “done” until the chain confirms it.</li>
+        </ol>
+
+        <h2 id="tools">What Claude can call</h2>
+        <ul class="docs-list">
+          <li><strong>prepare_launch</strong> — read-only preview of a token launch.</li>
+          <li><strong>confirm_launch</strong> — write action after you approve (card button in chat when available).</li>
+          <li><strong>get_action_status</strong> — receipt for a confirmed action.</li>
+          <li><strong>coin_status</strong> — live coin details from the public coins API (when indexed).</li>
+          <li><strong>prepare_transfer</strong>, <strong>get_balance</strong> — send tokens or read balances with the same preview → approve → receipt flow.</li>
+        </ul>
+
+        <h2 id="limits">Limits and networks</h2>
+        <p>Solana devnet is in testing today with your own wallet. Mainnet, pump.fun and EVM chains are labelled on the <a href="/#chains">Chains</a> section of the home page. Global rate limits apply while the connector is in testing.</p>
+
+        <h2 id="help">Troubleshooting</h2>
+        <details class="docs-faq">
+          <summary>Claude says the connector is unavailable</summary>
+          <p>Check that promptfun.fun is toggled on under + → Connectors and that the public link is live. If the service is paused, the home page says so.</p>
+        </details>
+        <details class="docs-faq">
+          <summary>I approved but nothing landed on chain</summary>
+          <p>Ask Claude to check the action status. Failed or cancelled transactions are reported honestly; promptfun.fun never fakes success.</p>
+        </details>
+        <details class="docs-faq">
+          <summary>Where are my keys?</summary>
+          <p>promptfun.fun never asks for a seed phrase. Your wallet signs when you use your own wallet. Sponsored launch will not require exporting keys either.</p>
+        </details>
+
+        <p class="fine docs-source">Connector setup paths checked against the <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" rel="noopener noreferrer" target="_blank">Claude Help Center</a>, 9 Oct 2026.</p>
+      </div>
+
+      <aside class="docs-aside" aria-label="On this page">
+        <p class="prompts-title">On this page</p>
+        <ul class="docs-toc">
+          <li><a href="#setup">Set up in Claude</a></li>
+          <li><a href="#launch">Launching</a></li>
+          <li><a href="#tools">Tools</a></li>
+          <li><a href="#limits">Limits</a></li>
+          <li><a href="#help">Troubleshooting</a></li>
+        </ul>
+        <p class="fine">Questions? Start on the <a href="/#faq">home FAQ</a> or read the <a href="/terms">Terms</a> and <a href="/privacy">Privacy</a> drafts.</p>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <nav class="footer-nav" aria-label="Legal and docs">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+    <p>In testing on Solana devnet. Not live on mainnet yet.</p>
+    <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+</body>
+</html>

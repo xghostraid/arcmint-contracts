@@ -1,49 +1,29 @@
 # promptfun-site
 
-The marketing site for **promptfun.fun**: say it in Claude, approve in chat, done. Claude is the main host, and it also works in ChatGPT.
+The marketing site for **promptfun.fun**: say it in Claude, approve in your wallet, done. Claude-only copy and setup steps.
 
-It is one static page (`public/index.html`) with plain CSS and a few lines of JS. It has no build step, no dependencies, no third-party scripts, and no font CDN. The MCP server itself lives in `../promptfun/` and is a separate project.
+## Run locally
 
 ```bash
 cd promptfun-site
-npm start   # http://127.0.0.1:4321
-npm test    # content, accessibility and server checks
+npm test
+npm start
 ```
 
-`server.js` is only for local preview. Any static host can serve `public/`. If you deploy it, send the same headers `server.js` sends (strict CSP, `frame-ancestors 'none'`, `no-referrer`).
+Open `http://127.0.0.1:4321/`. Subpages: `/docs`, `/explore`, `/terms`, `/privacy`.
 
-## Look: Sunny pop
+## Honest-copy rules (enforced in tests)
 
-Bright and flat: cream paper with a dot grid, primary colors, 2.5px ink outlines and hard offset shadows. The palette is the `:root` block in `public/site.css`. Buttons use ink text on tomato because white on tomato fails WCAG AA, and `--red-text` is the darker red for small red text.
-
-The flat illustrations are plain SVG files in `public/art/`, with colors written as attributes and no inline styles, scripts or external references, so they render under `style-src 'self'`. They are decorative, so every one is an `<img alt="">`. The meaning is always in the text next to them. `favicon.svg` doubles as the brand mark.
-
-## Honest copy
-
-The page only claims what works today. Status labels live in the HTML. Update them when a capability ships:
-
-| Where | Today | Change when |
+| Copy | Source of truth | When to update |
 |---|---|---|
-| Hero pill, footer | In testing · Solana first / Not live on mainnet yet | Solana mainnet opens |
-| Hero fine print, How it works step 3, `#chains` "Launch with no wallet", `#fees` lede, Safety "We never ask for your keys", FAQ "Do I need a wallet?", "Is it live?", "What does it cost?", demo caption | Being built: approve in chat, and promptfun.fun pays the launch network fee so no wallet is needed | Walletless launches work end to end. Then also say where the new token goes (the FAQ promises this before it opens) |
-| `#chains` Solana → Launch a token with your own wallet | Testing on devnet | Launches work on mainnet |
-| `#chains` Solana → Launch on pump.fun | Coming soon | pump.fun launches work end to end (mainnet only) |
-| `#chains` EVM chains, in order: Ethereum, Robinhood Chain, Base | Card "Coming next"; Ethereum "Coming next", the others "Coming soon" | Each chain works end to end. Move "Coming next" to the following chain when one ships |
-| `#connect` link box | "Posted here at launch", Copy disabled | The public connector URL exists. Put it in `.link-slot`, enable the button, and wire copy in `site.js` |
-| FAQ "What does it cost?" | promptfun.fun pricing not set | Pricing is decided |
-| `#fees` Network fees table | Measured 9 Oct 2026 (gas from Etherscan and public RPCs, prices from CoinGecko) | Re-measure before launch or when prices move a lot. Keep the date and sources next to the numbers |
-| Hero "Works on the Claude Free plan", `#connect` steps 2 and 3, FAQ "Which plans work?" (Claude) | Custom connectors work on Claude Free, Pro, Max, Team and Enterprise; Free allows one; Team and Enterprise need an Owner to add it first. Path: Customize → Connectors → + Add → Add custom connector (Claude Help Center, 9 Oct 2026) | Anthropic changes the plans or the menu path |
-| Hero "Also works in ChatGPT", `#connect` "Also works in ChatGPT" box, FAQ "Which plans work?" (ChatGPT) | Write actions only on ChatGPT Business, Enterprise and Edu, on the web, after an admin turns on developer mode; Pro is read-only; no mobile (OpenAI Help Center, 9 Oct 2026) | OpenAI opens write actions to more plans or to mobile. Update every `data-chatgpt` block |
+| Hero "Works on the Claude Free plan", `#connect` steps, FAQ "Which Claude plans work?" | Custom connectors on Claude Free, Pro, Max, Team and Enterprise; Free allows one (Claude Help Center, 9 Oct 2026) | Anthropic changes plans or menu paths |
+| Network fee table | Measured 9 Oct 2026; sources linked in `#fees` | When re-measured or chains ship |
+| Connector URL | Not published until launch | When `/mcp` is live on public HTTPS |
+| Explore board | `GET /api/coins` on the MCP host (see project `internal/api-contract.md`) | When API shape changes |
+| Terms / Privacy | Draft pages labelled "Draft · not legal advice" | After counsel review |
 
-`npm test` enforces the rules:
-- The brand is promptfun.fun.
-- Claude is the main host: it is in the title, the descriptions and the headline, and every primary CTA (nav, hero, closer) says "Add to Claude". The Connect section gives the Claude steps first, as Anthropic's help center describes them, then ChatGPT.
-- Every mention of ChatGPT sits inside an element marked `data-chatgpt`, and every such element carries the plan caveat (Business, Enterprise or Edu, on the web). ChatGPT appears nowhere else on the page, including the head.
-- The headline is the in-chat flow. Every claim that you need no wallet or that promptfun.fun pays the fee sits next to a "being built" label, and bringing your own wallet stays offered as an option.
-- The network-fee block keeps its date, sources and "not a promptfun.fun fee" wording.
-- Every chain capability carries a status label, and nothing is marked live.
-- The page has no fake transaction hashes or addresses, and no connector URL appears before launch.
-- The hero demo is labelled as an illustration.
-- Every image has alt text and a size, every file in `public/art/` is used, and every SVG is free of scripts, styles and external references.
-- The page needs nothing the CSP blocks: no inline styles or scripts, and CSS loads only the local fonts.
-- The palette's text and background pairs meet WCAG AA (4.5:1), and motion stops under `prefers-reduced-motion`.
+## Product copy
+
+- Claude is the only host named on the site: title, meta, hero, CTAs and docs. ChatGPT is not mentioned.
+- Primary flow in the hero demo: **Preview → Your wallet → Receipt**, matching the Sunny pop concept with Claude wording.
+- Sponsored launch (no wallet, fee paid by promptfun.fun, approve in chat) is always labelled **Being built**.

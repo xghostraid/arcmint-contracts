@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-api-origin="">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#fff4e0">
-<title>promptfun.fun · Say it in Claude. Approve in chat. Done.</title>
-<meta name="description" content="promptfun.fun connects Claude to the blockchain. Say what you want done, check a plain-language preview, approve it in the chat and get a receipt checked against the chain, all without leaving the chat. Solana first, then Ethereum, Robinhood Chain and Base. In testing, not live yet.">
+<title>promptfun.fun · Say it in Claude. Approve in your wallet. Done.</title>
+<meta name="description" content="promptfun.fun connects Claude to the blockchain. Say what you want done, check a plain-language preview, approve it in your wallet and get a receipt checked against the chain. Solana first, then Ethereum, Robinhood Chain and Base. In testing, not live yet.">
 <meta property="og:title" content="promptfun.fun">
-<meta property="og:description" content="Say it in Claude. Approve in chat. Done.">
+<meta property="og:description" content="Say it in Claude. Approve in your wallet. Done.">
 <meta property="og:type" content="website">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
@@ -23,10 +23,11 @@
       <img src="/favicon.svg" alt="" width="32" height="32">
       <span>promptfun<span class="brand-tld">.fun</span></span>
     </a>
-    <nav class="nav-links" aria-label="Sections">
+    <nav class="nav-links" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
       <a href="#how">How it works</a>
       <a href="#chains">Chains</a>
-      <a href="#safety">Safety</a>
       <a href="#faq">FAQ</a>
     </nav>
     <a class="btn btn-small" href="#connect">Add to Claude</a>
@@ -46,18 +47,17 @@
     <div class="wrap hero-grid">
       <div class="hero-copy">
         <p class="pill"><span class="dot" aria-hidden="true"></span>In testing · Solana first</p>
-        <h1 id="hero-title">Say it in Claude.<br>Approve in chat.<br><em>Done.</em></h1>
-        <p class="lede">promptfun.fun connects Claude to the blockchain. Ask for what you want, like “launch a token called Moonbeam”. You get a preview in plain words, you approve it right in the chat, and the receipt, checked against the chain, comes back in the same chat.</p>
+        <h1 id="hero-title">Say it in Claude.<br>Approve in your wallet.<br><em>Done.</em></h1>
+        <p class="lede">promptfun.fun connects Claude to the blockchain. Ask for what you want, like “launch a token called Moonbeam”. You get a preview in plain words, you approve it in your wallet, and you get a receipt checked against the chain.</p>
         <div class="cta-row">
           <a class="btn" href="#connect">Add to Claude</a>
           <a class="btn btn-ghost" href="#how">See how it works</a>
         </div>
-        <p class="fine">Works on the Claude Free plan. No sign-up with us.</p>
-        <p class="fine"><span class="status status-building">Being built</span>No wallet needed to launch: promptfun.fun pays the launch network fee. Prefer your own wallet? You can approve in it instead. We never ask for your keys.</p>
-        <aside class="also" data-chatgpt aria-label="ChatGPT support"><strong>Also works in ChatGPT.</strong> Write actions, like launching a token, need a ChatGPT Business, Enterprise or Edu workspace, on the web.</aside>
+        <p class="fine">Works on the Claude Free plan. No sign-up with us. We never ask for your keys.</p>
+        <p class="fine"><span class="status status-building">Being built</span>No wallet needed to launch: promptfun.fun will pay the launch network fee and let you approve in chat.</p>
       </div>
 
-      <figure class="demo" data-demo data-stage="4" aria-labelledby="demo-caption">
+      <figure class="demo" data-demo data-stage="5" aria-labelledby="demo-caption">
         <div class="demo-window">
           <div class="demo-bar">
             <span class="demo-title">Claude</span>
@@ -66,7 +66,7 @@
           <div class="demo-body">
             <p class="bubble bubble-you" data-step="1">Launch a token called Moonbeam, ticker BEAM.</p>
 
-            <p class="reply" data-step="2">Here’s the preview. Approve it here and I’ll launch it.</p>
+            <p class="reply" data-step="2">Here’s the preview. Check it, then approve in your wallet.</p>
 
             <div class="card card-preview" data-step="2">
               <p class="card-head"><span class="card-kicker">Preview</span><span class="card-badge">Checked</span></p>
@@ -75,16 +75,19 @@
                 <div><dt>Name</dt><dd>Moonbeam</dd></div>
                 <div><dt>Ticker</dt><dd>BEAM</dd></div>
                 <div><dt>Network</dt><dd>Solana devnet</dd></div>
-                <div><dt>Network fee</dt><dd>Paid by promptfun.fun</dd></div>
+                <div><dt>Who pays</dt><dd>Your wallet</dd></div>
               </dl>
-              <div class="confirm-buttons" aria-hidden="true">
-                <span class="c-btn c-cancel">Cancel</span>
-                <span class="c-btn c-confirm">Approve launch</span>
-              </div>
-              <p class="card-alt">Or approve in your own wallet</p>
+              <p class="card-action" aria-hidden="true">Approve in your wallet →</p>
             </div>
 
-            <p class="chip-ok" data-step="3">✓ You approved in chat</p>
+            <div class="card card-wallet" data-step="3">
+              <p class="card-head"><span class="card-kicker">Your wallet</span></p>
+              <p class="card-title">Approve this action?</p>
+              <div class="confirm-buttons" aria-hidden="true">
+                <span class="c-btn c-cancel">Reject</span>
+                <span class="c-btn c-approve">Approve</span>
+              </div>
+            </div>
 
             <div class="card card-receipt" data-step="4">
               <p class="card-head"><span class="card-kicker">Receipt</span><span class="card-badge card-badge-ok">Confirmed onchain</span></p>
@@ -98,7 +101,7 @@
             <span class="composer-send">↑</span>
           </div>
         </div>
-        <figcaption id="demo-caption" class="demo-caption">An illustration of the flow. Nothing in this picture is a real transaction. Approving in chat and promptfun.fun paying the fee are being built.</figcaption>
+        <figcaption id="demo-caption" class="demo-caption">An illustration of the flow. Nothing in this picture is a real transaction. Approving in chat with no wallet and promptfun.fun paying the fee are being built.</figcaption>
       </figure>
     </div>
   </section>
@@ -123,9 +126,9 @@
         <li class="step step-key">
           <span class="step-num">3</span>
           <div class="step-art"><img src="/art/step-approve.svg" alt="" width="92" height="92"></div>
-          <h3>Approve in chat</h3>
-          <p>Approve right in the chat. For a launch, promptfun.fun pays the network fee, so you don’t need a wallet. Nothing happens until you approve, and you can always say no. Prefer your own wallet? Approve in it instead.</p>
-          <span class="status status-building">Being built</span>
+          <h3>Approve in your wallet</h3>
+          <p>Your wallet signs the exact transaction from the preview. Nothing happens until you tap Approve, and you can always reject. Sponsored launch with no wallet is being built: promptfun.fun will pay the network fee and let you approve in chat instead.</p>
+          <span class="status status-testing">Testing on devnet</span>
         </li>
         <li class="step">
           <span class="step-num">4</span>
@@ -244,15 +247,10 @@
           </li>
           <li>
             <h3>Turn it on and ask</h3>
-            <p>In a chat, open + → Connectors and switch promptfun.fun on. Then say what you want. Claude shows you the preview, you approve in the chat, and the receipt comes back there too.</p>
+            <p>In a chat, open + → Connectors and switch promptfun.fun on. Then say what you want. Claude shows you the preview, you approve in your wallet, and the receipt comes back in the same chat.</p>
           </li>
         </ol>
-
-        <aside class="host-alt" data-chatgpt aria-labelledby="chatgpt-title">
-          <h3 id="chatgpt-title">Also works in ChatGPT</h3>
-          <p>On chatgpt.com, turn on developer mode under Settings → Apps → Advanced settings. Then open Plugins, choose + and Add custom MCP server, name it promptfun.fun and paste the same link.</p>
-          <p class="fine">In ChatGPT, write actions, like launching a token, need a Business, Enterprise or Edu workspace, on the web, after an admin turns on developer mode. Pro can connect it for read-only tools, and mobile isn’t supported yet.</p>
-        </aside>
+        <p class="fine">Full walkthrough in the <a href="/docs">Docs</a>.</p>
       </div>
 
       <div class="prompts" aria-labelledby="prompts-title">
@@ -306,7 +304,7 @@
       <div class="faq">
         <details open>
           <summary>What is promptfun.fun?</summary>
-          <p>It’s a connector for Claude that turns what you ask for into a real onchain action. It prepares the transaction, shows you a plain-language preview, lets you approve it in the chat and hands back a receipt checked against the chain. It all happens inside the chat.</p>
+          <p>It’s a connector for Claude that turns what you ask for into a real onchain action. It prepares the transaction, shows you a plain-language preview, lets you approve it in your wallet and hands back a receipt checked against the chain.</p>
         </details>
         <details>
           <summary>Do I need to know about crypto?</summary>
@@ -336,16 +334,30 @@
           <summary>What does it cost?</summary>
           <p>Each chain charges a network fee. For token launches, promptfun.fun will pay it for you (being built). With your own wallet, your wallet pays it to the chain. Either way, the preview shows the estimate before you approve. As of 9 Oct 2026, launching a token cost about $0.42–0.55 on Solana and $0.16–0.28 on Ethereum. See <a href="#fees">Network fees</a> for every chain. promptfun.fun hasn’t set its own pricing.</p>
         </details>
-        <details data-chatgpt>
-          <summary>Which plans work?</summary>
-          <p>In Claude, custom connectors work on every plan: Free, Pro, Max, Team and Enterprise. The Free plan allows one custom connector, and on Team and Enterprise an Owner adds it for the organization first. Source: <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" rel="noopener noreferrer" target="_blank">Claude Help Center</a>, checked 9 Oct 2026.</p>
-          <p>In ChatGPT, write actions, like launching a token, need a Business, Enterprise or Edu workspace, on the web, after an admin turns on developer mode. Pro accounts can connect it, but only for read-only tools, and mobile isn’t supported yet. We’ll update this when ChatGPT opens it up to more plans. Source: <a href="https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt" rel="noopener noreferrer" target="_blank">OpenAI Help Center</a>, checked 9 Oct 2026.</p>
+        <details>
+          <summary>Which Claude plans work?</summary>
+          <p>Custom connectors work on every Claude plan: Free, Pro, Max, Team and Enterprise. The Free plan allows one custom connector, and on Team and Enterprise an Owner adds it for the organization first. Source: <a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" rel="noopener noreferrer" target="_blank">Claude Help Center</a>, checked 9 Oct 2026.</p>
         </details>
         <details>
           <summary>What if something goes wrong?</summary>
           <p>You get the real status, right in the chat. If the transaction failed or you cancelled it, Claude tells you that. It never says something worked when it didn’t.</p>
         </details>
       </div>
+    </div>
+  </section>
+
+  <section class="live-stats-band" aria-labelledby="stats-title" data-live-stats data-state="loading">
+    <div class="wrap live-stats-inner">
+      <h2 id="stats-title" class="visually-hidden">Live counters</h2>
+      <div class="stat">
+        <p class="stat-label">Coins launched</p>
+        <p class="stat-value" data-stat-value="coins">…</p>
+      </div>
+      <div class="stat">
+        <p class="stat-label">Creator fees paid</p>
+        <p class="stat-value" data-stat-value="paid">…</p>
+      </div>
+      <p class="stat-note">From the public coins API when it is reachable. Shows n/a instead of guessing.</p>
     </div>
   </section>
 
@@ -366,11 +378,18 @@
 <footer class="footer">
   <div class="wrap footer-inner">
     <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <nav class="footer-nav" aria-label="Legal and docs">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
     <p>In testing on Solana devnet. Not live on mainnet yet.</p>
     <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
   </div>
 </footer>
 
 <script src="/site.js" defer></script>
+<script src="/stats.js" defer></script>
 </body>
 </html>

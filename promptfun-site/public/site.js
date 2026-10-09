@@ -10,7 +10,7 @@
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!demo || still || !("IntersectionObserver" in window)) return;
 
-  const holds = [500, 1400, 2200, 1800, 3600];
+  const holds = [500, 1200, 1800, 2000, 2400, 3600];
   let stage = 0;
   let timer = null;
 

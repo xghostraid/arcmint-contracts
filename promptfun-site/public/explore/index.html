@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" data-api-origin="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fff4e0">
+<title>Explore · promptfun.fun</title>
+<meta name="description" content="Every token promptfun launched, read from the chain. Sorted by new, market cap or creator fees paid.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="promptfun.fun home">
+      <img src="/favicon.svg" alt="" width="32" height="32">
+      <span>promptfun<span class="brand-tld">.fun</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/explore" aria-current="page">Explore</a>
+      <a href="/#how">How it works</a>
+      <a href="/#chains">Chains</a>
+    </nav>
+    <a class="btn btn-small" href="/#connect">Add to Claude</a>
+  </div>
+</header>
+
+<main id="main" class="subpage">
+  <section class="section section-tight" aria-labelledby="explore-title">
+    <div class="wrap">
+      <p class="eyebrow">Explore</p>
+      <h1 id="explore-title">Every promptfun launch, read from the chain.</h1>
+      <p class="section-lede">Only coins promptfun verified on chain appear here. If a number cannot be read, the table shows n/a and why, never a made-up zero.</p>
+
+      <div class="explore-panel" data-explore>
+        <div class="explore-toolbar">
+          <div class="tab-row" role="tablist" aria-label="Sort coins">
+            <button type="button" class="tab is-active" data-explore-sort="new" role="tab" aria-selected="true">New</button>
+            <button type="button" class="tab" data-explore-sort="top" role="tab" aria-selected="false">Top</button>
+            <button type="button" class="tab" data-explore-sort="paid" role="tab" aria-selected="false">Most paid</button>
+          </div>
+          <label class="search-box">
+            <span class="visually-hidden">Search name, ticker or address</span>
+            <input type="search" data-explore-search placeholder="Search name, ticker or address" autocomplete="off">
+          </label>
+        </div>
+        <p class="explore-status" data-explore-status>Loading…</p>
+        <div class="table-wrap">
+          <table class="explore-table">
+            <thead>
+              <tr>
+                <th scope="col">Coin</th>
+                <th scope="col">Market cap</th>
+                <th scope="col">Age</th>
+                <th scope="col">Paid to creator</th>
+              </tr>
+            </thead>
+            <tbody data-explore-rows></tbody>
+          </table>
+        </div>
+        <p class="explore-empty" data-explore-empty hidden>No coins to show.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <nav class="footer-nav" aria-label="Legal and docs">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+    <p>In testing on Solana devnet. Not live on mainnet yet.</p>
+    <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+<script src="/explore.js" defer></script>
+</body>
+</html>

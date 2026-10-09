@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { readFile, access } from "node:fs/promises";
+import { readFile, readdir, access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { handler, resolvePath } from "../server.js";
 
@@ -14,6 +14,17 @@ test("brand is promptfun.fun, never the old placeholder", () => {
   assert.doesNotMatch(html, /socket/i);
   const flat = html.replace(/<[^>]+>/g, "");
   assert.doesNotMatch(flat, /promptfun(?!\.fun)/, "the name is always promptfun.fun");
+});
+
+test("the site is for ChatGPT and never mentions Claude", async () => {
+  const files = (await readdir(PUBLIC, { recursive: true })).filter((f) => /\.(html|css|js|svg|md|txt)$/.test(f));
+  assert.ok(files.length >= 4);
+  for (const file of files) {
+    const body = await readFile(`${PUBLIC}${file}`, "utf8");
+    assert.doesNotMatch(body, /claude/i, `"Claude" appears in public/${file}`);
+  }
+  assert.match(html, /<h1[^>]*>Say it in ChatGPT\./);
+  assert.match(html, />Connect to ChatGPT</);
 });
 
 test("has every required section", () => {
@@ -58,6 +69,24 @@ test("chain claims are labelled honestly", () => {
   assert.deepEqual([...order].sort((a, b) => a - b), order, "EVM order is Ethereum, Robinhood Chain, Base");
   assert.match(evm, /Ethereum<\/span><span class="status status-soon">Coming next/);
   assert.match(html, /Not live on mainnet/);
+});
+
+test("network fees are dated, sourced, and never a promptfun.fun price", () => {
+  const fees = html.slice(html.indexOf('id="fees"'), html.indexOf('class="later"'));
+  assert.ok(fees.length > 0, "Network fees block is in the Chains section");
+  assert.match(fees, /measured 9 Oct 2026/);
+  assert.match(fees, /goes to the network, not to promptfun\.fun/);
+  assert.match(fees, /not promptfun\.fun fees/);
+  assert.match(fees, /preview shows the estimated fee for your exact transaction before you approve/);
+  for (const source of ["etherscan.io/gastracker", "solana.com/docs/core/fees", "metaplex-foundation/disclosures", "pump.fun/docs/fees"]) {
+    assert.ok(fees.includes(source), `missing source ${source}`);
+  }
+  for (const chain of ["Solana", "Ethereum", "Robinhood Chain", "Base"]) {
+    assert.match(fees, new RegExp(`<th scope="row">${chain}</th>`));
+  }
+  const flat = html.replace(/<[^>]+>/g, " ");
+  assert.doesNotMatch(flat, /promptfun\.fun (fee|charges|costs) (is|of)?\s*\$/i, "no promptfun.fun price");
+  assert.doesNotMatch(flat, /waitlist|wait list/i);
 });
 
 test("the connector link is not invented before launch", () => {

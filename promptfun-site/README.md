@@ -1,6 +1,6 @@
 # promptfun-site
 
-The marketing site for **promptfun.fun**: say it in Claude, approve in your wallet, done.
+The marketing site for **promptfun.fun**: say it in ChatGPT, approve in your wallet, done.
 
 It is one static page (`public/index.html`) with plain CSS and a few lines of JS. It has no build step, no dependencies, no third-party scripts, and no font CDN. The MCP server itself lives in `../promptfun/` and is a separate project.
 
@@ -23,6 +23,8 @@ The page only claims what works today. Status labels live in the HTML. Update th
 | `#chains` Solana → Launch on pump.fun | Coming soon | pump.fun launches work end to end (mainnet only) |
 | `#chains` EVM chains, in order: Ethereum, Robinhood Chain, Base | Card "Coming next"; Ethereum "Coming next", the others "Coming soon" | Each chain works end to end. Move "Coming next" to the following chain when one ships |
 | `#connect` link box | "Posted here at launch", Copy disabled | The public connector URL exists. Put it in `.link-slot`, enable the button, and wire copy in `site.js` |
-| FAQ "Is it live?", "What does it cost?" | Not yet / no promptfun fee published | Launch, and pricing is decided |
+| FAQ "Is it live?", "What does it cost?" | Not yet / promptfun.fun pricing not set | Launch, and pricing is decided |
+| `#fees` Network fees table | Measured 9 Oct 2026 (gas from Etherscan and public RPCs, prices from CoinGecko) | Re-measure before launch or when prices move a lot. Keep the date and sources next to the numbers |
+| `#connect` step 2, FAQ "Which ChatGPT plans work?" | Custom MCP apps can take actions only on ChatGPT Business, Enterprise and Edu, on the web (OpenAI Help Center, 9 Oct 2026) | OpenAI opens full MCP to more plans or to mobile |
 
-`npm test` enforces the rules: the brand is promptfun.fun, every chain capability carries a status label, nothing is marked live, the page has no fake transaction hashes or addresses, no connector URL appears before launch, and the hero demo is labelled as an illustration.
+`npm test` enforces the rules: the brand is promptfun.fun, the word "Claude" appears nowhere in `public/`, the network-fee block keeps its date, sources and "not a promptfun.fun fee" wording, every chain capability carries a status label, nothing is marked live, the page has no fake transaction hashes or addresses, no connector URL appears before launch, and the hero demo is labelled as an illustration.

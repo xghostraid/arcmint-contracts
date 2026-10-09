@@ -31,6 +31,12 @@ const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: tru
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 const CARD_META = { ui: { resourceUri: CARD_URI }, "openai/outputTemplate": CARD_URI };
 
+// Models and clients often send amounts as JSON numbers; the decimal parser still validates the text.
+const decimalInput = z.union([z.string(), z.number()]);
+function decimalText(value: string | number): string {
+  return typeof value === "number" ? value.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 20 }) : value;
+}
+
 export function buildServer(service: IntentService): McpServer {
   const config = service.config;
   const server = new McpServer({ name: SHORT, title: BRAND, version: VERSION }, { instructions: INSTRUCTIONS });
@@ -100,7 +106,7 @@ export function buildServer(service: IntentService): McpServer {
         chain: z.string().describe("Chain key from get_capabilities, e.g. solana-devnet"),
         name: z.string().min(1).max(32),
         symbol: z.string().min(1).max(10),
-        supply: z.string().optional().describe("Whole tokens as a decimal string. Default 1000000000. pump.fun is always 1000000000."),
+        supply: decimalInput.optional().describe("Whole tokens, e.g. \"1000000\". Default 1000000000. pump.fun is always 1000000000."),
         decimals: z.number().int().min(0).max(18).optional().describe("Default 9 on Solana, 18 on EVM; pump.fun is 6."),
         description: z.string().max(280).optional(),
         metadataUri: z.string().max(200).optional().describe("Existing https:// or ipfs:// metadata JSON. Required for pump.fun."),
@@ -113,7 +119,7 @@ export function buildServer(service: IntentService): McpServer {
     },
     async (args) => {
       try {
-        const intent = await service.prepareLaunch(args);
+        const intent = await service.prepareLaunch({ ...args, supply: args.supply === undefined ? undefined : decimalText(args.supply) });
         return intentResult(intent.id);
       } catch (err) {
         return fail(err);
@@ -129,7 +135,7 @@ export function buildServer(service: IntentService): McpServer {
       inputSchema: z.object({
         chain: z.string().describe("Chain key from get_capabilities, e.g. solana-devnet"),
         asset: z.string().describe('"native" for SOL/ETH, a listed symbol, or a token mint/contract address'),
-        amount: z.string().describe("Decimal string in whole units, e.g. 0.01"),
+        amount: decimalInput.describe("Amount in whole units, e.g. \"0.01\""),
         to: z.string().describe("Recipient wallet address"),
         idempotencyKey: z.string().max(64).optional(),
       }),
@@ -138,7 +144,7 @@ export function buildServer(service: IntentService): McpServer {
     },
     async (args) => {
       try {
-        const intent = await service.prepareTransfer(args);
+        const intent = await service.prepareTransfer({ ...args, amount: decimalText(args.amount) });
         return intentResult(intent.id);
       } catch (err) {
         return fail(err);

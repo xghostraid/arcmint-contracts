@@ -64,7 +64,8 @@ test("send the launched token and SOL, each verified from chain", async () => {
   const splDone = await waitForFinal(h, spl.data.intentId);
   assert.equal(splDone.data.status, "confirmed", splDone.text);
 
-  const native = await h.call("prepare_transfer", { chain: "solana-localnet", asset: "native", amount: "0.25", to: friend.publicKey.toBase58() });
+  const native = await h.call("prepare_transfer", { chain: "solana-localnet", asset: "native", amount: 0.25, to: friend.publicKey.toBase58() });
+  assert.equal(native.isError, false, native.text);
   await approveWithKeypair(h.base, native.data.intentId, wallet);
   const nativeDone = await waitForFinal(h, native.data.intentId);
   assert.equal(nativeDone.data.status, "confirmed", nativeDone.text);
@@ -102,6 +103,8 @@ test("an unsigned submission is refused", async () => {
 test("bad inputs are refused with plain reasons", async () => {
   const badAddr = await h.call("prepare_transfer", { chain: "solana-localnet", asset: "native", amount: "1", to: "not-an-address" });
   assert.equal(badAddr.isError, true);
+  const tooPrecise = await h.call("prepare_transfer", { chain: "solana-localnet", asset: "native", amount: 1e-10, to: friend.publicKey.toBase58() });
+  assert.match(tooPrecise.text, /decimal places/);
   const brand = await h.call("prepare_launch", { chain: "solana-localnet", name: "Prompt Fun Official", symbol: "PF" });
   assert.equal(brand.isError, true);
   const major = await h.call("prepare_launch", { chain: "solana-localnet", name: "Totally Sol", symbol: "SOL" });

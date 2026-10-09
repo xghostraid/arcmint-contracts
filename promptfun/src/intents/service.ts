@@ -73,7 +73,7 @@ export class IntentService {
       status: "awaiting_wallet",
       createdAt: created,
       updatedAt: created,
-      expiresAt: new Date(Date.now() + this.config.intentTtlMs).toISOString(),
+      expiresAt: new Date(Date.parse(created) + this.config.intentTtlMs).toISOString(),
       built: null,
       submission: null,
       receipt: null,

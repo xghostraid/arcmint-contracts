@@ -27,6 +27,7 @@ export interface IntentView {
     usd: string | null;
     usdSource: string | null;
     promptfunFee: "0";
+    note: string | null;
     balance: string | null;
     enough: boolean | null;
     tokenAddress: string | null;
@@ -83,6 +84,7 @@ export function intentView(config: Config, intent: Intent, approveUrl: string): 
           usd: built.cost.usd,
           usdSource: built.cost.usdSource,
           promptfunFee: "0",
+          note: built.cost.note,
           balance: built.cost.balance,
           enough: built.cost.enough,
           tokenAddress: built.tokenAddress,

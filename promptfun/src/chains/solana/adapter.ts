@@ -326,7 +326,7 @@ export const solanaAdapter: ChainAdapter = {
       balance: sol(balance),
       enough: balance >= total,
       note: compiled.deposits > 0n
-        ? "Deposits are rent-exempt balances held by the new accounts, which you own. They are part of the network cost, not a promptfun fee."
+        ? "Rent deposits are SOL that Solana requires new accounts to hold. A token account's deposit comes back if you close it; a mint's deposit stays locked with the token. They are network costs, not a promptfun fee."
         : null,
       usd: usd?.usd ?? null,
       usdSource: usd?.source ?? (chain.testnet ? "Testnet SOL has no market value; no USD shown." : "No fresh price available; no USD shown."),

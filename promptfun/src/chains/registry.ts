@@ -79,9 +79,9 @@ export function allChains(config: Config): Chain[] {
       name: "Solana devnet",
       family: "solana",
       testnet: true,
-      status: "configured",
+      status: "verified",
       evidence:
-        "Same adapter code as the local validator. Not yet run end to end against public devnet: the devnet faucet rate-limited the build machine.",
+        "Run end to end on public devnet on 2026-10-09 through the MCP tools and the approval page (scripts/devnet-demo.ts): Token-2022 launch Lvr3Gs42ZPMteZZZrDG48g3S9peoC6pg2UneTWPa5GHy2rUTwqe5Jmeuna8r42XPusL8SYcXVk6iB4bR9LKf1EY (mint 9T2ZGEjbngvadmgZQouQgHRaA2pDFLkcpb3Mo2faikds), token transfer 2ZRSbzmC3fDyGrG4g3f9xJkCLkaRZdSpwtWhPs57i2eyYPaLRHBUBhUpfB919bHXyC5abhxWQBAUjFttMW7G5SE7, SOL transfer 2o5CqE8gtZGhiAxCKGht5awAQmGBahvXxLaYDf1gmd6c6m5CwW7U5X1BcAnAhLvMk9Un5xNBkfYnBSeNNj5K4KsQ, each receipt read from chain. Signed by a Wallet Standard test wallet, not yet by Phantom itself.",
       rpcUrl: rpc(env, "solana-devnet", "https://api.devnet.solana.com"),
       nativeSymbol: "SOL",
       nativeDecimals: 9,

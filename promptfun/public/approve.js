@@ -112,7 +112,7 @@
     text(sim, p.simulationOk ? "Simulation passed on the network." : `Simulation failed: ${p.simulationError}. Approving would likely fail.`);
     const rows = [
       ["Network fee", `${p.networkFee} ${p.symbol}`],
-      ...(p.deposits !== "0" ? [["Rent deposits (stay in accounts you own)", `${p.deposits} ${p.symbol}`]] : []),
+      ...(p.deposits !== "0" ? [["Rent deposits (held by the new accounts)", `${p.deposits} ${p.symbol}`]] : []),
       ["Total from your wallet", `${p.total} ${p.symbol}${p.usd ? ` (≈ $${p.usd})` : ""}`],
       ["promptfun fee", "none"],
       ["Your balance", p.balance == null ? "unknown" : `${p.balance} ${p.symbol}`],
@@ -122,6 +122,7 @@
     $("fee").replaceChildren(
       node("strong", { textContent: p.feeLabel }),
       dl,
+      ...(p.note ? [node("p", { className: "muted", textContent: p.note })] : []),
       node("p", { className: "muted", textContent: `${p.feeBasis} ${p.usdSource || ""}`.trim() }),
     );
     if (p.enough === false) setError(`Not enough ${p.symbol}: this needs ${p.total} and the wallet has ${p.balance}.`);

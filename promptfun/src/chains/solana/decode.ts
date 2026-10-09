@@ -84,7 +84,7 @@ export function decodeInstructions(
         };
         out.steps.push({
           program: "System",
-          text: `Create the token's mint account ${d.newAccountPubkey.toBase58()} (refundable deposit ${sol(BigInt(d.lamports))}), derived from your wallet so no extra key is needed.`,
+          text: `Create the token's mint account ${d.newAccountPubkey.toBase58()}, derived from your wallet so no extra key is needed. Its rent deposit of ${sol(BigInt(d.lamports))} stays locked with the token.`,
         });
         continue;
       }

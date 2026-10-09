@@ -111,6 +111,10 @@ Previews show **"Network fee (paid to <chain>, not promptfun)"**:
 | `PROMPTFUN_RPC_<CHAIN_KEY>` | public RPCs | Override an RPC, for example `PROMPTFUN_RPC_SOLANA_DEVNET` |
 | `PROMPTFUN_INTENT_TTL_MS` | 900000 | Intent lifetime |
 | `PROMPTFUN_MAX_INTENTS_PER_HOUR` | 120 | Global creation rate limit |
+| `PROMPTFUN_KUBO_API_URL` | off | Kubo HTTP API (e.g. `http://127.0.0.1:5001`) for IPFS pins. Without it, dev uses in-memory CIDs plus `/api/img?cid=`. |
+| `PROMPTFUN_IPFS_GATEWAY` | `https://ipfs.io/ipfs` | Public gateway prefix for metadata `image` URLs when not using the in-memory serve path. |
+| `PROMPTFUN_IPFS_IMAGE_PATH` | `/api/img` | Set to `0` to omit the local image proxy from metadata JSON. |
+| `PROMPTFUN_PICTURE_TTL_MS` | 86400000 | How long uploaded pictures stay in SQLite before purge. |
 
 ## Tests
 
@@ -136,10 +140,9 @@ npm run demo:evm                  # browser run on anvil with the EIP-6963 test 
 ## Not done yet
 
 - Public Ethereum Sepolia and Base Sepolia runs. They need testnet ETH for the demo key on those networks.
-- OAuth, pump.fun sponsored mainnet, remote KMS signer (local signer is dev/test only), picture/IPFS module (separate branch).
+- OAuth, pump.fun sponsored mainnet, remote KMS signer (local signer is dev/test only).
 - OAuth, which is required before mainnets go on a shared server.
 - WalletConnect (mobile) and passkeys.
-- In-chat picture panel (`open_picture_panel`), EXIF strip, IPFS pin via `PROMPTFUN_KUBO_API_URL` or in-memory fallback, `build_metadata_uri`, and launch fields `website` / `x` (400-char description).
 - A run with Phantom or MetaMask themselves, which needs a human with the extension.
 - Listing in the public ChatGPT app directory, which OpenAI's policy blocks. See the connection guide.
 

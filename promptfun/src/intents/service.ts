@@ -12,6 +12,7 @@ import { chainAllowsSponsoredLaunch, sponsorBudgetSnapshot } from "../sponsor/bu
 import { createFeePayerSigner } from "../sponsor/local-signer.js";
 import type { FeePayerSigner } from "../sponsor/types.js";
 import { solanaInstructionFingerprint } from "../sponsor/fingerprint.js";
+import type { PictureService } from "../pictures/service.js";
 
 const U64_MAX = (1n << 64n) - 1n;
 
@@ -23,6 +24,9 @@ export interface LaunchInput {
   decimals?: number;
   description?: string;
   metadataUri?: string;
+  pictureId?: string;
+  website?: string;
+  x?: string;
   fixedSupply?: boolean;
   venue?: "spl" | "pumpfun" | "erc20";
   idempotencyKey?: string;
@@ -46,8 +50,27 @@ export class IntentService {
 
   private readonly sponsorSigner: FeePayerSigner | null;
 
-  constructor(readonly config: Config, readonly store: IntentStore) {
+  constructor(readonly config: Config, readonly store: IntentStore, readonly pictures: PictureService) {
     this.sponsorSigner = createFeePayerSigner(config);
+  }
+
+  async buildMetadataUri(input: {
+    pictureId: string;
+    name: string;
+    symbol: string;
+    description?: string;
+    website?: string;
+    x?: string;
+  }): Promise<{ metadataUri: string; imageCid: string; pictureId: string }> {
+    const { metadataUri, imageCid } = await this.pictures.buildMetadataUri({
+      pictureId: input.pictureId.trim(),
+      name: input.name.trim(),
+      symbol: input.symbol.trim().toUpperCase(),
+      description: (input.description ?? "").slice(0, 400),
+      website: input.website,
+      x: input.x,
+    });
+    return { metadataUri, imageCid, pictureId: input.pictureId.trim() };
   }
 
   sponsorPublicKey(): string | null {
@@ -146,9 +169,36 @@ export class IntentService {
     if (isMajorSymbol(symbol)) {
       throw new IntentError(`${symbol} is the symbol of a major token. Pick an original symbol.`, "impersonation");
     }
-    const metadataUri = (input.metadataUri ?? "").trim();
+    let metadataUri = (input.metadataUri ?? "").trim();
     if (metadataUri && !/^(https:\/\/|ipfs:\/\/|ar:\/\/)\S{3,200}$/.test(metadataUri)) {
       throw new IntentError("The metadata link must be an https://, ipfs:// or ar:// URL under 200 characters.");
+    }
+    const website = (input.website ?? "").trim();
+    const x = (input.x ?? "").trim();
+    if (website && !/^https:\/\/\S{3,200}$/.test(website)) {
+      throw new IntentError("The website link must be an https:// URL under 200 characters.");
+    }
+    if (x && !/^https:\/\/\S{3,200}$/.test(x)) {
+      throw new IntentError("The X link must be an https:// URL under 200 characters.");
+    }
+    const pictureId = (input.pictureId ?? "").trim();
+    if (pictureId && !/^pic_[a-f0-9]{24}$/.test(pictureId)) {
+      throw new IntentError("pictureId must come from save_picture (pic_…).");
+    }
+    if (pictureId && !metadataUri) {
+      try {
+        const built = await this.buildMetadataUri({
+          pictureId,
+          name,
+          symbol,
+          description: input.description,
+          website: website || undefined,
+          x: x || undefined,
+        });
+        metadataUri = built.metadataUri;
+      } catch (err) {
+        throw err instanceof IntentError ? err : new IntentError((err as Error).message);
+      }
     }
     let supply = (input.supply ?? "1000000000").replace(/[_,\s]/g, "");
     let decimals = input.decimals ?? (chain.family === "evm" ? 18 : 9);
@@ -178,8 +228,10 @@ export class IntentService {
       symbol,
       supply: base.toString(),
       decimals,
-      description: (input.description ?? "").slice(0, 280),
+      description: (input.description ?? "").slice(0, 400),
       metadataUri,
+      ...(website ? { website } : {}),
+      ...(x ? { x } : {}),
       fixedSupply: venue === "pumpfun" ? true : input.fixedSupply ?? true,
       venue,
     };

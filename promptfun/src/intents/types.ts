@@ -8,6 +8,10 @@ export interface LaunchParams {
   decimals: number;
   description: string;
   metadataUri: string;
+  /** Optional https:// link shown on pump.fun metadata JSON. */
+  website?: string;
+  /** Optional X profile or post URL (stored as `twitter` in metadata JSON). */
+  x?: string;
   /** Revoke the mint authority after minting, so supply can never grow. */
   fixedSupply: boolean;
   venue: "spl" | "pumpfun" | "erc20";

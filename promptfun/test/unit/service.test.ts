@@ -6,11 +6,14 @@ import "../../src/chains/index.js";
 import { allChains } from "../../src/chains/registry.js";
 import { IntentService } from "../../src/intents/service.js";
 import { IntentStore } from "../../src/intents/store.js";
+import { PictureService } from "../../src/pictures/service.js";
+import { PictureStore } from "../../src/pictures/store.js";
 import { usdValue } from "../../src/util/price.js";
 
 function service(env: Record<string, string> = {}) {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:", PROMPTFUN_ENABLE_LOCALNET: "1", ...env });
-  return new IntentService(config, new IntentStore(":memory:"));
+  const pictures = new PictureService(config, new PictureStore(":memory:"));
+  return new IntentService(config, new IntentStore(":memory:"), pictures);
 }
 const to = Keypair.generate().publicKey.toBase58();
 

@@ -6,6 +6,7 @@ import { allChains } from "../chains/registry.js";
 import type { IntentService } from "../intents/service.js";
 import { IntentError } from "../intents/types.js";
 import { CARD_URI, cardHtml } from "./card.js";
+import { PICTURE_URI, pictureHtml } from "./picture.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
 
@@ -17,7 +18,7 @@ const LIMITATIONS = [
   "No OAuth yet: the connector is no-sign-in. Mainnets stay off on shared servers until OAuth lands.",
   "Solana mainnet supports pump.fun launches only, behind PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1, and promptfun has never broadcast one.",
   "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-  "No image or IPFS upload in v1: pass an existing metadata URL.",
+  "Picture upload: JPEG/PNG up to 15 MB, EXIF stripped, pinned to IPFS (Kubo when PROMPTFUN_KUBO_API_URL is set, otherwise in-memory for dev).",
   "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
   "Fees shown are network fees only. promptfun charges no fee.",
 ];
@@ -48,6 +49,8 @@ const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: tru
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 // "ui/resourceUri" is the pre-2026 MCP Apps key some hosts still read; "openai/outputTemplate" is ChatGPT's alias.
 const CARD_META = { ui: { resourceUri: CARD_URI }, "ui/resourceUri": CARD_URI, "openai/outputTemplate": CARD_URI };
+const PICTURE_META = { ui: { resourceUri: PICTURE_URI }, "ui/resourceUri": PICTURE_URI, "openai/outputTemplate": PICTURE_URI };
+const APP_ONLY = { "ui/visibility": "app" } as const;
 
 // Models and clients often send amounts as JSON numbers; the decimal parser still validates the text.
 const decimalInput = z.union([z.string(), z.number()]);
@@ -67,6 +70,24 @@ export function buildServer(service: IntentService): McpServer {
     const v = view(id);
     return { content: [{ type: "text", text: intentText(v) }], structuredContent: v as unknown as Record<string, unknown> };
   };
+
+  server.registerResource(
+    "picture-panel",
+    PICTURE_URI,
+    { title: `${BRAND} coin picture`, mimeType: "text/html;profile=mcp-app" },
+    async (uri) => ({
+      contents: [{
+        uri: uri.href,
+        mimeType: "text/html;profile=mcp-app",
+        text: pictureHtml(),
+        _meta: {
+          ui: { prefersBorder: true, csp: { connectDomains: [new URL(config.publicUrl).origin], resourceDomains: [new URL(config.publicUrl).origin] } },
+          "openai/widgetDescription": "Upload a coin image (JPEG/PNG, max 15 MB). EXIF is stripped; the image is pinned for pump.fun metadata.",
+          "openai/widgetCSP": { connect_domains: [new URL(config.publicUrl).origin], resource_domains: [new URL(config.publicUrl).origin], redirect_domains: [] },
+        },
+      }],
+    }),
+  );
 
   server.registerResource(
     "intent-card",
@@ -131,6 +152,73 @@ export function buildServer(service: IntentService): McpServer {
   );
 
   server.registerTool(
+    "open_picture_panel",
+    {
+      title: "Upload a coin picture",
+      description: "Use when the user needs a coin image before launch. Opens the in-chat picture panel (JPEG/PNG, max 15 MB). After upload, save_picture returns pictureId for prepare_launch or build_metadata_uri.",
+      inputSchema: z.object({}),
+      annotations: READ,
+      _meta: PICTURE_META,
+    },
+    async () => ({
+      content: [{ type: "text", text: "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then use the returned pictureId in prepare_launch or build_metadata_uri." }],
+      structuredContent: { picturePanelUri: PICTURE_URI },
+    }),
+  );
+
+  server.registerTool(
+    "save_picture",
+    {
+      title: "Save picture (panel only)",
+      description: "Called from the picture panel after the user picks an image. Strips EXIF, stores the bytes, and returns pictureId.",
+      inputSchema: z.object({
+        imageBase64: z.string().max(22_000_000).describe("Data URL or raw base64 JPEG/PNG from the panel file picker."),
+      }),
+      annotations: WRITE,
+      _meta: APP_ONLY,
+    },
+    async ({ imageBase64 }) => {
+      try {
+        const saved = await service.pictures.saveFromBase64(imageBase64);
+        return {
+          content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}). Use pictureId in build_metadata_uri or prepare_launch.` }],
+          structuredContent: saved,
+        };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "build_metadata_uri",
+    {
+      title: "Build pump.fun metadata URI",
+      description: "Pins the saved picture and a pump.fun-style metadata JSON to IPFS and returns metadataUri (ipfs://…, max 200 chars). Use before prepare_launch when you already have pictureId.",
+      inputSchema: z.object({
+        pictureId: z.string().regex(/^pic_[a-f0-9]{24}$/),
+        name: z.string().min(1).max(32),
+        symbol: z.string().min(1).max(10),
+        description: z.string().max(400).optional(),
+        website: z.string().max(200).optional().describe("https:// project site"),
+        x: z.string().max(200).optional().describe("https:// X profile or post"),
+      }),
+      annotations: READ,
+    },
+    async (args) => {
+      try {
+        const result = await service.buildMetadataUri(args);
+        return {
+          content: [{ type: "text", text: `metadataUri: ${result.metadataUri} (image CID ${result.imageCid}).` }],
+          structuredContent: result,
+        };
+      } catch (err) {
+        return fail(err);
+      }
+    },
+  );
+
+  server.registerTool(
     "prepare_launch",
     {
       title: "Prepare a token launch",
@@ -141,8 +229,11 @@ export function buildServer(service: IntentService): McpServer {
         symbol: z.string().min(1).max(10),
         supply: decimalInput.optional().describe("Whole tokens, e.g. \"1000000\". Default 1000000000. pump.fun is always 1000000000."),
         decimals: z.number().int().min(0).max(18).optional().describe("Default 9 on Solana, 18 on EVM; pump.fun is 6."),
-        description: z.string().max(280).optional(),
-        metadataUri: z.string().max(200).optional().describe("Existing https:// or ipfs:// metadata JSON. Required for pump.fun."),
+        description: z.string().max(400).optional(),
+        metadataUri: z.string().max(200).optional().describe("Existing https:// or ipfs:// metadata JSON. Omit when pictureId is set."),
+        pictureId: z.string().regex(/^pic_[a-f0-9]{24}$/).optional().describe("From save_picture; builds and pins metadata when metadataUri is omitted."),
+        website: z.string().max(200).optional().describe("https:// site for metadata JSON"),
+        x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
         fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),
         venue: z.enum(["spl", "pumpfun", "erc20"]).optional(),
         idempotencyKey: z.string().max(64).optional(),

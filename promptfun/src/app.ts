@@ -9,6 +9,8 @@ import { findChain } from "./chains/registry.js";
 import { IntentService } from "./intents/service.js";
 import { IntentStore } from "./intents/store.js";
 import { IntentError } from "./intents/types.js";
+import { PictureService } from "./pictures/service.js";
+import { PictureStore } from "./pictures/store.js";
 import { buildServer } from "./mcp/server.js";
 import { intentView } from "./mcp/view.js";
 import { approvePage, homePage, notFoundPage, type EvmWalletChain } from "./web/page.js";
@@ -71,7 +73,9 @@ export interface App {
 
 export function createApp(config: Config): App {
   const store = new IntentStore(config.dbPath);
-  const service = new IntentService(config, store);
+  const pictureStore = new PictureStore(config.dbPath);
+  const pictures = new PictureService(config, pictureStore);
+  const service = new IntentService(config, store, pictures);
   const mcp = createMcpHandler(() => buildServer(service), { legacy: "stateless" });
   const mcpNode = toNodeHandler(mcp);
   const allowedHosts = [...new Set([new URL(config.publicUrl).hostname, "localhost", "127.0.0.1", "[::1]"])];
@@ -151,6 +155,29 @@ export function createApp(config: Config): App {
         res.setHeader("Content-Security-Policy", PAGE_CSP);
         return send(res, 200, "text/html; charset=utf-8", homePage());
       }
+      const picMatch = /^\/api\/pictures\/(pic_[a-f0-9]{24})$/.exec(pathname);
+      if (picMatch && req.method === "GET") {
+        try {
+          const { mime, data } = pictures.getBytes(picMatch[1]);
+          res.setHeader("Cache-Control", "public, max-age=300");
+          return send(res, 200, mime, data);
+        } catch (err) {
+          if (err instanceof IntentError && err.code === "not_found") return json(res, 404, { error: err.message });
+          throw err;
+        }
+      }
+
+      const imgPath = config.ipfsImageServePath;
+      if (imgPath && pathname === imgPath && req.method === "GET") {
+        const cid = url.searchParams.get("cid")?.trim();
+        const blobs = pictures.memoryBlobs();
+        if (!cid || !blobs?.has(cid)) return json(res, 404, { error: "Unknown CID." });
+        const data = blobs.get(cid)!;
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        const mime = cid.endsWith(".json") || data[0] === 0x7b ? "application/json; charset=utf-8" : "application/octet-stream";
+        return send(res, 200, mime, data);
+      }
+
       if (pathname === "/healthz") return json(res, 200, { ok: true });
       res.setHeader("Content-Security-Policy", PAGE_CSP);
       return send(res, 404, "text/html; charset=utf-8", notFoundPage());
@@ -184,6 +211,7 @@ export function createApp(config: Config): App {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       server.closeAllConnections?.();
       store.close();
+      pictureStore.close();
     },
   };
 }

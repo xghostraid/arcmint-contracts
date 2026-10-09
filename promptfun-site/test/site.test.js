@@ -78,9 +78,12 @@ test("network fees are dated, sourced, and never a promptfun.fun price", () => {
   assert.match(fees, /goes to the network, not to promptfun\.fun/);
   assert.match(fees, /not promptfun\.fun fees/);
   assert.match(fees, /preview shows the estimated fee for your exact transaction before you approve/);
-  for (const source of ["etherscan.io/gastracker", "solana.com/docs/core/fees", "metaplex-foundation/disclosures", "pump.fun/docs/fees"]) {
+  for (const source of ["etherscan.io/gastracker", "solana.com/docs/core/fees", "solana.com/docs/tokens/extensions/metadata", "pump.fun/docs/fees"]) {
     assert.ok(fees.includes(source), `missing source ${source}`);
   }
+  assert.doesNotMatch(html, /metaplex/i, "Solana launches use Token-2022 on-mint metadata, so no Metaplex fee");
+  assert.match(fees, /Token-2022/);
+  assert.match(fees, /pump\.fun charges nothing to create a coin/);
   for (const chain of ["Solana", "Ethereum", "Robinhood Chain", "Base"]) {
     assert.match(fees, new RegExp(`<th scope="row">${chain}</th>`));
   }

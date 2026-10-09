@@ -8,7 +8,9 @@ import { handler, resolvePath } from "../server.js";
 const PUBLIC = fileURLToPath(new URL("../public/", import.meta.url));
 const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
 const text = html.replace(/<[^>]+>/g, " ");
-const SUNNY_BG = "#fff4e0";
+const LILAC_BG = "#ebe6ff";
+const LEGACY_CREAM = "#fff4e0";
+const LEGACY_ORANGE_CTA = "#ff5b3a";
 
 async function listHtmlPages() {
   const files = [];
@@ -62,23 +64,34 @@ test("the site is Claude-only: ChatGPT is not mentioned anywhere on the home pag
   assert.doesNotMatch(html, /chatgpt/i);
 });
 
-test("every route is Sunny pop cream, not the old dark Connect mock", async () => {
+test("every route is Sunny pop lilac inclined (alt), not cream/orange or the old Connect mock", async () => {
   const css = await readPublic("site.css");
-  assert.match(css, new RegExp(`--bg:\\s*${SUNNY_BG}`, "i"), "site.css must define the cream paper background");
-  assert.match(css, /body\s*\{[\s\S]*background-color:\s*var\(--bg\)/, "body must use the cream token, not a dark gradient");
-  assert.doesNotMatch(css, /body\s*\{[\s\S]*linear-gradient/i, "no full-page dark gradient on body");
+  assert.match(css, new RegExp(`--bg:\\s*${LILAC_BG}`, "i"), "site.css must define lilac paper background");
+  assert.doesNotMatch(css, new RegExp(LEGACY_CREAM, "i"), "cream #fff4e0 tokens are retired");
+  assert.doesNotMatch(css, new RegExp(`--cta:\\s*${LEGACY_ORANGE_CTA}`, "i"), "orange tomato CTA is retired");
+  assert.match(css, /--cta:\s*#[0-9a-f]{6}/i, "primary buttons must use a lilac/purple token");
+  assert.doesNotMatch(css, /--cta:\s*#ff5b3a/i, "orange tomato CTA is retired");
+  assert.match(css, /--done-bar:/, "Done highlight uses a pink bar token, not yellow block");
+  assert.match(css, /body\s*\{[\s\S]*background-color:\s*var\(--bg\)/, "body must use lilac paper, not a dark gradient");
+  assert.doesNotMatch(css, /body\s*\{[\s\S]*linear-gradient/i, "no full-page gradient on body");
+  assert.match(css, /\.demo-shell[\s\S]*rotate\(-6deg\)/, "hero chat mock is inclined ~-6deg");
+  assert.match(css, /\.demo-shadow[\s\S]*var\(--pink-shadow\)/, "pink offset layer sits behind the inclined mock");
   assert.doesNotMatch(css, /Connect to Claude/i);
 
   for (const file of await listHtmlPages()) {
     const page = await readPublic(file);
     const label = file.replace(/\\/g, "/");
-    assert.match(page, new RegExp(`<meta name="theme-color" content="${SUNNY_BG}">`), `${label} theme-color must be cream`);
+    assert.match(page, new RegExp(`<meta name="theme-color" content="${LILAC_BG}">`), `${label} theme-color must be lilac`);
     assert.match(page, /<meta name="color-scheme" content="light">/, `${label} must declare light color-scheme`);
     assert.match(page, /<link rel="stylesheet" href="\/site\.css">/, `${label} must load the Sunny pop stylesheet`);
-    assert.doesNotMatch(page, /Connect to Claude/i, `${label} still uses the old dark-mock CTA copy`);
-    assert.doesNotMatch(page, /linear-gradient/i, `${label} must not embed a dark gradient mock`);
+    assert.doesNotMatch(page, /Connect to Claude/i, `${label} still uses the old Connect mock CTA copy`);
+    assert.doesNotMatch(page, /linear-gradient/i, `${label} must not embed inline gradient mocks`);
+    assert.doesNotMatch(page, /theme-color" content="#fff4e0"/i, `${label} must not use retired cream theme-color`);
     assert.doesNotMatch(page, /theme-color" content="#(?:0|1[0-9a-f]{5}|17153b)/i, `${label} must not use a dark browser theme color`);
   }
+
+  assert.match(html, /class="demo-shell"/, "home hero uses the inclined demo shell");
+  assert.match(html, /card-preview-top[\s\S]*promptfun\.fun preview/, "preview card matches bright-2d alt layout");
 
   for (const file of (await readdir(PUBLIC, { recursive: true })).filter((f) => f.endsWith(".js"))) {
     const body = await readPublic(file);
@@ -164,7 +177,7 @@ test("the hero demo is labelled as an illustration", () => {
 test("the wallet flow is the headline, demo shows Preview then Wallet then Receipt, and unbuilt parts say they're being built", () => {
   assert.match(html, /<h1[^>]*>Say it in Claude\.<br>Approve in your wallet\.<br><em>Done\.<\/em><\/h1>/);
   const demo = html.match(/<figure class="demo"[\s\S]*?<\/figure>/)[0];
-  assert.match(demo, /card-preview[\s\S]*Preview[\s\S]*Approve in your wallet/);
+  assert.match(demo, /card-preview[\s\S]*promptfun\.fun preview[\s\S]*Approve in your wallet/);
   assert.match(demo, /card-wallet[\s\S]*Your wallet[\s\S]*Approve this action/);
   assert.match(demo, /card-receipt[\s\S]*Receipt[\s\S]*Confirmed onchain/);
   const caption = html.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/)[1];
@@ -272,7 +285,7 @@ test("text colors meet WCAG AA contrast on the backgrounds they sit on", async (
   const pairs = [
     ["ink", "bg"], ["ink-2", "bg"], ["ink-3", "bg"], ["ink-3", "bg-2"], ["ink-2", "bg-2"],
     ["ink-2", "paper"], ["ink-3", "paper"], ["red-text", "bg"], ["red-text", "paper"],
-    ["ink", "yellow"], ["ink", "green"], ["ink", "pink"], ["ink", "lilac"], ["ink", "blue-soft"],
+    ["ink", "done-bar"], ["ink", "green"], ["ink", "pink"], ["ink", "lilac"], ["ink", "blue-soft"],
     ["ink-2", "yellow-soft"], ["ink-3", "yellow-soft"], ["ink-2", "green-soft"], ["ink-2", "blue-soft"], ["ink-2", "pink-soft"],
     ["cta-ink", "cta"], ["band-ink", "band"],
   ];
@@ -308,7 +321,7 @@ test("server serves the page with strict headers and refuses traversal", async (
     assert.equal((await fetch(`${base}/terms/`)).status, 200);
     assert.equal((await fetch(`${base}/privacy/`)).status, 200);
     const homeHtml = await (await fetch(`${base}/`)).text();
-    assert.match(homeHtml, new RegExp(`theme-color" content="${SUNNY_BG}"`));
+    assert.match(homeHtml, new RegExp(`theme-color" content="${LILAC_BG}"`));
     assert.doesNotMatch(homeHtml, /Connect to Claude/i);
     assert.match((await fetch(`${base}/site.css`)).headers.get("cache-control"), /must-revalidate/);
     assert.match((await fetch(`${base}/`)).headers.get("cache-control"), /no-cache/);

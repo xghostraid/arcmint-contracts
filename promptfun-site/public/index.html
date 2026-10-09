@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#fff4e0">
+<meta name="theme-color" content="#ebe6ff">
 <title>promptfun.fun · Say it in Claude. Approve in your wallet. Done.</title>
 <meta name="description" content="promptfun.fun connects Claude to the blockchain. Say what you want done, check a plain-language preview, approve it in your wallet and get a receipt checked against the chain. Solana first, then Ethereum, Robinhood Chain and Base. In testing, not live yet.">
 <meta property="og:title" content="promptfun.fun">
@@ -58,6 +58,8 @@
       </div>
 
       <figure class="demo" data-demo data-stage="5" aria-labelledby="demo-caption">
+        <div class="demo-shell">
+        <div class="demo-shadow" aria-hidden="true"></div>
         <div class="demo-window">
           <div class="demo-bar">
             <span class="demo-title">Claude</span>
@@ -69,15 +71,26 @@
             <p class="reply" data-step="2">Here’s the preview. Check it, then approve in your wallet.</p>
 
             <div class="card card-preview" data-step="2">
-              <p class="card-head"><span class="card-kicker">Preview</span><span class="card-badge">Checked</span></p>
-              <p class="card-title">Create a new token</p>
-              <dl class="rows">
-                <div><dt>Name</dt><dd>Moonbeam</dd></div>
-                <div><dt>Ticker</dt><dd>BEAM</dd></div>
+              <div class="card-preview-top">
+                <p class="card-brand">promptfun.fun preview</p>
+                <p class="card-title">Create a new token</p>
+                <p class="card-sub">Moonbeam · BEAM</p>
+                <span class="card-badge">Checked</span>
+              </div>
+              <div class="card-preview-body">
+                <p class="card-section-label">What happens</p>
+                <ul class="card-checklist">
+                  <li>Creates a new token mint on Solana devnet.</li>
+                  <li>Mints the full supply to your wallet.</li>
+                  <li>Uses test SOL only — no real value.</li>
+                </ul>
+              </div>
+              <dl class="rows card-preview-meta">
                 <div><dt>Network</dt><dd>Solana devnet</dd></div>
                 <div><dt>Who pays</dt><dd>Your wallet</dd></div>
+                <div><dt>Est. network fee</dt><dd>0.004 test SOL</dd></div>
               </dl>
-              <p class="card-action" aria-hidden="true">Approve in your wallet →</p>
+              <p class="card-action" aria-hidden="true"><span>Approve in your wallet →</span></p>
             </div>
 
             <div class="card card-wallet" data-step="3">
@@ -100,6 +113,7 @@
             <span class="composer-text">Reply to Claude…</span>
             <span class="composer-send">↑</span>
           </div>
+        </div>
         </div>
         <figcaption id="demo-caption" class="demo-caption">An illustration of the flow. Nothing in this picture is a real transaction. Approving in chat with no wallet and promptfun.fun paying the fee are being built.</figcaption>
       </figure>

@@ -1,6 +1,6 @@
 # promptfun-site
 
-The marketing site for **promptfun.fun**: say it in Claude, approve in your wallet, done. Claude-only copy and setup steps.
+The marketing site for **promptfun.fun**: say it in Claude, approve in your wallet, done. **Sunny pop lilac inclined (alt)** — lilac paper, purple CTAs, inclined hero mock. Claude-only copy.
 
 ## Run locally
 

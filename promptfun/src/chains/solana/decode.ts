@@ -74,6 +74,7 @@ export function decodeInstructions(
     tokenTransfers: [],
     createdTokenAccounts: [],
     pumpCreate: null,
+    pumpFeeSharing: null,
   };
   const sol = (lamports: bigint) => `${formatUnits(lamports, 9)} SOL`;
 

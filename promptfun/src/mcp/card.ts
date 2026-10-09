@@ -53,7 +53,7 @@ export function cardHtml(): string {
     request("ui/open-link", {url:url}).catch(function(){ if (window.openai && window.openai.openExternal) window.openai.openExternal({href:url, redirectUrl:false}); });
   }
   var BADGES = {
-    awaiting_wallet: ["Needs your wallet", "wait"], submitted: ["Sent", "wait"], confirmed: ["Confirmed onchain", "ok"],
+    awaiting_wallet: ["Needs your wallet", "wait"], awaiting_confirm: ["Ready to launch", ""], submitted: ["Sent", "wait"], confirmed: ["Confirmed onchain", "ok"],
     failed: ["Failed", "bad"], expired: ["Expired", "wait"]
   };
   var CHAIN_CHIPS = { verified: ["Verified end to end", "status-ok"], configured: ["Not yet verified", "status-testing"], gated: ["Real money, not verified", "status-building"] };
@@ -98,7 +98,7 @@ export function cardHtml(): string {
       rows += row("Block / slot", esc(r.slotOrBlock));
       if (r.tokenAddress) rows += row("Token", '<code>' + esc(r.tokenAddress) + '</code>');
     } else {
-      rows += row("Who pays", "Your wallet, network fee only");
+      rows += row("Who pays", v.sponsorPaysFee ? "promptfun.fun (you pay nothing)" : "Your wallet, network fee only");
       rows += row("Estimated network fee", p
         ? '<span class="fee-chip">' + esc(p.networkFee) + ' ' + esc(p.symbol) + '</span>' + (p.deposits !== "0" ? '<span>plus ' + esc(p.deposits) + ' ' + esc(p.symbol) + ' rent deposits</span>' : '') + (p.usd ? '<span>≈ $' + esc(p.usd) + '</span>' : '')
         : 'Shown when you connect<span>Read live from the network</span>');
@@ -107,6 +107,7 @@ export function cardHtml(): string {
     h += '<div class="pv-section"><dl class="rows">' + rows + '</dl></div>';
 
     h += '<div class="pv-actions">';
+    if (s === "awaiting_confirm" && v.sponsoredPreview) h += '<button class="btn btn-main" data-confirm="1">Launch it</button>';
     if (s === "awaiting_wallet" || s === "built") h += '<button class="btn btn-main" data-open="' + esc(v.approveUrl) + '">Review &amp; approve in wallet</button>';
     if (v.transaction && v.transaction.explorerUrl) h += '<button class="btn btn-ghost btn-small" data-open="' + esc(v.transaction.explorerUrl) + '">View transaction</button>';
     if (r && r.tokenExplorerUrl) h += '<button class="btn btn-ghost btn-small" data-open="' + esc(r.tokenExplorerUrl) + '">View token</button>';
@@ -120,6 +121,7 @@ export function cardHtml(): string {
   document.addEventListener("click", function(e){
     var t = e.target.closest("button"); if (!t) return;
     if (t.dataset.open) open(t.dataset.open);
+    if (t.dataset.confirm && view) request("tools/call", {name:"confirm_launch", arguments:{intentId:view.intentId}}).then(function(r){ render(r && r.structuredContent); }).catch(function(){});
     if (t.dataset.refresh && view) request("tools/call", {name:"get_action_status", arguments:{intentId:view.intentId}}).then(function(r){ render(r && r.structuredContent); });
   });
   window.addEventListener("message", function(e){

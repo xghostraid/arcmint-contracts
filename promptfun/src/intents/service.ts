@@ -8,6 +8,10 @@ import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
 import { PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
 import { IntentStore } from "./store.js";
 import { IntentError, type Built, type Intent, type LaunchParams, type TransferParams } from "./types.js";
+import { chainAllowsSponsoredLaunch, sponsorBudgetSnapshot } from "../sponsor/budget.js";
+import { createFeePayerSigner } from "../sponsor/local-signer.js";
+import type { FeePayerSigner } from "../sponsor/types.js";
+import { solanaInstructionFingerprint } from "../sponsor/fingerprint.js";
 
 const U64_MAX = (1n << 64n) - 1n;
 
@@ -40,7 +44,16 @@ export class IntentService {
   private poller: NodeJS.Timeout | null = null;
   private polling = false;
 
-  constructor(readonly config: Config, readonly store: IntentStore) {}
+  private readonly sponsorSigner: FeePayerSigner | null;
+
+  constructor(readonly config: Config, readonly store: IntentStore) {
+    this.sponsorSigner = createFeePayerSigner(config);
+  }
+
+  sponsorPublicKey(): string | null {
+    return this.sponsorSigner?.publicKey ?? null;
+  }
+
 
   approveUrl(id: string): string {
     return `${this.config.publicUrl}/approve/${id}`;
@@ -62,7 +75,7 @@ export class IntentService {
     }
   }
 
-  private async finishPrepare(intent: Omit<Intent, "id" | "createdAt" | "updatedAt" | "expiresAt" | "status" | "built" | "submission" | "receipt" | "error" | "events">, chain: Chain): Promise<Intent> {
+  private async finishPrepare(intent: Omit<Intent, "id" | "createdAt" | "updatedAt" | "expiresAt" | "status" | "built" | "submission" | "receipt" | "error" | "events" | "executionMode" | "instructionFingerprint">, chain: Chain): Promise<Intent> {
     const live = this.store.findLive(intent.idempotencyKey);
     if (live && Date.parse(live.expiresAt) > Date.now()) return live;
     this.rateLimit();
@@ -79,11 +92,44 @@ export class IntentService {
       receipt: null,
       error: null,
       events: [{ at: created, type: "prepared", detail: intent.summary }],
+      executionMode: "wallet",
+      instructionFingerprint: null,
     };
     const issues = await adapterFor(chain.family).check(chain, full);
     if (issues.length) throw new IntentError(issues.join(" "));
     this.store.save(full);
+    if (full.kind === "launch_token" && this.shouldOfferSponsoredLaunch(chain, full)) {
+      try {
+        return await this.attachSponsoredPreview(full);
+      } catch {
+        return full;
+      }
+    }
     return full;
+  }
+
+  private shouldOfferSponsoredLaunch(chain: Chain, intent: Intent): boolean {
+    if (!chainAllowsSponsoredLaunch(chain)) return false;
+    if (!sponsorBudgetSnapshot(this.config).sponsoredLaunchesEnabled) return false;
+    if ((intent.params as LaunchParams).venue === "pumpfun") return false;
+    return Boolean(this.sponsorSigner);
+  }
+
+  private async attachSponsoredPreview(intent: Intent): Promise<Intent> {
+    const sponsor = this.sponsorSigner!.publicKey;
+    const { built } = await this.buildInternal(intent, sponsor, {});
+    const at = now();
+    const next: Intent = {
+      ...intent,
+      status: "awaiting_confirm",
+      executionMode: "sponsor",
+      built,
+      instructionFingerprint: solanaInstructionFingerprint(built),
+      updatedAt: at,
+      events: [...intent.events, { at, type: "previewed", detail: `Sponsored preview; fee paid by promptfun (${sponsor}).` }],
+    };
+    this.store.save(next);
+    return next;
   }
 
   async prepareLaunch(input: LaunchInput): Promise<Intent> {
@@ -189,7 +235,7 @@ export class IntentService {
   }
 
   private expireIfDue(intent: Intent): Intent {
-    if ((intent.status === "awaiting_wallet" || intent.status === "built") && Date.parse(intent.expiresAt) <= Date.now()) {
+    if ((intent.status === "awaiting_wallet" || intent.status === "awaiting_confirm" || intent.status === "built") && Date.parse(intent.expiresAt) <= Date.now()) {
       return this.update(intent, { status: "expired" }, "expired", "Not approved in time. Nothing was sent.");
     }
     return intent;
@@ -202,22 +248,51 @@ export class IntentService {
     return next;
   }
 
-  async build(id: string, signer: string, options: BuildOptions = {}): Promise<{ intent: Intent; built: Built }> {
-    const intent = this.get(id);
-    if (intent.status !== "awaiting_wallet" && intent.status !== "built") {
-      throw new IntentError(`This request is already ${intent.status}.`, "wrong_state");
-    }
+  private async buildInternal(intent: Intent, signer: string, options: BuildOptions): Promise<{ intent: Intent; built: Built }> {
     const chain = this.chainOrThrow(intent.chain, intent.kind);
-    let built: Built;
     try {
-      built = await adapterFor(chain.family).build(chain, intent, signer, options);
+      const built = await adapterFor(chain.family).build(chain, intent, signer, options);
+      return { intent, built };
     } catch (err) {
       if (err instanceof AmountError) throw new IntentError(err.message);
       throw err;
     }
-    const next = this.update(intent, { status: "built", built, error: null }, "built",
+  }
+
+  async build(id: string, signer: string, options: BuildOptions = {}): Promise<{ intent: Intent; built: Built }> {
+    const intent = this.get(id);
+    if (intent.status !== "awaiting_wallet" && intent.status !== "awaiting_confirm" && intent.status !== "built") {
+      throw new IntentError(`This request is already ${intent.status}.`, "wrong_state");
+    }
+    const { built } = await this.buildInternal(intent, signer, options);
+    const patch: Partial<Intent> = { status: "built", built, error: null };
+    if (signer !== this.sponsorSigner?.publicKey) {
+      patch.executionMode = "wallet";
+      patch.instructionFingerprint = null;
+    }
+    const next = this.update(intent, patch, "built",
       `Transaction compiled for ${signer}; simulation ${built.simulation.ok ? "passed" : `failed: ${built.simulation.error}`}.`);
     return { intent: next, built };
+  }
+
+  async confirmLaunch(id: string): Promise<Intent> {
+    const intent = this.get(id);
+    if (intent.executionMode !== "sponsor" || intent.status !== "awaiting_confirm") {
+      throw new IntentError("This request is not waiting for in-chat confirmation.", "wrong_state");
+    }
+    const budget = sponsorBudgetSnapshot(this.config);
+    if (!budget.sponsoredLaunchesEnabled) throw new IntentError(budget.pauseReason ?? "Sponsored launches are paused.", "sponsor_paused");
+    if (!this.sponsorSigner || !intent.instructionFingerprint) throw new IntentError("Sponsor signing is not available.", "sponsor_unconfigured");
+    const chain = this.chainOrThrow(intent.chain, intent.kind);
+    const sponsor = this.sponsorSigner.publicKey;
+    const { built } = await this.buildInternal(intent, sponsor, {});
+    if (solanaInstructionFingerprint(built) !== intent.instructionFingerprint) {
+      throw new IntentError("The live transaction no longer matches the preview. Nothing was sent.", "mismatch");
+    }
+    if (!built.simulation.ok) throw new IntentError(`Simulation failed: ${built.simulation.error ?? "unknown"}`, "simulation_failed");
+    const signed = await this.sponsorSigner.signSolanaTransaction(chain.key, intent, built, built.payload);
+    const withBuilt = this.update(intent, { status: "built", built, error: null }, "confirmed_in_chat", "User confirmed launch in chat.");
+    return this.submit(withBuilt.id, signed);
   }
 
   async submit(id: string, walletPayload: string): Promise<Intent> {
@@ -238,7 +313,7 @@ export class IntentService {
 
   walletRejected(id: string, reason: string): Intent {
     const intent = this.get(id);
-    if (intent.status !== "awaiting_wallet" && intent.status !== "built") return intent;
+    if (intent.status !== "awaiting_wallet" && intent.status !== "awaiting_confirm" && intent.status !== "built") return intent;
     return this.update(intent, { error: "You declined in your wallet. Nothing was sent." }, "wallet_rejected", reason.slice(0, 200) || "Declined in wallet.");
   }
 

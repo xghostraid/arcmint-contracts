@@ -22,11 +22,14 @@ export interface TransferParams {
 
 export type IntentStatus =
   | "awaiting_wallet"
+  | "awaiting_confirm"
   | "built"
   | "submitted"
   | "confirmed"
   | "failed"
   | "expired";
+
+export type ExecutionMode = "wallet" | "sponsor";
 
 export interface Step {
   /** One plain-language line decoded from the transaction bytes. */
@@ -119,6 +122,8 @@ export interface Intent {
   error: string | null;
   events: IntentEvent[];
   idempotencyKey: string;
+  executionMode: ExecutionMode;
+  instructionFingerprint: string | null;
 }
 
 export class IntentError extends Error {

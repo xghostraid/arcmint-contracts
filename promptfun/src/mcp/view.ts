@@ -37,10 +37,15 @@ export interface IntentView {
   receipt: Intent["receipt"];
   error: string | null;
   nextStep: string;
+  executionMode: Intent["executionMode"];
+  sponsoredPreview: boolean;
+  sponsorPaysFee: boolean;
 }
 
 function nextStep(intent: Intent, approveUrl: string): string {
   switch (intent.status) {
+    case "awaiting_confirm":
+      return "Nothing has been sent. User taps Launch it on the card; promptfun pays the network fee.";
     case "awaiting_wallet":
     case "built":
       return `Nothing has been sent. The user must open ${approveUrl}, connect their wallet, review the decoded transaction, and approve it in the wallet.`;
@@ -96,6 +101,9 @@ export function intentView(config: Config, intent: Intent, approveUrl: string): 
     receipt: intent.receipt,
     error: intent.error,
     nextStep: nextStep(intent, approveUrl),
+    executionMode: intent.executionMode ?? "wallet",
+    sponsoredPreview: intent.executionMode === "sponsor" && intent.status === "awaiting_confirm",
+    sponsorPaysFee: intent.executionMode === "sponsor",
   };
 }
 

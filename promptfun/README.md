@@ -2,7 +2,8 @@
 
 Say what you want in chat ("launch a token called Moon with a million supply", "send 0.1 SOL to …"). promptfun turns it into an exact transaction. You review the decoded steps and the network fee, then approve in **your own wallet**. promptfun reads the result back from the chain.
 
-- **Host:** ChatGPT (as an Apps SDK app or connector) is the primary target. The server is standard MCP (Streamable HTTP at `/mcp`), so Claude and other MCP clients work too.
+- **Host:** Claude custom connector first. ChatGPT is dropped for v1; standard MCP at `/mcp`.
+- **Sponsored testnet launches:** `PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1` + sponsor key; user confirms via `confirm_launch` in the card.
 - **No keys on the server.** No user keys, mint keys, fee payer, or relayer. Your wallet signs. On Solana, the server relays only a transaction that is byte-identical to the preview, and only after every signature verifies.
 - **No fake results.** Previews are decoded from the transaction bytes. Receipts are read from the chain. Each chain reports an honest status.
 - **No promptfun fee.** Every preview shows the network fee, labelled as paid to the chain.
@@ -55,14 +56,15 @@ npx @modelcontextprotocol/inspector --cli http://127.0.0.1:8787/mcp --transport 
 
 When a `prepare_*` tool returns, open its `approveUrl` in a desktop browser that has Phantom, Solflare, or Backpack installed. Set the wallet to **devnet** first.
 
-ChatGPT can't reach `127.0.0.1`. See [docs/connect-chatgpt.md](docs/connect-chatgpt.md).
+Claude can't reach `127.0.0.1`. See [docs/connect-claude.md](docs/connect-claude.md).
 
 ## Tools
 
 | Tool | What it does | Annotations |
 |---|---|---|
 | `get_capabilities` | Chains, actions, honest per-chain status and evidence, limitations | read-only |
-| `prepare_launch` | Validates a launch and returns an approval link plus the in-chat card. Moves nothing. | write (creates a pending intent), not destructive |
+| `prepare_launch` | Read-only preview with simulation and card. | read-only |
+| `confirm_launch` / `confirm_launch_by_text` | Sponsored send after in-chat confirm. | write |
 | `prepare_transfer` | Same, for sending the native coin or a token | write, not destructive |
 | `get_action_status` | Current state. Once confirmed, the receipt read from the chain plus explorer links. | read-only |
 | `get_balance` | Native or token balance, read from the chain | read-only |
@@ -134,10 +136,10 @@ npm run demo:evm                  # browser run on anvil with the EIP-6963 test 
 ## Not done yet
 
 - Public Ethereum Sepolia and Base Sepolia runs. They need testnet ETH for the demo key on those networks.
-- Sponsored (walletless) launches inside ChatGPT. The design is in progress; the approval page stays as the bring-your-own-wallet path.
+- OAuth, pump.fun sponsored mainnet, remote KMS signer (local signer is dev/test only), picture/IPFS module (separate branch).
 - OAuth, which is required before mainnets go on a shared server.
 - WalletConnect (mobile) and passkeys.
-- Image and IPFS upload.
+- In-chat picture panel (`open_picture_panel`), EXIF strip, IPFS pin via `PROMPTFUN_KUBO_API_URL` or in-memory fallback, `build_metadata_uri`, and launch fields `website` / `x` (400-char description).
 - A run with Phantom or MetaMask themselves, which needs a human with the extension.
 - Listing in the public ChatGPT app directory, which OpenAI's policy blocks. See the connection guide.
 

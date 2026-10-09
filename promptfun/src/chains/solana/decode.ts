@@ -33,7 +33,16 @@ export interface DecodedTx {
   tokenTransfers: Array<{ mint: string; destination: string; owner: string; amount: bigint; decimals: number }>;
   createdTokenAccounts: Array<{ account: string; owner: string; mint: string }>;
   pumpCreate: { mint: string; user: string; name: string; symbol: string; uri: string; creator: string; mayhem: boolean } | null;
+  pumpFeeSharing: {
+    created: boolean;
+    updated: boolean;
+    recipients: Array<{ address: string; shareBps: number }>;
+  } | null;
 }
+
+export const PUMP_FEE_PROGRAM = new PublicKey("pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ");
+const PUMP_FEE_CREATE_SHARING = Buffer.from([0xc3, 0x4e, 0x56, 0x4c, 0x6f, 0x34, 0xfb, 0xd5]);
+const PUMP_FEE_UPDATE_SHARES = Buffer.from([0xbd, 0x0d, 0x88, 0x63, 0xbb, 0xa4, 0xed, 0x23]);
 
 export const PUMP_PROGRAM = new PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 const PUMP_CREATE_V2 = Buffer.from([214, 144, 76, 236, 95, 139, 49, 180]);

@@ -42,7 +42,7 @@ export class IntentStore {
   findLive(idempotencyKey: string): Intent | null {
     const row = this.db
       .prepare(
-        `SELECT body FROM intents WHERE idempotency_key = ? AND status IN ('awaiting_wallet','built','submitted')
+        `SELECT body FROM intents WHERE idempotency_key = ? AND status IN ('awaiting_wallet','awaiting_confirm','built','submitted')
          ORDER BY created_at DESC LIMIT 1`,
       )
       .get(idempotencyKey) as { body: string } | undefined;

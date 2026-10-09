@@ -87,3 +87,13 @@
   word-break: break-all;
   flex: 1 1 12rem;
 }
+
+.pic-ready {
+  font-size: 13px;
+  color: var(--good, #0a7);
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+}

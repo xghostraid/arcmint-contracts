@@ -44,6 +44,8 @@ export interface LaunchInput {
   creatorWallet?: string;
   fixedSupply?: boolean;
   venue?: "spl" | "pumpfun" | "erc20";
+  /** From open_picture_panel plain text / structuredContent; resolves last panel save server-side. */
+  handoffSessionId?: string;
   idempotencyKey?: string;
 }
 
@@ -309,6 +311,17 @@ export class IntentService {
       } catch (err) {
         throw err instanceof IntentError ? err : new IntentError((err as Error).message);
       }
+    }
+    const handoffSessionId = (input.handoffSessionId ?? "").trim();
+    if (handoffSessionId && !/^hs_[a-f0-9]{24}$/.test(handoffSessionId)) {
+      throw new IntentError("handoffSessionId must be hs_… from open_picture_panel.", "bad_request");
+    }
+    if (!pictureId && !metadataUri) {
+      let last = await this.getLastPicture(handoffSessionId || undefined);
+      if (!last?.pictureId && handoffSessionId) {
+        last = await this.getLastPicture();
+      }
+      if (last?.pictureId) pictureId = last.pictureId;
     }
     if (pictureId && !metadataUri) {
       try {

@@ -39,6 +39,11 @@ export function pictureHtml(publicUrl: string): string {
 <code class="pic-id-val" id="idVal"></code>
 <button type="button" class="btn btn-ghost" id="copyId">Copy</button>
 </div>
+<div class="pic-id-row" id="hsRow" hidden>
+<span class="pic-id-label">Handoff session</span>
+<code class="pic-id-val" id="hsVal"></code>
+</div>
+<p class="pic-ready" id="readyNote" hidden>Launch ready — the assistant can call get_last_picture or prepare_launch with handoffSessionId (no need to copy IDs).</p>
 <p class="pic-err" id="err" hidden></p>
 <p class="pic-foot">${BRAND} stores the image until you launch or it expires. Nothing is sent on chain until you confirm a launch.</p>
 </article></div>
@@ -54,6 +59,9 @@ export function pictureHtml(publicUrl: string): string {
   var idRow = document.getElementById("idRow");
   var idVal = document.getElementById("idVal");
   var copyIdBtn = document.getElementById("copyId");
+  var hsRow = document.getElementById("hsRow");
+  var hsVal = document.getElementById("hsVal");
+  var readyNote = document.getElementById("readyNote");
   function post(m){ window.parent.postMessage(m, "*"); }
   function request(method, params){ var id = nextId++; post({jsonrpc:"2.0", id:id, method:method, params:params}); return new Promise(function(res, rej){ pending[id] = {res:res, rej:rej}; }); }
   function showErr(msg){ errEl.hidden = !msg; errEl.textContent = msg || ""; }
@@ -141,9 +149,14 @@ export function pictureHtml(publicUrl: string): string {
       content: [{ type: "text", text: text }],
     }).catch(function(){});
   }
+  function showHandoffSession(id){
+    if (hsVal) hsVal.textContent = id || "";
+    if (hsRow) hsRow.hidden = !id;
+  }
   function showPictureId(id){
     if (idVal) idVal.textContent = id;
     if (idRow) idRow.hidden = !id;
+    if (readyNote) readyNote.hidden = !id;
   }
   if (copyIdBtn) copyIdBtn.onclick = function(){
     if (!pictureId) return;
@@ -197,7 +210,10 @@ export function pictureHtml(publicUrl: string): string {
   };
   function applyToolOutput(sc){
     if (!sc) return;
-    if (sc.handoffSessionId) handoffSessionId = sc.handoffSessionId;
+    if (sc.handoffSessionId) {
+      handoffSessionId = sc.handoffSessionId;
+      showHandoffSession(handoffSessionId);
+    }
     if (sc.sourceImageUrl) {
       chatImageUrl = sc.sourceImageUrl;
       useChatBtn.hidden = false;

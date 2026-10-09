@@ -15,6 +15,9 @@ test("launch playbook tells models not to ask for tool names or pasted URLs", ()
   assert.match(joined, /Never ask them to name MCP tools/);
   assert.match(joined, /import_picture_from_url/);
   assert.match(joined, /get_last_picture/);
+  assert.match(joined, /FORBIDDEN.*copy pic_/);
+  assert.doesNotMatch(joined, /unless get_last_picture failed/);
+  assert.match(joined, /handoffSessionId/);
   assert.match(joined, /solana-mainnet/);
   assert.match(joined, /Launch it/);
 });
@@ -25,6 +28,7 @@ test("server instructions mention short prompts and launchPlaybook", () => {
   assert.match(text, /Short prompts work/);
   assert.match(text, /launchPlaybook/);
   assert.match(text, /Launch TEST on mainnet/);
+  assert.match(text, /never ask the user to copy pic_/);
 });
 
 test("example user prompts are short one-liners", () => {

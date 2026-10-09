@@ -39,7 +39,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). When the panel shows Saved, read pictureId from tool structuredContent, ui/notifications/tool-result, ui/update-model-context, or call get_last_picture (with handoffSessionId from open_picture_panel if needed) — never ask the user to copy pic_ unless get_last_picture also failed.",
+    "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). After the panel shows Saved, call get_last_picture or prepare_launch with handoffSessionId from open_picture_panel plain text (hs_…). FORBIDDEN: ask the user to copy pic_.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% of creator fees.",
   ];
@@ -229,7 +229,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     {
       title: "Upload a coin picture",
       description:
-        "Opens the in-chat picture panel when the user attached an image or needs to pick a file. If you have the chat attachment https:// URL, pass imageUrl so they can tap Use this image; otherwise they Choose image → Save to promptfun. After Save, pictureId arrives via upload_picture_bytes (panel tools/call), ui/update-model-context from the panel, or get_last_picture if you still lack it. Then prepare_launch with pictureId. Do not ask the user to name this tool or paste URLs manually.",
+        "Opens the in-chat picture panel for preview. When you have a chat attachment https:// URL, pass imageUrl: the server imports it immediately and returns pictureId in tool text (Claude custom connectors do not reliably expose panel iframe callbacks). After manual Save, call get_last_picture or prepare_launch with handoffSessionId from this tool's plain text. Never ask the user to copy pic_.",
       inputSchema: z.object({
         imageUrl: z
           .string()
@@ -243,19 +243,34 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     async ({ imageUrl }) => {
       const url = (imageUrl ?? "").trim();
       const handoffSessionId = newHandoffSessionId();
+      let importedPictureId: string | null = null;
+      let importNote = "";
+      if (url) {
+        try {
+          const saved = await service.pictures.saveFromUrl(url);
+          await service.noteLastPicture(saved, handoffSessionId);
+          importedPictureId = saved.pictureId;
+          importNote = ` pictureId ${saved.pictureId} ready for prepare_launch.`;
+        } catch (err) {
+          const message = err instanceof IntentError ? err.message : (err as Error).message;
+          importNote = ` Could not import imageUrl server-side: ${message}`;
+        }
+      }
       const hint = url
-        ? "The picture panel is open. Tap Use this image to import the chat attachment, or Choose image to pick a file, then Save to promptfun."
-        : "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then use the returned pictureId in prepare_launch or build_metadata_uri.";
+        ? "The picture panel is open for preview. Chat attachment was imported on the server when possible; you can still Choose image or Save in the panel."
+        : "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then call get_last_picture or prepare_launch with handoffSessionId below.";
       const last = await service.getLastPicture(handoffSessionId);
+      const sessionNote = `handoffSessionId ${handoffSessionId}. After panel Saved, call get_last_picture({ handoffSessionId }) or prepare_launch({ handoffSessionId, name, symbol }) — do not ask the user to copy pic_.`;
       return {
         content: [{
           type: "text",
-          text: `${hint} If you do not receive pictureId after Save, call get_last_picture with handoffSessionId ${handoffSessionId}.`,
+          text: `${hint}${importNote} ${sessionNote}`,
         }],
         structuredContent: {
           picturePanelUri: PICTURE_URI,
           handoffSessionId,
           ...(url ? { sourceImageUrl: url } : {}),
+          ...(importedPictureId ? { pictureId: importedPictureId, serverImported: true } : {}),
           ...(last ? { lastPictureId: last.pictureId, lastPictureSavedAt: last.savedAt } : {}),
         },
       };
@@ -360,7 +375,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     {
       title: "Get last saved coin picture",
       description:
-        "Returns pictureId from the most recent picture save in this connector session (panel Save via upload_picture_bytes, import_picture_from_url, or prepare_launch imageUrl). Call when the picture panel shows Saved but you do not have pictureId yet. Pass handoffSessionId from open_picture_panel when available.",
+        "You always have server-side access to the last saved coin picture. Call immediately when the user saved in the panel or you lack pictureId — never tell the user you cannot look it up. Pass handoffSessionId from open_picture_panel plain text (hs_…). Works across serverless instances when blob handoff is enabled.",
       inputSchema: z.object({
         handoffSessionId: z
           .string()
@@ -418,7 +433,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     {
       title: "Prepare a token launch",
       description:
-        "Use for plain-language launch asks (e.g. \"Launch TEST on mainnet\", \"Launch Moonbeam BEAM with this photo\"). Read-only: returns the preview card. Resolve the image first (imageUrl or pictureId). Omit chain for recommendedLaunchChain. On sponsored mainnet/testnets the card shows Launch it; wallet mode uses approveUrl. Nothing is broadcast by this call.",
+        "Use for plain-language launch asks (e.g. \"Launch TEST on mainnet\", \"Launch Moonbeam BEAM with this photo\"). Read-only: returns the preview card. Resolve the image via imageUrl, pictureId, or handoffSessionId (server looks up the last panel save). Omit chain for recommendedLaunchChain. On sponsored mainnet/testnets the card shows Launch it; wallet mode uses approveUrl. Nothing is broadcast by this call.",
       inputSchema: z.object({
         chain: z.string().optional().describe("Chain key from get_capabilities. Defaults to recommendedLaunchChain (solana-mainnet when pump.fun mainnet is live)."),
         name: z.string().min(1).max(32),
@@ -433,6 +448,11 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
           .max(2000)
           .optional()
           .describe("https:// JPEG/PNG link (e.g. chat attachment). Server imports it; do not pass base64."),
+        handoffSessionId: z
+          .string()
+          .regex(/^hs_[a-f0-9]{24}$/)
+          .optional()
+          .describe("hs_… from open_picture_panel plain text; server resolves last panel save when pictureId is omitted."),
         website: z.string().max(200).optional().describe("https:// site for metadata JSON"),
         x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
         fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),

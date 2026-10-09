@@ -52,3 +52,8 @@ export function chainAllowsSponsoredLaunch(chain: Chain, config: Config): boolea
   if (chain.testnet) return true;
   return chain.cluster === "mainnet-beta" && config.enableSponsoredMainnet && chain.launchVenues.includes("pumpfun");
 }
+
+/** Production mainnet pump.fun is sponsored-only when these flags are on (not wallet approval). */
+export function mainnetPumpSponsoredProductDefault(config: Config): boolean {
+  return config.enablePumpfunMainnet && config.enableSponsoredMainnet && config.enableSponsoredLaunches;
+}

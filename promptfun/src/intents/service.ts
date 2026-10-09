@@ -9,7 +9,7 @@ import { generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../ch
 import { IntentCatalog, type IntentRemoteStore } from "./catalog.js";
 import { IntentStore } from "./store.js";
 import { IntentError, type Built, type Intent, type LaunchParams, type TransferParams } from "./types.js";
-import { chainAllowsSponsoredLaunch, sponsorBudgetSnapshot } from "../sponsor/budget.js";
+import { chainAllowsSponsoredLaunch, mainnetPumpSponsoredProductDefault, sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { createFeePayerSigner } from "../sponsor/local-signer.js";
 import type { FeePayerSigner } from "../sponsor/types.js";
 import { solanaInstructionFingerprint } from "../sponsor/fingerprint.js";
@@ -177,6 +177,41 @@ export class IntentService {
     }
   }
 
+  private isMandatorySponsoredMainnetPump(chain: Chain, intent: Intent): boolean {
+    if (intent.kind !== "launch_token") return false;
+    const venue = (intent.params as LaunchParams).venue;
+    if (venue !== "pumpfun" || chain.cluster !== "mainnet-beta") return false;
+    return mainnetPumpSponsoredProductDefault(this.config);
+  }
+
+  private assertMandatorySponsoredMainnetReady(budget: ReturnType<typeof sponsorBudgetSnapshot>): void {
+    if (!this.config.sponsorSecretKey?.trim() || !this.sponsorSigner) {
+      throw new IntentError(
+        "Sponsored mainnet pump.fun requires PROMPTFUN_SPONSOR_SECRET_KEY. Public launches use in-chat Launch it (no Phantom) — wallet approval is not offered on mainnet pump.fun.",
+        "sponsor_unconfigured",
+      );
+    }
+    if (!budget.sponsoredLaunchesEnabled) {
+      throw new IntentError(
+        budget.pauseReason ?? "Sponsored mainnet launches are not available on this server.",
+        "sponsor_unavailable",
+      );
+    }
+  }
+
+  private wrapSponsoredPreviewFailure(err: unknown): IntentError {
+    const detail =
+      err instanceof IntentError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    return new IntentError(
+      `Sponsored launch preview failed: ${detail}. Top up the sponsor wallet with mainnet SOL or fix server config — do not switch the user to an external wallet for mainnet pump.fun.`,
+      err instanceof IntentError ? err.code : "sponsor_preview_failed",
+    );
+  }
+
   private async finishPrepare(intent: Omit<Intent, "id" | "createdAt" | "updatedAt" | "expiresAt" | "status" | "built" | "submission" | "receipt" | "error" | "events" | "executionMode" | "instructionFingerprint">, chain: Chain): Promise<Intent> {
     const live = this.store.findLive(intent.idempotencyKey);
     if (live && Date.parse(live.expiresAt) > Date.now()) return live;
@@ -199,12 +234,21 @@ export class IntentService {
     };
     const issues = await adapterFor(chain.family).check(chain, full);
     if (issues.length) throw new IntentError(issues.join(" "));
+    const mandatorySponsoredMainnet = this.isMandatorySponsoredMainnetPump(chain, full);
+    if (mandatorySponsoredMainnet) {
+      this.assertMandatorySponsoredMainnetReady(sponsorBudgetSnapshot(this.config));
+      try {
+        return await this.attachSponsoredPreview(full);
+      } catch (err) {
+        throw this.wrapSponsoredPreviewFailure(err);
+      }
+    }
     await this.persist(full);
     if (full.kind === "launch_token" && this.shouldOfferSponsoredLaunch(chain, full)) {
       try {
         return await this.attachSponsoredPreview(full);
-      } catch {
-        return full;
+      } catch (err) {
+        throw this.wrapSponsoredPreviewFailure(err);
       }
     }
     return full;
@@ -248,6 +292,17 @@ export class IntentService {
       };
     }
     const { built } = await this.buildInternal(working, sponsor, buildOpts);
+    if (!built.simulation.ok) {
+      throw new IntentError(`Simulation failed: ${built.simulation.error ?? "unknown"}`, "simulation_failed");
+    }
+    if (built.cost.enough === false) {
+      throw new IntentError(
+        built.cost.balance != null
+          ? `Insufficient SOL on the sponsor wallet (${built.cost.balance} ${built.cost.symbol} available; need about ${built.cost.total} ${built.cost.symbol} including rent).`
+          : "Insufficient SOL on the sponsor wallet for this launch.",
+        "insufficient_sponsor_sol",
+      );
+    }
     const at = now();
     const next: Intent = {
       ...working,

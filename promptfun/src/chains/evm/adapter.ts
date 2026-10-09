@@ -58,6 +58,13 @@ function native(chain: EvmChain, wei: bigint): string {
   return formatUnits(wei, 18);
 }
 
+const ESTIMATE_STEP = 10n ** 10n;
+
+/** Fee estimates are shown to 8 decimals, rounded up so the preview never understates the cost. */
+function roundUp(wei: bigint): bigint {
+  return ((wei + ESTIMATE_STEP - 1n) / ESTIMATE_STEP) * ESTIMATE_STEP;
+}
+
 function gwei(wei: bigint): string {
   return formatUnits(wei, 9);
 }
@@ -240,6 +247,8 @@ export const evmAdapter: ChainAdapter = {
       feeBasis += ` Plus ${native(chain, l1)} ${chain.nativeSymbol} L1 data fee from the GasPriceOracle predeploy.`;
     }
 
+    expected = roundUp(expected);
+    maximum = roundUp(maximum);
     const sends = BigInt(call.value);
     const total = expected + sends;
     const usd = await usdValue(chain.nativeSymbol, native(chain, expected), chain.testnet);
@@ -251,7 +260,7 @@ export const evmAdapter: ChainAdapter = {
       sends: native(chain, sends),
       total: native(chain, total),
       symbol: chain.nativeSymbol,
-      balance: native(chain, balance),
+      balance: native(chain, (balance / ESTIMATE_STEP) * ESTIMATE_STEP),
       enough: balance >= maximum + sends,
       note: maximum > expected
         ? `Estimate at today's gas price. Your wallet sets the final fee; it is capped at about ${native(chain, maximum)} ${chain.nativeSymbol} if the base fee rises before the transaction lands.`

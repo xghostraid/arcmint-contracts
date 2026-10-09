@@ -18,7 +18,8 @@
     "dev": "tsx src/http.ts",
     "test": "node --test --import tsx 'test/**/*.test.ts'",
     "test:e2e": "node --test --import tsx 'test/e2e/*.e2e.ts'",
-    "demo:devnet": "tsx scripts/devnet-demo.ts"
+    "demo:devnet": "tsx scripts/devnet-demo.ts",
+    "demo:evm": "tsx scripts/evm-demo.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/node": "2.1.1",

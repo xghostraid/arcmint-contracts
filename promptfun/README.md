@@ -14,7 +14,9 @@ Say what you want in chat ("launch a token called Moon with a million supply", "
 | Solana local validator | Token-2022 SPL | SOL, SPL | **verified**: `npm run test:e2e` |
 | Solana devnet | Token-2022 SPL | SOL, SPL | **verified**: public devnet run on 2026-10-09 (below), signed by a Wallet Standard test wallet. Not yet signed with Phantom itself. |
 | Solana mainnet | pump.fun only | — | **gated** behind `PROMPTFUN_ENABLE_PUMPFUN_MAINNET=1`. The transaction is built with the official `@pump-fun/pump-sdk` and decoded, but promptfun has never broadcast one. |
-| Ethereum, Robinhood Chain, Base (in that order), then Arbitrum, Optimism, Polygon, BNB | ERC-20 | native, ERC-20 | Listed in `get_capabilities` but **disabled**: the EVM adapter is in progress. Testnets will be `configured`, mainnets `gated`. |
+| Local EVM (Anvil) | fixed-supply ERC-20 | ETH, ERC-20 | **verified**: `npm run test:e2e` and a browser run with an EIP-6963 test wallet (`npm run demo:evm`) |
+| Ethereum Sepolia, Robinhood Chain Testnet, Base Sepolia (in that order), then Arbitrum Sepolia, OP Sepolia, Polygon Amoy, BNB Testnet | fixed-supply ERC-20 | native, ERC-20 | **configured**: same adapter as Anvil, but not run on these networks yet, because the demo key has no testnet ETH |
+| The matching EVM mainnets | fixed-supply ERC-20 | native, ERC-20 | **gated** behind `PROMPTFUN_ENABLE_EVM_MAINNETS=1`. Never broadcast. |
 
 ### Devnet evidence (2026-10-09)
 
@@ -54,6 +56,14 @@ ChatGPT can't reach `127.0.0.1`. See [docs/connect-chatgpt.md](docs/connect-chat
 | `get_action_status` | Current state. Once confirmed, the receipt read from the chain plus explorer links. | read-only |
 | `get_balance` | Native or token balance, read from the chain | read-only |
 
+### EVM launches
+
+An EVM launch deploys `contracts/PromptfunToken.sol`, which is OpenZeppelin's `ERC20` with the whole supply minted once to the deployer. It has no owner, no mint, no pause, and no upgrade path. The contract is compiled when first used, with a pinned `solc` 0.8.37 (EVM version `paris`, so it runs on every listed chain), and no bytecode is checked in.
+
+Wallets send EVM transactions themselves (`eth_sendTransaction`), so the server can't check bytes before broadcast. Instead it checks the transaction afterwards. It reads the transaction by hash and requires `from`, `to`, data, value, and chain ID to match the preview exactly. For a launch it also requires the deployed code to be byte-identical to the code the simulation produced, then reads name, symbol, decimals, supply, and the deployer's balance. Any difference is reported as `failed` with a MISMATCH line, never as success.
+
+Fees come from `eth_estimateGas` × the live base fee plus tip, rounded up to 8 decimals. On OP-stack chains (Base, OP) the L1 data fee from the GasPriceOracle predeploy is added. On Arbitrum Nitro chains (Robinhood Chain, Arbitrum) the gas estimate already includes L1 costs.
+
 `prepare_*` and `get_action_status` link the MCP Apps card `ui://promptfun/intent-card-v1.html` (`text/html;profile=mcp-app`) through `_meta.ui.resourceUri`, with `openai/outputTemplate` as ChatGPT's alias. The card shows the decoded steps, the network fee, and the status. It opens the approval page with `ui/open-link`, falling back to `window.openai.openExternal`. Every result also includes plain text with the link, for hosts that don't render the card.
 
 ## How an action flows
@@ -71,7 +81,7 @@ Solana SPL mints are created at an address derived from the user's key (`createA
 Previews show **"Network fee (paid to <chain>, not promptfun)"**:
 
 - **Solana:** `getFeeForMessage` on the exact message, plus rent deposits, which come live from `getMinimumBalanceForRentExemption` for each new account. Nothing is hard-coded.
-- **EVM (when it lands):** `estimateGas` × the live fee, plus the L1 data fee on rollups.
+- **EVM:** `eth_estimateGas` × the live base fee plus tip, plus the L1 data fee on OP-stack chains. Rounded up, and the cap if the base fee rises is shown too.
 - **USD** is shown only on mainnets, from a live Pyth Hermes price under 2 minutes old. Testnet coins have no value, so they get no USD.
 - **promptfun fee:** none.
 
@@ -82,9 +92,9 @@ Previews show **"Network fee (paid to <chain>, not promptfun)"**:
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | Listen address |
 | `PROMPTFUN_PUBLIC_URL` | `http://127.0.0.1:$PORT` | Public origin for approval links. Also the allowed `Host` for `/mcp`. |
 | `PROMPTFUN_DB` | `./data/promptfun.sqlite` | Intent store (`node:sqlite`). It holds no keys. |
-| `PROMPTFUN_ENABLE_LOCALNET` | off | Enable `solana-localnet` (`solana-test-validator`) |
+| `PROMPTFUN_ENABLE_LOCALNET` | off | Enable `solana-localnet` (`solana-test-validator`) and `evm-localnet` (`anvil`) |
 | `PROMPTFUN_ENABLE_PUMPFUN_MAINNET` | off | Enable pump.fun launches on Solana mainnet. **Spends real SOL.** Single-user local runs only. |
-| `PROMPTFUN_ENABLE_EVM_MAINNETS` | off | Enable EVM mainnets, once the adapter exists |
+| `PROMPTFUN_ENABLE_EVM_MAINNETS` | off | Enable EVM mainnets. **Spends real ETH, BNB, or POL.** Single-user local runs only. |
 | `PROMPTFUN_RPC_<CHAIN_KEY>` | public RPCs | Override an RPC, for example `PROMPTFUN_RPC_SOLANA_DEVNET` |
 | `PROMPTFUN_INTENT_TTL_MS` | 900000 | Intent lifetime |
 | `PROMPTFUN_MAX_INTENTS_PER_HOUR` | 120 | Global creation rate limit |
@@ -95,8 +105,10 @@ Previews show **"Network fee (paid to <chain>, not promptfun)"**:
 npm run typecheck
 npm test                          # unit tests, no network
 solana-test-validator --reset &   # Agave CLI
-npm run test:e2e                  # MCP client → tools → approval API → local chain
+anvil &                           # Foundry
+npm run test:e2e                  # MCP client → tools → approval API → local chains (Solana and EVM)
 npm run demo:devnet               # the real public devnet run (needs a funded devnet key; opens Chrome)
+npm run demo:evm                  # browser run on anvil with the EIP-6963 test wallet
 ```
 
 ## Security
@@ -110,11 +122,12 @@ npm run demo:devnet               # the real public devnet run (needs a funded d
 
 ## Not done yet
 
-- The EVM adapter, coming next in the order Ethereum, Robinhood Chain, Base.
+- Public EVM testnet runs. They need testnet ETH for the demo key on Sepolia, Robinhood Chain Testnet, and Base Sepolia.
+- Sponsored (walletless) launches inside ChatGPT. The design is in progress; the approval page stays as the bring-your-own-wallet path.
 - OAuth, which is required before mainnets go on a shared server.
 - WalletConnect (mobile) and passkeys.
 - Image and IPFS upload.
-- A run with Phantom itself, which needs a human with the extension.
+- A run with Phantom or MetaMask themselves, which needs a human with the extension.
 - Listing in the public ChatGPT app directory, which OpenAI's policy blocks. See the connection guide.
 
 ## Layout
@@ -126,9 +139,10 @@ src/
   intents/                    intent service, SQLite store, types
   chains/                     registry, adapter interface
     solana/                   adapter, byte decoder, pump.fun builder
-    evm/                      chain list (adapter next)
+    evm/                      chain list, adapter, call decoder, token compiler
   web/page.ts                 server-rendered approval page
-public/                       approve.js (Wallet Standard), approve.css, fonts (OFL)
-scripts/                      devnet demo driver, Wallet Standard test wallet
+contracts/                    PromptfunToken.sol (fixed-supply ERC-20 on OpenZeppelin)
+public/                       approve.js (Wallet Standard and EIP-6963), approve.css, fonts (OFL)
+scripts/                      demo drivers; Wallet Standard and EIP-6963 test wallets
 test/unit, test/e2e
 ```

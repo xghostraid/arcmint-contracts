@@ -12,6 +12,41 @@ npm start
 
 Open `http://127.0.0.1:4321/`. Subpages: `/docs`, `/explore`, `/terms`, `/privacy` (with or without a trailing slash).
 
+## Local preview (Mac)
+
+If the browser shows a blank page or “can’t connect,” the dev server often is not running or port **4321** is already taken. Follow these steps exactly:
+
+1. Clone the repo and check out the site branch:
+   ```bash
+   git clone https://github.com/xghostraid/arcmint-contracts.git
+   cd arcmint-contracts
+   git checkout cursor/promptfun-site-e1a9
+   ```
+2. Install and start the static server (keep this terminal open):
+   ```bash
+   cd promptfun-site
+   npm install
+   npm start
+   ```
+   You should see: `promptfun.fun site on http://127.0.0.1:4321`
+3. **Before opening a browser**, confirm HTML is being served:
+   ```bash
+   curl -s http://127.0.0.1:4321/ | grep '<title>'
+   ```
+   Expected output includes:
+   `<title>promptfun.fun · Say it in Claude. Approve in your wallet. Done.</title>`
+4. Open [http://127.0.0.1:4321](http://127.0.0.1:4321) in your browser.
+
+If `npm start` exits immediately with **Port 4321 in use**, free the port or use another:
+
+```bash
+lsof -ti :4321 | xargs kill -9
+# or
+PORT=8765 npm start
+```
+
+Then open `http://127.0.0.1:8765` (or re-run the `curl` check against that port).
+
 ## Deploy on Vercel
 
 Set the project **Root Directory** to `promptfun-site`. Static files are served from `public/`; `vercel.json` rewrites extensionless routes (`/explore`, `/docs`, …) to each folder’s `index.html`, matching `server.js`. For local preview, use `npm start` (Node static server with the same path rules).

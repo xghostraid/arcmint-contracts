@@ -76,7 +76,16 @@ export function handler(req, res) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  createServer(handler).listen(PORT, HOST, () => {
+  const server = createServer(handler);
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error("Port 4321 in use — run: lsof -ti :4321 | xargs kill -9");
+      console.error("Or pick another port: PORT=8765 npm start");
+      process.exit(1);
+    }
+    throw err;
+  });
+  server.listen(PORT, HOST, () => {
     console.log(`promptfun.fun site on http://${HOST}:${PORT}`);
   });
 }

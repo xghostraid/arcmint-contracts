@@ -30,6 +30,9 @@ export interface Config {
   enablePumpfunDevnet: boolean;
   /** Permissionless pump.fun creator-fee payouts (sponsor pays tx fee). */
   enablePayoutCron: boolean;
+  /** Privy app credentials for claim-later embedded Solana wallets (env only; never commit secrets). */
+  privyAppId: string | null;
+  privyAppSecret: string | null;
   env: NodeJS.ProcessEnv;
 }
 
@@ -67,6 +70,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sponsorFeeRecipient: env.PROMPTFUN_SPONSOR_FEE_RECIPIENT?.trim() || null,
     enablePumpfunDevnet: flag(env.PROMPTFUN_ENABLE_PUMPFUN_DEVNET),
     enablePayoutCron: env.PROMPTFUN_ENABLE_PAYOUT_CRON === "0" ? false : flag(env.PROMPTFUN_ENABLE_PAYOUT_CRON) || flag(env.PROMPTFUN_ENABLE_SPONSORED_LAUNCHES),
+    privyAppId: env.PROMPTFUN_PRIVY_APP_ID?.trim() || null,
+    privyAppSecret: env.PROMPTFUN_PRIVY_APP_SECRET?.trim() || null,
     env,
   };
 }

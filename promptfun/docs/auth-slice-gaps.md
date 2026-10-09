@@ -16,8 +16,8 @@ The auth foundation lives under `promptfun/src/auth/` and `promptfun/src/platfor
 
 ## Still missing
 
-- `ClaimLaterWalletProvider` / Privy integration and `docs/custody.md`.
-- `wallet-provider.test.ts`.
+- ~~`ClaimLaterWalletProvider` / Privy integration and `docs/custody.md`.~~ **Shipped:** `src/wallets/`, `/claim`, `/api/claim/wallet`, MCP `get_claim_wallet`, `docs/custody.md`.
+- ~~`wallet-provider.test.ts`.~~ **Shipped:** `test/unit/wallet-provider.test.ts`.
 - Email delivery for magic links (dev exposes link when `PROMPTFUN_OAUTH_EXPOSE_MAGIC_LINK=1`).
 - Full ops dashboard (pause toggle exists; no UI).
 - Mainnet pump.fun sponsored launches and mainnet fee/market reads.

@@ -18,6 +18,8 @@ import type { PlatformStore } from "../platform/store.js";
 import { assertLaunchQuota } from "../platform/quota.js";
 import { assertGlobalSponsoredLaunchQuota } from "../platform/global-quota.js";
 import { assertMonthlyBudget, monthKeyUtc, recordSponsorSpendUsd } from "../platform/budget-ledger.js";
+import type { ClaimWalletView, WalletProvider } from "../wallets/types.js";
+import type { ClaimLaterWalletProvider } from "../wallets/claim-later.js";
 
 const U64_MAX = (1n << 64n) - 1n;
 
@@ -63,8 +65,23 @@ export class IntentService {
     readonly store: IntentStore,
     readonly pictures: PictureService,
     readonly platform: PlatformStore | null = null,
+    private readonly claimWallets: WalletProvider | null = null,
   ) {
     this.sponsorSigner = createFeePayerSigner(config);
+  }
+
+  callerIdentity(): AuthenticatedUser | null {
+    return this.caller;
+  }
+
+  claimWalletUrl(): string {
+    return (this.claimWallets as ClaimLaterWalletProvider | null)?.claimUrl?.() ?? `${this.config.publicUrl}/claim`;
+  }
+
+  async resolveClaimWallet(): Promise<ClaimWalletView | null> {
+    if (!this.caller || !this.claimWallets?.isConfigured()) return null;
+    const record = await (this.claimWallets as ClaimLaterWalletProvider).ensureSolanaWallet(this.caller.sub, this.caller.email);
+    return (this.claimWallets as ClaimLaterWalletProvider).toView(record);
   }
 
   setCaller(user: AuthenticatedUser | null): void {
@@ -279,6 +296,9 @@ export class IntentService {
       const adapter = adapterFor(chain.family);
       if (!adapter.isAddress(creatorWallet)) throw new IntentError(`"${creatorWallet}" is not a valid Solana wallet for creator fees.`);
       feeRecipient = creatorWallet;
+    } else if (this.caller && this.claimWallets?.isConfigured() && chain.family === "solana") {
+      const record = await (this.claimWallets as ClaimLaterWalletProvider).ensureSolanaWallet(this.caller.sub, this.caller.email);
+      feeRecipient = record.solanaAddress;
     }
     const params: LaunchParams = {
       name,

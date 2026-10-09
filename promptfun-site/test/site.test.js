@@ -106,20 +106,26 @@ test("has every required section", () => {
   assert.match(html, /class="hero"/);
 });
 
-test("how-it-works uses four getplugged-style rows with PROMPT fee tiers", () => {
+test("how-it-works is chat-first journey with PROMPT fee tiers, not numbered clone rows", () => {
   const how = html.match(/<section class="section section-flow" id="how"[\s\S]*?<\/section>/)[0];
-  assert.match(how, /class="flow-steps"/);
-  const rows = [...how.matchAll(/<li class="flow-step[^"]*"[^>]*>/g)];
-  assert.equal(rows.length, 4);
-  assert.match(how, /You approve every launch\. No tap, no coin\./);
-  assert.match(how, /Add your picture\. Upload in chat, then launch\./);
-  assert.match(how, /flow-upload-panel/);
-  assert.match(how, /Launch on Solana mainnet\. Real tokens/);
+  assert.match(how, /class="chat-journey"/);
+  assert.doesNotMatch(how, /class="flow-steps"/);
+  assert.doesNotMatch(how, /flow-num/);
+  assert.doesNotMatch(how, /No tap, no coin/);
+  const beats = [...how.matchAll(/<li class="journey-beat[^"]*"[^>]*>/g)];
+  assert.equal(beats.length, 4);
+  assert.match(how, /You approve every launch/);
+  assert.match(how, /JPEG or PNG/);
+  assert.match(how, /journey-upload-panel/);
+  assert.match(how, /Mainnet pump\.fun is live/);
+  assert.match(how, /Solana mainnet/);
   assert.match(how, /70%/);
   assert.match(how, /40%/);
   assert.match(how, /\$PROMPT/);
-  assert.match(how, /pump\.fun[\s\S]*creator fees/);
-  assert.match(how, /Add Solana wallet at launch/);
+  assert.match(how, /pump\.fun creator fees/);
+  assert.match(how, /creatorWallet/);
+  assert.match(how, /class="fee-tier-cards"/);
+  assert.match(how, /<em>Done<\/em> on chain/);
 });
 
 test("every in-page link points at a real section", () => {

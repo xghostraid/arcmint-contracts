@@ -121,52 +121,79 @@
   </section>
 
   <section class="section section-flow" id="how" aria-labelledby="how-title">
-    <div class="wrap">
-      <p class="eyebrow">How it works</p>
-      <h2 id="how-title">Four steps from chat to coin. You stay in control.</h2>
-      <p class="section-lede">Approve in Claude, add art, go live on Solana, and earn pump.fun creator fees on every trade.</p>
-      <ol class="flow-steps">
-        <li class="flow-step">
-          <span class="flow-num" aria-hidden="true">1</span>
-          <div class="flow-copy">
-            <p class="flow-text">You approve every launch. No tap, no coin.</p>
-            <p class="flow-detail">Sponsored launches use a sunny preview card in chat. Tap confirm there — not a separate wallet app — unless a step needs your Solana wallet.</p>
+    <div class="flow-deco" aria-hidden="true">
+      <img class="flow-deco-star" src="/art/star.svg" alt="" width="56" height="56">
+      <img class="flow-deco-squiggle" src="/art/squiggle.svg" alt="" width="140" height="48">
+      <img class="flow-deco-coin" src="/art/coin.svg" alt="" width="64" height="64">
+    </div>
+    <div class="wrap flow-wrap">
+      <div class="flow-intro">
+        <p class="eyebrow">How it works</p>
+        <h2 id="how-title">Prompt in Claude. Preview in chat. <em>Done</em> on chain.</h2>
+        <p class="section-lede">Same thread the whole way — sunny cards, plain words, and your approval before anything hits Solana. Creator fees follow pump.fun rules; $PROMPT holders get the higher tier when it is enforced.</p>
+      </div>
+
+      <ol class="chat-journey">
+        <li class="journey-beat journey-beat-approve">
+          <div class="journey-beat-head">
+            <span class="journey-tag">In chat</span>
+            <img class="journey-doodle" src="/art/step-approve.svg" alt="" width="56" height="56">
           </div>
-          <div class="flow-visual" aria-hidden="true"><img src="/art/step-approve.svg" alt="" width="72" height="72"></div>
+          <p class="journey-prompt"><span class="q">“</span>Launch Moonbeam, ticker BEAM — show me first.<span class="q">”</span></p>
+          <h3 class="journey-title">You approve every launch</h3>
+          <p class="journey-body">promptfun.fun answers with a preview card in Claude — not a surprise mint. Tap <strong>Launch it</strong> on mainnet (sponsored, no wallet) or confirm in chat on devnet. Wallet approval on /approve is fallback only.</p>
         </li>
-        <li class="flow-step flow-step-upload">
-          <span class="flow-num" aria-hidden="true">2</span>
-          <div class="flow-copy">
-            <p class="flow-text">Add your picture. Upload in chat, then launch.</p>
-            <p class="flow-detail">Drop a JPEG or PNG in the Claude thread. promptfun.fun strips metadata, pins it for the token image, and shows the picture panel before you launch.</p>
-            <div class="flow-upload-panel" aria-hidden="true">
-              <div class="flow-upload-thumb"></div>
-              <div class="flow-upload-meta">
-                <p class="flow-upload-title">Coin image</p>
-                <p class="flow-upload-sub">Upload in chat · IPFS ready</p>
-              </div>
-              <span class="flow-upload-badge">Live</span>
+
+        <li class="journey-beat journey-beat-art">
+          <div class="journey-beat-head">
+            <span class="journey-tag">Picture</span>
+            <img class="journey-doodle" src="/art/step-preview.svg" alt="" width="56" height="56">
+          </div>
+          <p class="journey-prompt journey-prompt-you">Drop a JPEG or PNG right in the thread</p>
+          <h3 class="journey-title">Art lives in the conversation</h3>
+          <p class="journey-body">Upload in chat. We strip metadata, pin the image for the token, and show a picture panel before launch.</p>
+          <div class="journey-upload-panel" aria-hidden="true">
+            <div class="journey-upload-thumb"></div>
+            <div class="journey-upload-meta">
+              <p class="journey-upload-title">Coin image</p>
+              <p class="journey-upload-sub">Attached in Claude · IPFS ready</p>
+            </div>
+            <span class="journey-upload-badge">Live</span>
+          </div>
+        </li>
+
+        <li class="journey-beat journey-beat-mainnet">
+          <div class="journey-beat-head">
+            <span class="journey-tag">Solana</span>
+            <img class="journey-doodle" src="/art/step-say.svg" alt="" width="56" height="56">
+          </div>
+          <p class="journey-prompt journey-prompt-claude">Receipt lands back in the same chat</p>
+          <h3 class="journey-title">Mainnet pump.fun is live</h3>
+          <p class="journey-body">Real tokens on Solana mainnet when you tap Launch it — promptfun.fun pays network fees from the sponsor wallet (real SOL). Devnet stays for ops testing with test SOL only.</p>
+          <span class="status status-live">Live on mainnet</span>
+        </li>
+
+        <li class="journey-beat journey-beat-fees" id="prompt-fees">
+          <div class="journey-beat-head">
+            <span class="journey-tag">Creator fees</span>
+            <img class="journey-doodle" src="/art/step-receipt.svg" alt="" width="56" height="56">
+          </div>
+          <h3 class="journey-title">Earn on trades with pump.fun creator fees</h3>
+          <p class="journey-body">Set <code>creatorWallet</code> at launch so fees lock to your Solana address. Holding <strong>$PROMPT</strong> unlocks the higher share once tier checks ship on-chain.</p>
+          <div class="fee-tier-cards" aria-label="$PROMPT creator fee tiers">
+            <div class="fee-tier-card">
+              <p class="fee-tier-label">Default</p>
+              <p class="fee-tier-value"><strong>40%</strong></p>
+              <p class="fee-tier-note">of pump.fun creator fees</p>
+            </div>
+            <div class="fee-tier-or" aria-hidden="true">with</div>
+            <div class="fee-tier-card fee-tier-card-boost">
+              <p class="fee-tier-label">$PROMPT holder</p>
+              <p class="fee-tier-value"><strong>70%</strong></p>
+              <p class="fee-tier-note">when tier is enforced</p>
             </div>
           </div>
-          <div class="flow-visual" aria-hidden="true"><img src="/art/step-preview.svg" alt="" width="72" height="72"></div>
-        </li>
-        <li class="flow-step">
-          <span class="flow-num" aria-hidden="true">3</span>
-          <div class="flow-copy">
-            <p class="flow-text">Launch on Solana mainnet. Real tokens; tap Launch it in chat.</p>
-            <p class="flow-detail">Mainnet pump.fun spends real SOL from the promptfun.fun sponsor wallet when you tap Launch it. Devnet stays available for ops testing with test SOL only.</p>
-            <span class="status status-live">Live on mainnet</span>
-          </div>
-          <div class="flow-visual" aria-hidden="true"><img src="/art/step-say.svg" alt="" width="72" height="72"></div>
-        </li>
-        <li class="flow-step flow-step-fees" id="prompt-fees">
-          <span class="flow-num" aria-hidden="true">4</span>
-          <div class="flow-copy">
-            <p class="flow-text">Earn on trades. Up to <strong>70%</strong> of pump.fun <strong>creator fees</strong> when you hold <strong>$PROMPT</strong> — <strong>40%</strong> otherwise. Add Solana wallet at launch.</p>
-            <p class="flow-detail">Set <code>creatorWallet</code> on launch so pump.fun locks fees to you. Holding $PROMPT unlocks the higher share once the tier is enforced on-chain.</p>
-            <p class="flow-detail flow-detail-fine"><span class="status status-building">Tier rules: marketing now</span> On-chain $PROMPT balance checks and automatic fee splits ship after the mint is set. Details in <a href="#prompt-fees">step 4</a> and the product fee-tier spec (on-chain enforcement phased).</p>
-          </div>
-          <div class="flow-visual" aria-hidden="true"><img src="/art/step-receipt.svg" alt="" width="72" height="72"></div>
+          <p class="journey-fine"><span class="status status-building">Tier rules: marketing now</span> On-chain balance checks and automatic splits follow the mint. See <a href="#prompt-fees">creator fees</a> here and the product fee-tier spec (enforcement phased).</p>
         </li>
       </ol>
     </div>
@@ -353,7 +380,7 @@
     <div class="wrap faq-wrap">
       <div>
         <p class="eyebrow">FAQ</p>
-        <h2 id="faq-title">Before you plug it into Claude.</h2>
+        <h2 id="faq-title">Before you connect Claude.</h2>
         <img class="faq-art" src="/art/faq.svg" alt="" width="220" height="200">
       </div>
       <div class="faq">

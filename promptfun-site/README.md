@@ -49,9 +49,9 @@ Then open `http://127.0.0.1:8765` (or re-run the `curl` check against that port)
 
 ## Deploy on Vercel
 
-Set the project **Root Directory** to `promptfun-site`. Static files are served from `public/`; `vercel.json` rewrites extensionless routes (`/explore`, `/docs`, …) to each folder’s `index.html`, matching `server.js`.
+Set the project **Root Directory** to `promptfun-site`. Static files are served from `public/`; `vercel.json` routes extensionless pages (`/explore`, `/docs`, …) to each folder’s `index.html`, matching `server.js`.
 
-**One Claude link (getplugged parity):** `vercel.json` also proxies `/mcp`, `/api/*`, `/oauth/*`, and `/.well-known/*` to the MCP host (`https://promptfun-mcp.fly.dev` by default — change those destinations to your MCP deployment before go-live). After deploy, the connector URL is `https://promptfun.fun/mcp` with Authentication: No sign-in (or OAuth when required).
+**One Claude link (getplugged parity):** In the Vercel project, set **`PROMPTFUN_BACKEND_URL`** (see `.env.example`) to the HTTPS origin of your MCP Node service (no trailing slash). `vercel.json` proxies `/mcp`, `/api/*`, `/oauth/*`, `/.well-known/*`, `/approve/*`, and `/static/*` to that host at request time. After deploy, the connector URL is `https://promptfun.fun/mcp` with Authentication: No sign-in (or OAuth when required).
 
 For local preview, use `npm start` (Node static server with the same path rules). Live stats on `/` and `/explore` call `/api/stats` and `/api/coins` on the same origin; point `data-api-origin` at a running MCP server when testing counters locally.
 

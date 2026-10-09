@@ -23,6 +23,8 @@ export function handleStatusApi(
   json(200, {
     oauthEnabled: config.oauthEnabled,
     oauthRequired: config.oauthRequired,
+    claimWalletEnabled: Boolean(config.privyAppId && config.privyAppSecret && config.oauthEnabled),
+    claimUrl: `${config.publicUrl}/claim`,
     sponsoredLaunches: {
       enabled: sponsored.sponsoredLaunchesEnabled,
       killSwitch: sponsored.killSwitch,

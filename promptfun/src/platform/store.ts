@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import type { ClaimWalletRecord } from "../wallets/types.js";
 
 export interface OAuthClient {
   clientId: string;
@@ -67,6 +68,19 @@ export class PlatformStore {
         created_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_sponsor_spend_month ON sponsor_spend (month_key);
+      CREATE TABLE IF NOT EXISTS claim_wallets (
+        sub TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        privy_user_id TEXT NOT NULL,
+        solana_address TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS claim_magic (
+        token TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        expires_at INTEGER NOT NULL
+      );
     `);
   }
 
@@ -136,6 +150,36 @@ export class PlatformStore {
   sumSponsorSpend(monthKey: string): number {
     const row = this.db.prepare("SELECT COALESCE(SUM(usd_estimate), 0) AS s FROM sponsor_spend WHERE month_key = ?").get(monthKey) as { s: number };
     return row.s;
+  }
+
+  getClaimWallet(sub: string): ClaimWalletRecord | undefined {
+    const row = this.db.prepare(`
+      SELECT sub, email, privy_user_id AS privyUserId, solana_address AS solanaAddress, created_at AS createdAt, updated_at AS updatedAt
+      FROM claim_wallets WHERE sub = ?
+    `).get(sub) as ClaimWalletRecord | undefined;
+    return row;
+  }
+
+  saveClaimWallet(record: ClaimWalletRecord): void {
+    const existing = this.getClaimWallet(record.sub);
+    const createdAt = existing?.createdAt ?? record.createdAt;
+    this.db.prepare(`
+      INSERT OR REPLACE INTO claim_wallets (sub, email, privy_user_id, solana_address, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(record.sub, record.email, record.privyUserId, record.solanaAddress, createdAt, record.updatedAt);
+  }
+
+  saveClaimMagicToken(token: string, email: string, expiresAt: number): void {
+    this.db.prepare("INSERT OR REPLACE INTO claim_magic (token, email, expires_at) VALUES (?, ?, ?)").run(token, email, expiresAt);
+  }
+
+  consumeClaimMagicToken(token: string): string | null {
+    const row = this.db.prepare("SELECT email, expires_at FROM claim_magic WHERE token = ?").get(token) as
+      | { email: string; expires_at: number }
+      | undefined;
+    if (!row || row.expires_at < Date.now()) return null;
+    this.db.prepare("DELETE FROM claim_magic WHERE token = ?").run(token);
+    return row.email;
   }
 
   close(): void {

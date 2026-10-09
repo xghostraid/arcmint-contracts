@@ -18,7 +18,7 @@ import type { Config } from "../config.js";
 
 function limitations(config: Config): string[] {
   return [
-    "Sponsored launches on Solana testnets: when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. SPL is default; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1 and locks 100% creator fees to PROMPTFUN_SPONSOR_FEE_RECIPIENT (defaults to sponsor). Mainnet pump.fun stays wallet-approved until OAuth lands.",
+    "Sponsored launches on Solana testnets: when PROMPTFUN_ENABLE_SPONSORED_LAUNCHES=1 and a sponsor key is set, prepare_launch is read-only and confirm_launch sends with promptfun as fee payer. SPL is default; pump.fun on devnet needs PROMPTFUN_ENABLE_PUMPFUN_DEVNET=1. Creator fees lock to creatorWallet, or to the signed-in user's claim-later Privy Solana wallet when PROMPTFUN_PRIVY_* is set, otherwise PROMPTFUN_SPONSOR_FEE_RECIPIENT (defaults to sponsor). Mainnet pump.fun stays wallet-approved until OAuth lands.",
     "Wallet path: the user approves each action on the approval page. Claude's Allow on a write tool approves the tool call, not a transaction.",
     config.oauthRequired
       ? "OAuth required: Claude must sign in (Bearer token on /mcp). Mainnets stay off until ops enables them."
@@ -162,8 +162,45 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
           promptfunFee: "0",
           sponsoredLaunches: sponsorBudgetSnapshot(config),
           sponsorPublicKey: service.sponsorPublicKey?.() ?? null,
+          claimWalletUrl: service.claimWalletUrl(),
         },
       };
+    },
+  );
+
+  server.registerTool(
+    "get_claim_wallet",
+    {
+      title: "Claim-later creator wallet",
+      description: "Read-only. Returns the user's Solana payout wallet for locked pump.fun creator fees when OAuth and Privy are configured. Signed-in MCP callers get their wallet; unsigned callers get the /claim page URL.",
+      inputSchema: z.object({}),
+      annotations: READ,
+    },
+    async () => {
+      try {
+        const claimUrl = service.claimWalletUrl();
+        const wallet = await service.resolveClaimWallet();
+        if (wallet) {
+          return {
+            content: [{
+              type: "text",
+              text: `Creator fees lock to your Solana wallet ${wallet.solanaAddress}. Manage or export it at ${claimUrl}.`,
+            }],
+            structuredContent: wallet as unknown as Record<string, unknown>,
+          };
+        }
+        return {
+          content: [{
+            type: "text",
+            text: service.callerIdentity()
+              ? "Claim wallets are not configured on this server (Privy credentials missing)."
+              : `Sign in via OAuth, then call again—or open ${claimUrl} with the same email you use in Claude.`,
+          }],
+          structuredContent: { claimUrl, privyConfigured: false, signedIn: Boolean(service.callerIdentity()) },
+        };
+      } catch (err) {
+        return fail(err);
+      }
     },
   );
 
@@ -252,7 +289,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
         fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),
         venue: z.enum(["spl", "pumpfun", "erc20"]).optional(),
-        creatorWallet: z.string().max(64).optional().describe("Solana wallet for locked pump.fun creator fees on sponsored launches. Omit to use the sponsor wallet (100% to promptfun until claim-later ships)."),
+        creatorWallet: z.string().max(64).optional().describe("Solana wallet for locked pump.fun creator fees on sponsored launches. Omit when the user is signed in to use their claim-later Privy wallet, or the sponsor fee recipient when not."),
         idempotencyKey: z.string().max(64).optional(),
       }),
       annotations: READ,

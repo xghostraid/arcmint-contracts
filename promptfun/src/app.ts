@@ -22,6 +22,8 @@ import { handleOAuthRoutes } from "./auth/routes.js";
 import { PlatformStore, platformDbPath } from "./platform/store.js";
 import { handleOpsRoutes, handleStatusApi } from "./api/status.js";
 import { PayoutCron } from "./payout/cron.js";
+import { ClaimLaterWalletProvider } from "./wallets/claim-later.js";
+import { handleClaimRoutes } from "./wallets/routes.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = [path.resolve(here, "../public"), path.resolve(here, "../../public")].find((dir) => fs.existsSync(dir))!;
@@ -87,7 +89,10 @@ export function createApp(config: Config): App {
   const coinStore = new CoinIndexStore(config.dbPath);
   const platform = config.oauthEnabled ? new PlatformStore(platformDbPath(config.dbPath)) : null;
   const oauth = platform ? new OAuthServer(config, platform) : null;
-  const service = new IntentService(config, store, pictures, platform);
+  const claimWallets = platform && config.privyAppId && config.privyAppSecret
+    ? new ClaimLaterWalletProvider(config, platform)
+    : null;
+  const service = new IntentService(config, store, pictures, platform, claimWallets);
   const coins = new CoinIndexService(config, store, coinStore);
   const payoutCron = new PayoutCron(config, coinStore);
   const mcp = createMcpHandler(() => buildServer(service, coins), { legacy: "stateless" });
@@ -134,6 +139,7 @@ export function createApp(config: Config): App {
 
       if (handleStatusApi(req, res, pathname, (status, body) => json(res, status, body), config, platform)) return;
       if (await handleOpsRoutes(req, pathname, (status, body) => json(res, status, body), config, () => readJson(req))) return;
+      if (await handleClaimRoutes(req, res, pathname, url, config, platform, claimWallets, (status, body) => json(res, status, body), (status, type, body) => send(res, status, type, body))) return;
 
       if (handleCoinsApi(req, res, pathname, url, coins, (status, body) => json(res, status, body))) return;
 

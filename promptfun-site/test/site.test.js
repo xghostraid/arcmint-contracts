@@ -127,19 +127,23 @@ test("no fake transaction hashes, signatures, or addresses", () => {
 
 test("chain claims are labelled honestly", () => {
   const chains = html.slice(html.indexOf('id="chains"'), html.indexOf('id="connect"'));
-  const items = [...chains.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
-  assert.ok(items.length >= 3);
+  const items = [...chains.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+  assert.ok(items.length >= 6, `expected network rows in #chains, found ${items.length}`);
   for (const item of items) {
     assert.match(item, /class="status /, `unlabelled capability: ${item}`);
   }
-  assert.match(chains, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live">Live/);
-  assert.match(chains, /EVM chains[\s\S]*Coming next/);
-  const evm = chains.slice(chains.indexOf("EVM chains"));
-  const order = ["Ethereum", "Robinhood Chain", "Base"].map((name) => evm.indexOf(`</span>${name}</span>`));
+  assert.match(chains, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live"[^>]*>Live/);
+  assert.match(chains, /Launch with your wallet on Solana devnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.match(chains, /Robinhood Chain Testnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.match(chains, /EVM testnets[\s\S]*status-live/);
+  const evmMain = chains.slice(chains.indexOf("EVM mainnets"));
+  const order = ["Ethereum", "Robinhood Chain", "Base"].map((name) => evmMain.indexOf(`</span>${name}</span>`));
   assert.ok(order.every((i) => i > 0), "Ethereum, Robinhood Chain and Base are all listed");
   assert.deepEqual([...order].sort((a, b) => a - b), order, "EVM order is Ethereum, Robinhood Chain, Base");
-  assert.match(evm, /Ethereum<\/span><span class="status status-soon">Coming next/);
-  assert.match(html, /Solana mainnet pump\.fun launches are live/);
+  assert.match(evmMain, /Ethereum<\/span><span class="status status-soon"[^>]*>Coming next/);
+  assert.match(html, /data-networks-panel/);
+  assert.match(html, /\/networks\.js/);
+  assert.match(html, /mainnet, devnet &amp; testnets/);
 });
 
 test("network fees are dated, sourced, and never a promptfun.fun price", () => {
@@ -190,8 +194,8 @@ test("the wallet flow is the headline, demo shows Preview then Wallet then Recei
   assert.match(caption, /real SOL/i, "demo caption warns about mainnet funds");
 
   const main = html.slice(html.indexOf("<main"), html.indexOf("</main>")).replace(/<figure class="demo"[\s\S]*?<\/figure>/, "");
-  assert.match(main, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live">Live/);
-  assert.match(main, /Launch with no wallet \(sponsored\)<\/span><span class="status status-testing">Devnet only/);
+  assert.match(main, /Launch on pump\.fun \(Solana mainnet\)<\/span><span class="status status-live"[^>]*>Live/);
+  assert.match(main, /Launch with no wallet \(sponsored, devnet\)<\/span><span class="status status-live"[^>]*>Live · testnet/);
   assert.match(main, /Live on mainnet/);
 });
 

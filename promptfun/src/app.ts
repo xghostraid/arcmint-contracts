@@ -24,6 +24,7 @@ import { authenticateBearer, mcpUnauthorizedHeaders } from "./auth/mcp.js";
 import { handleOAuthRoutes } from "./auth/routes.js";
 import { PlatformStore, platformDbPath } from "./platform/store.js";
 import { handleOpsRoutes, handleStatusApi } from "./api/status.js";
+import { handleNetworksApi } from "./api/networks.js";
 import { PayoutCron } from "./payout/cron.js";
 import { ClaimLaterWalletProvider } from "./wallets/claim-later.js";
 import { handleClaimRoutes } from "./wallets/routes.js";
@@ -140,6 +141,7 @@ export function createApp(config: Config): App {
       }
 
       if (handleStatusApi(req, res, pathname, (status, body) => json(res, status, body), config, platform)) return;
+      if (handleNetworksApi(req, pathname, (status, body) => json(res, status, body), config)) return;
       if (await handleOpsRoutes(req, pathname, (status, body) => json(res, status, body), config, () => readJson(req))) return;
       if (await handleClaimRoutes(req, res, pathname, url, config, platform, claimWallets, (status, body) => json(res, status, body), (status, type, body) => send(res, status, type, body))) return;
 

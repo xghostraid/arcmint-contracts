@@ -30,7 +30,7 @@ test("capabilities list Solana chains with honest status", async () => {
   assert.equal(local.status, "verified");
   const robinhood = r.data.chains.find((c: any) => c.key === "robinhood-testnet");
   assert.equal(robinhood.chainId, 46630);
-  assert.equal(robinhood.enabled, false);
+  assert.equal(robinhood.status, "configured");
   assert.equal(r.data.promptfunFee, "0");
 });
 
@@ -112,6 +112,6 @@ test("bad inputs are refused with plain reasons", async () => {
   const mainnet = await h.call("prepare_launch", { chain: "solana-mainnet", name: "Gated", symbol: "GATE", metadataUri: "https://example.com/m.json" });
   assert.equal(mainnet.isError, true);
   assert.match(mainnet.text, /off/);
-  const evm = await h.call("prepare_transfer", { chain: "ethereum-sepolia", asset: "native", amount: "0.1", to: "0x0000000000000000000000000000000000000001" });
-  assert.equal(evm.isError, true);
+  const evmMainnet = await h.call("prepare_transfer", { chain: "ethereum", asset: "native", amount: "0.1", to: "0x0000000000000000000000000000000000000001" });
+  assert.match(evmMainnet.text, /Mainnet is off/);
 });

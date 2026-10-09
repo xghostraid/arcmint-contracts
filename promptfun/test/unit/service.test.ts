@@ -33,7 +33,10 @@ test("launch input is normalised and checked before any network call", async () 
 test("gated and unbuilt chains refuse with the reason", async () => {
   const s = service();
   await assert.rejects(s.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "P", metadataUri: "https://x.io/m.json" }), /Mainnet is off/);
-  await assert.rejects(s.prepareTransfer({ chain: "robinhood-testnet", asset: "native", amount: "1", to: "0x0000000000000000000000000000000000000001" }), /EVM adapter is not built/);
+  await assert.rejects(s.prepareTransfer({ chain: "robinhood", asset: "native", amount: "1", to: "0x0000000000000000000000000000000000000001" }), /Mainnet is off/);
+  const rh = await s.prepareTransfer({ chain: "robinhood-testnet", asset: "native", amount: "0.001", to: "0x0000000000000000000000000000000000000001" });
+  assert.equal(rh.status, "awaiting_wallet");
+  await assert.rejects(s.prepareTransfer({ chain: "robinhood-testnet", asset: "native", amount: "1", to: "0x0000000000000000000000000000000000000000" }), /not a Robinhood Chain Testnet wallet address/);
   const pump = service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
   await assert.rejects(pump.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "PP" }), /metadata link/);
   await assert.rejects(pump.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "PP", supply: "5", metadataUri: "https://x.io/m.json" }), /1,000,000,000/);
@@ -75,7 +78,7 @@ test("intent creation is rate limited", async () => {
 test("EVM priority order and Robinhood Chain values match the official docs", () => {
   const chains = allChains(loadConfig({}));
   const evm = chains.filter((c) => c.family === "evm") as any[];
-  const firstThree = [...new Set(evm.filter((c) => c.priority <= 3).sort((a, b) => a.priority - b.priority).map((c) => c.name.split(" ")[0]))];
+  const firstThree = [...new Set(evm.filter((c) => c.priority >= 1 && c.priority <= 3).sort((a, b) => a.priority - b.priority).map((c) => c.name.split(" ")[0]))];
   assert.deepEqual(firstThree, ["Ethereum", "Robinhood", "Base"]);
   const rh = evm.find((c) => c.key === "robinhood-testnet");
   assert.deepEqual([rh.chainId, rh.rpcUrl, rh.explorerUrl, rh.status], [46630, "https://rpc.testnet.chain.robinhood.com", "https://explorer.testnet.chain.robinhood.com", "configured"]);

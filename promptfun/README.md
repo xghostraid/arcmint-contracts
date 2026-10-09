@@ -103,10 +103,11 @@ Previews show **"Network fee (paid to <chain>, not promptfun)"**:
 Ship the Node service from this folder (`promptfun/`):
 
 - **Docker:** `docker build -t promptfun-mcp . && docker run -p 8787:8787 --env-file .env promptfun-mcp`
+- **Render (Blueprint):** at the **repo root**, `render.yaml` defines a Web Service with `rootDir: promptfun`, Docker build from `Dockerfile`, health check `GET /api/stats`, and a 1 GB disk at `/data` for `PROMPTFUN_DB=/data/promptfun.sqlite`. In [Render](https://render.com) → **New** → **Blueprint** → connect `xghostraid/arcmint-contracts` on `main`. On first sync, fill every env var marked `sync: false` in the Dashboard (see `.env.example` for meanings). Minimum for Claude via the Vercel site: `PROMPTFUN_PUBLIC_URL=https://promptfun.fun` and a strong `PROMPTFUN_OAUTH_SIGNING_SECRET`. Copy the service URL (e.g. `https://promptfun-mcp.onrender.com`) into Vercel **`PROMPTFUN_BACKEND_URL`**. **Node instead of Docker:** same Blueprint service — set `runtime: node`, `buildCommand: npm ci && npm run build`, `startCommand: npm start` (remove `dockerfilePath`).
 - **Fly.io:** `fly volumes create promptfun_data -r iad` (once), then `fly deploy` (uses `fly.toml` + persistent `/data` for SQLite).
 - **Railway:** point the service **Root Directory** at `promptfun/` (uses `railway.toml` + `Dockerfile`).
 
-Copy `.env.example` into your host’s environment UI (never commit secrets). Set `PROMPTFUN_PUBLIC_URL` to `https://promptfun.fun` when the Vercel site proxies `/mcp` and `/api` to this service.
+Copy `.env.example` into your host’s environment UI (never commit secrets). Set `PROMPTFUN_PUBLIC_URL` to `https://promptfun.fun` when the Vercel site proxies `/mcp` and `/api` to this service. Render Blueprint keys use `sync: false` so secrets stay in the Dashboard only.
 
 ## Configuration
 

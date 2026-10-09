@@ -1,0 +1,68 @@
+# Render Blueprint — promptfun MCP + HTTP API (monorepo: service root is promptfun/)
+# Connect: Render Dashboard → New Blueprint → repo xghostraid/arcmint-contracts (branch main).
+# Alternative to Docker: set runtime: node, buildCommand: npm ci && npm run build, startCommand: npm start
+# (same rootDir; omit dockerfilePath). Health check and env vars below apply to both.
+
+services:
+  - type: web
+    name: promptfun-mcp
+    runtime: docker
+    rootDir: promptfun
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/stats
+    plan: starter
+    buildFilter:
+      paths:
+        - promptfun/**
+    disk:
+      name: promptfun-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: HOST
+        value: "0.0.0.0"
+      - key: PROMPTFUN_DB
+        value: /data/promptfun.sqlite
+      - key: NODE_ENV
+        value: production
+      # --- Set in Render Dashboard (sync: false = never overwrite from git) ---
+      - key: PROMPTFUN_PUBLIC_URL
+        sync: false
+      - key: PROMPTFUN_OAUTH_SIGNING_SECRET
+        sync: false
+      - key: PROMPTFUN_INTENT_TTL_MS
+        sync: false
+      - key: PROMPTFUN_MAX_INTENTS_PER_HOUR
+        sync: false
+      - key: PROMPTFUN_PICTURE_TTL_MS
+        sync: false
+      - key: PROMPTFUN_IPFS_GATEWAY
+        sync: false
+      - key: PROMPTFUN_IPFS_IMAGE_PATH
+        sync: false
+      - key: PROMPTFUN_KUBO_API_URL
+        sync: false
+      - key: PROMPTFUN_ENABLE_LOCALNET
+        sync: false
+      - key: PROMPTFUN_ENABLE_PUMPFUN_MAINNET
+        sync: false
+      - key: PROMPTFUN_ENABLE_EVM_MAINNETS
+        sync: false
+      - key: PROMPTFUN_ENABLE_PUMPFUN_DEVNET
+        sync: false
+      - key: PROMPTFUN_ENABLE_SPONSORED_LAUNCHES
+        sync: false
+      - key: PROMPTFUN_SPONSOR_SECRET_KEY
+        sync: false
+      - key: PROMPTFUN_SPONSOR_MAX_LAMPORTS
+        sync: false
+      - key: PROMPTFUN_SPONSOR_KILL_SWITCH
+        sync: false
+      - key: PROMPTFUN_SPONSOR_FEE_RECIPIENT
+        sync: false
+      - key: PROMPTFUN_RPC_SOLANA_DEVNET
+        sync: false
+      - key: PROMPTFUN_MONTHLY_BUDGET_USD
+        sync: false
+      - key: PROMPTFUN_OPS_TOKEN
+        sync: false

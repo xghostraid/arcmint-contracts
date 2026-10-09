@@ -47,7 +47,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
-    "Picture upload: JPEG/PNG up to 15 MB via the in-chat panel (direct upload to /api/pictures/upload). EXIF stripped; pins to IPFS when PROMPTFUN_KUBO_API_URL or PROMPTFUN_PINATA_JWT is set, or hosts on Vercel Blob when BLOB_READ_WRITE_TOKEN is set.",
+    "Coin images: never paste or retype base64. Use open_picture_panel (Choose image → Save to promptfun), import_picture_from_url with the user's HTTPS attachment link, or prepare_launch with imageUrl. The panel uploads raw JPEG/PNG to /api/pictures/upload (max 15 MB). save_picture is panel-internal only.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown are network fees only. promptfun charges no fee.",
   ];
@@ -230,30 +230,75 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     "open_picture_panel",
     {
       title: "Upload a coin picture",
-      description: "Use when the user needs a coin image before launch. Opens the in-chat picture panel (JPEG/PNG, max 15 MB). After upload, save_picture returns pictureId for prepare_launch or build_metadata_uri.",
-      inputSchema: z.object({}),
+      description:
+        "Use when the user needs a coin image before launch. Opens the in-chat picture panel. The user chooses JPEG/PNG (max 15 MB) and taps Save to promptfun, or taps Use this image when imageUrl is set from a chat attachment. Returns pictureId for prepare_launch. Do not call save_picture or paste base64 yourself.",
+      inputSchema: z.object({
+        imageUrl: z
+          .string()
+          .max(2000)
+          .optional()
+          .describe("Optional https:// link to an image the user attached in chat (pass the URL only — never download or base64-encode it yourself)."),
+      }),
       annotations: READ,
       _meta: PICTURE_META,
     },
-    async () => ({
-      content: [{ type: "text", text: "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then use the returned pictureId in prepare_launch or build_metadata_uri." }],
-      structuredContent: { picturePanelUri: PICTURE_URI },
-    }),
+    async ({ imageUrl }) => {
+      const url = (imageUrl ?? "").trim();
+      const hint = url
+        ? "The picture panel is open. Tap Use this image to import the chat attachment, or Choose image to pick a file, then Save to promptfun."
+        : "The picture panel is open. Choose a JPEG or PNG (max 15 MB), save it, then use the returned pictureId in prepare_launch or build_metadata_uri.";
+      return {
+        content: [{ type: "text", text: hint }],
+        structuredContent: { picturePanelUri: PICTURE_URI, ...(url ? { sourceImageUrl: url } : {}) },
+      };
+    },
+  );
+
+  server.registerTool(
+    "import_picture_from_url",
+    {
+      title: "Import coin picture from URL",
+      description:
+        "Use when the user attached an image in chat or gave an https:// image link. Downloads JPEG/PNG server-side (max 15 MB) and returns pictureId. Prefer this over save_picture or manual base64. You can also pass imageUrl on prepare_launch instead.",
+      inputSchema: z.object({
+        imageUrl: z.string().max(2000).describe("Public https:// URL to a JPEG or PNG (e.g. Claude attachment CDN link)."),
+      }),
+      annotations: WRITE,
+    },
+    async ({ imageUrl }) => {
+      try {
+        const saved = await service.pictures.saveFromUrl(imageUrl.trim());
+        const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
+        return {
+          content: [{ type: "text", text: `Saved picture ${saved.pictureId} (${saved.bytes} bytes, ${saved.mime}).${cidNote} Use pictureId in prepare_launch or build_metadata_uri.` }],
+          structuredContent: saved,
+        };
+      } catch (err) {
+        return fail(err);
+      }
+    },
   );
 
   server.registerTool(
     "save_picture",
     {
       title: "Save picture (panel only)",
-      description: "Called from the picture panel after the user picks an image. Strips EXIF, stores the bytes, and returns pictureId.",
+      description:
+        "Internal: the picture panel uploads bytes via /api/pictures/upload. Host models must not call this with base64 — use open_picture_panel, import_picture_from_url, or prepare_launch imageUrl instead.",
       inputSchema: z.object({
-        imageBase64: z.string().max(22_000_000).describe("Data URL or raw base64 JPEG/PNG from the panel file picker."),
+        imageBase64: z.string().max(22_000_000).describe("Legacy panel fallback only. Host models: do not use."),
       }),
       annotations: WRITE,
       _meta: APP_ONLY,
     },
     async ({ imageBase64 }) => {
       try {
+        if (imageBase64.length > 120_000) {
+          return fail(new IntentError(
+            "Image is too large for base64 in JSON. Call open_picture_panel (Choose image → Save) or import_picture_from_url with the user's https:// image link.",
+            "bad_request",
+          ));
+        }
         const saved = await service.pictures.saveFromBase64(imageBase64);
         const cidNote = saved.imageCid ? ` imageCid ${saved.imageCid}.` : "";
         return {
@@ -307,7 +352,12 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         decimals: z.number().int().min(0).max(18).optional().describe("Default 9 on Solana, 18 on EVM; pump.fun is 6."),
         description: z.string().max(400).optional(),
         metadataUri: z.string().max(200).optional().describe("Existing https:// or ipfs:// metadata JSON. Omit when pictureId is set."),
-        pictureId: z.string().regex(/^pic_[a-f0-9]{24}$/).optional().describe("From save_picture; builds and pins metadata when metadataUri is omitted."),
+        pictureId: z.string().regex(/^pic_[a-f0-9]{24}$/).optional().describe("From open_picture_panel / import_picture_from_url; builds metadata when metadataUri is omitted."),
+        imageUrl: z
+          .string()
+          .max(2000)
+          .optional()
+          .describe("https:// JPEG/PNG link (e.g. chat attachment). Server imports it; do not pass base64."),
         website: z.string().max(200).optional().describe("https:// site for metadata JSON"),
         x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
         fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),

@@ -33,6 +33,8 @@ export interface LaunchInput {
   description?: string;
   metadataUri?: string;
   pictureId?: string;
+  /** HTTPS image link (e.g. Claude chat attachment). Server downloads bytes; do not pass base64. */
+  imageUrl?: string;
   website?: string;
   x?: string;
   /** Solana wallet that receives locked pump.fun creator fees on sponsored launches. */
@@ -258,9 +260,24 @@ export class IntentService {
     if (x && !/^https:\/\/\S{3,200}$/.test(x)) {
       throw new IntentError("The X link must be an https:// URL under 200 characters.");
     }
-    const pictureId = (input.pictureId ?? "").trim();
+    let pictureId = (input.pictureId ?? "").trim();
+    const imageUrl = (input.imageUrl ?? "").trim();
+    if (imageUrl && !/^https:\/\/\S{3,2000}$/.test(imageUrl)) {
+      throw new IntentError("imageUrl must be an https:// link under 2000 characters.", "bad_request");
+    }
     if (pictureId && !/^pic_[a-f0-9]{24}$/.test(pictureId)) {
-      throw new IntentError("pictureId must come from save_picture (pic_…).");
+      throw new IntentError("pictureId must come from save_picture or import_picture_from_url (pic_…).");
+    }
+    if (imageUrl && pictureId) {
+      throw new IntentError("Pass pictureId or imageUrl, not both.", "bad_request");
+    }
+    if (imageUrl && !metadataUri) {
+      try {
+        const saved = await this.pictures.saveFromUrl(imageUrl);
+        pictureId = saved.pictureId;
+      } catch (err) {
+        throw err instanceof IntentError ? err : new IntentError((err as Error).message);
+      }
     }
     if (pictureId && !metadataUri) {
       try {
@@ -285,7 +302,11 @@ export class IntentService {
       }
       supply = PUMPFUN_SUPPLY;
       decimals = PUMPFUN_DECIMALS;
-      if (!metadataUri) throw new IntentError("pump.fun needs a metadata link (IPFS/HTTPS JSON with name, symbol and image).");
+      if (!metadataUri) {
+        throw new IntentError(
+          "pump.fun needs a coin image. Call open_picture_panel (Choose image → Save to promptfun), or import_picture_from_url with the user's HTTPS image link, then prepare_launch with the returned pictureId. Do not paste base64 into save_picture.",
+        );
+      }
     }
     if (!Number.isInteger(decimals) || decimals < 0 || decimals > (chain.family === "evm" ? 18 : 9)) {
       throw new IntentError(`Decimals must be a whole number from 0 to ${chain.family === "evm" ? 18 : 9}.`);

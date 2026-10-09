@@ -5,6 +5,7 @@ import { createIpfsPinner, type IpfsPinner, MemoryIpfsPinner, usesPublicIpfsPinn
 import { IntentError } from "../intents/types.js";
 import { PictureCatalog } from "./catalog.js";
 import { PictureStore, type PictureRow } from "./store.js";
+import { fetchImageFromUrl } from "./fetch-url.js";
 import { sanitizeImage } from "./sanitize.js";
 
 const DATA_URL = /^data:image\/(jpeg|png);base64,/i;
@@ -49,6 +50,12 @@ export class PictureService {
   }
 
   async saveFromRaw(_contentType: string, raw: Buffer): Promise<SavedPicture> {
+    const { mime, data } = await sanitizeImage(raw);
+    return this.saveBuffer(mime, data);
+  }
+
+  async saveFromUrl(imageUrl: string): Promise<SavedPicture> {
+    const raw = await fetchImageFromUrl(imageUrl);
     const { mime, data } = await sanitizeImage(raw);
     return this.saveBuffer(mime, data);
   }

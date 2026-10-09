@@ -48,7 +48,7 @@ test("gated and unbuilt chains refuse with the reason", async () => {
   assert.equal(rh.status, "awaiting_wallet");
   await assert.rejects(s.prepareTransfer({ chain: "robinhood-testnet", asset: "native", amount: "1", to: "0x0000000000000000000000000000000000000000" }), /not a Robinhood Chain Testnet wallet address/);
   const pump = service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
-  await assert.rejects(pump.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "PP" }), /metadata link/);
+  await assert.rejects(pump.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "PP" }), /open_picture_panel/);
   await assert.rejects(pump.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "PP", supply: "5", metadataUri: "https://x.io/m.json" }), /1,000,000,000/);
   await assert.rejects(pump.prepareTransfer({ chain: "solana-mainnet", asset: "native", amount: "1", to }), /does not support transfers/);
 });

@@ -31,6 +31,7 @@ export function pictureHtml(publicUrl: string): string {
 <img class="pic-preview" id="preview" alt="" hidden>
 <div class="pic-actions">
 <button type="button" class="btn btn-main" id="pick">Choose image</button>
+<button type="button" class="btn btn-ghost" id="useChat" hidden>Use this image</button>
 <button type="button" class="btn btn-ghost" id="save" disabled>Save to promptfun</button>
 </div>
 <p class="pic-err" id="err" hidden></p>
@@ -40,10 +41,11 @@ export function pictureHtml(publicUrl: string): string {
 <script>
 (function(){
   var MAX = ${15 * 1024 * 1024};
-  var nextId = 1, pending = {}, dataUrl = null, pictureId = null;
+  var nextId = 1, pending = {}, dataUrl = null, pictureId = null, chatImageUrl = null;
   var preview = document.getElementById("preview");
   var errEl = document.getElementById("err");
   var saveBtn = document.getElementById("save");
+  var useChatBtn = document.getElementById("useChat");
   function post(m){ window.parent.postMessage(m, "*"); }
   function request(method, params){ var id = nextId++; post({jsonrpc:"2.0", id:id, method:method, params:params}); return new Promise(function(res, rej){ pending[id] = {res:res, rej:rej}; }); }
   function showErr(msg){ errEl.hidden = !msg; errEl.textContent = msg || ""; }
@@ -92,47 +94,72 @@ export function pictureHtml(publicUrl: string): string {
       img.src = URL.createObjectURL(file);
     });
   }
-  saveBtn.onclick = function(){
-    var f = document.getElementById("file").files && document.getElementById("file").files[0];
-    if (!f && !dataUrl) return;
+  function showSaved(sc){
+    pictureId = sc && sc.pictureId;
+    if (!pictureId) throw new Error("No picture id returned");
+    preview.src = uploadOrigin + "/api/pictures/" + pictureId;
+    preview.hidden = false;
+    saveBtn.textContent = "Saved";
+    saveBtn.disabled = true;
+    if (useChatBtn) useChatBtn.hidden = true;
+    post({jsonrpc:"2.0", method:"ui/notifications/tool-result", params:{structuredContent: sc}});
+    resize();
+  }
+  function uploadFile(f){
     showErr("");
     saveBtn.disabled = true;
-    var uploadPromise;
-    if (f) {
-      uploadPromise = compressForProxy(f).then(function(bodyFile){
-        var ct = bodyFile.type || f.type || "application/octet-stream";
-        return fetch(uploadOrigin + "/api/pictures/upload", {
-          method: "POST",
-          headers: { "Content-Type": ct },
-          body: bodyFile,
-        });
-      }).then(function(res){
-        return res.json().then(function(body){ if (!res.ok) throw new Error(body.error || "Upload failed"); return body; });
+    return compressForProxy(f).then(function(bodyFile){
+      var ct = bodyFile.type || f.type || "application/octet-stream";
+      return fetch(uploadOrigin + "/api/pictures/upload", {
+        method: "POST",
+        headers: { "Content-Type": ct },
+        body: bodyFile,
       });
-    } else {
-      uploadPromise = request("tools/call", {name:"save_picture", arguments:{imageBase64: dataUrl}})
-        .then(function(res){ return res && res.structuredContent; });
-    }
-    uploadPromise
-      .then(function(sc){
-        pictureId = sc && sc.pictureId;
-        if (!pictureId) throw new Error("No picture id returned");
-        saveBtn.textContent = "Saved";
-        post({jsonrpc:"2.0", method:"ui/notifications/tool-result", params:{structuredContent: sc}});
-        resize();
-      })
+    }).then(function(res){
+      return res.json().then(function(body){ if (!res.ok) throw new Error(body.error || "Upload failed"); return body; });
+    }).then(showSaved)
       .catch(function(e){ showErr((e && e.message) || "Save failed"); saveBtn.disabled = false; });
+  }
+  saveBtn.onclick = function(){
+    var f = document.getElementById("file").files && document.getElementById("file").files[0];
+    if (!f) return;
+    uploadFile(f);
   };
+  useChatBtn.onclick = function(){
+    if (!chatImageUrl) return;
+    showErr("");
+    useChatBtn.disabled = true;
+    saveBtn.disabled = true;
+    request("tools/call", {name:"import_picture_from_url", arguments:{imageUrl: chatImageUrl}})
+      .then(function(res){ showSaved(res && res.structuredContent); })
+      .catch(function(e){
+        showErr((e && e.message) || "Import failed");
+        useChatBtn.disabled = false;
+        saveBtn.disabled = !document.getElementById("file").files || !document.getElementById("file").files[0];
+      });
+  };
+  function applyToolOutput(sc){
+    if (!sc) return;
+    if (sc.sourceImageUrl) {
+      chatImageUrl = sc.sourceImageUrl;
+      useChatBtn.hidden = false;
+      resize();
+    }
+    if (sc.pictureId) showSaved(sc);
+  }
   window.addEventListener("message", function(e){
     var m = e.data; if (!m || m.jsonrpc !== "2.0") return;
     if (m.id != null && pending[m.id] && !m.method) {
       var q = pending[m.id]; delete pending[m.id];
       m.error ? q.rej(m.error) : q.res(m.result);
+      return;
     }
+    if (m.method === "ui/notifications/tool-result") applyToolOutput(m.params && m.params.structuredContent);
   });
   request("ui/initialize", {protocolVersion:"2026-01-26", appInfo:{name:"${BRAND} picture", version:"${VERSION}"}, appCapabilities:{availableDisplayModes:["inline"]}})
     .then(function(){ post({jsonrpc:"2.0", method:"ui/notifications/initialized", params:{}}); resize(); })
     .catch(function(){});
+  if (window.openai && window.openai.toolOutput) applyToolOutput(window.openai.toolOutput);
 })();
 </script></body></html>`;
   htmlCache.set(origin, html);

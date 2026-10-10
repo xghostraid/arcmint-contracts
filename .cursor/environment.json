@@ -1,0 +1,4 @@
+{
+  "name": "arcmint-contracts",
+  "install": "bash .cursor/install.sh"
+}

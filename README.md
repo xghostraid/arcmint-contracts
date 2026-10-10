@@ -28,6 +28,19 @@ Open-source Solidity for **arcmint.fun** (Arc Network launchpad).
 
 1% platform · 0–5% creator · 0.5% graduation
 
+## Catalog app (`web/`)
+
+Reads launches from the live factory `0x0F5d0D0271068568134Fa2ca834756f34C485901` with `launchCount` + `launchByIndex`. Create calls `createLaunch` directly (no IPFS required). After the tx lands, `/api/tx/wait` confirms and Live polls `launchCount` every 2s so every new token appears. Token pages can buy/sell on the curve.
+
+```bash
+cd web
+npm install
+npm run check:catalog   # lists live Arc Mainnet launches
+npm run dev             # http://localhost:3000
+```
+
+Vercel: set the project **Root Directory** to `web/` and redeploy. That is the app that should serve arcmint.fun.
+
 ## Tests
 
 ```bash

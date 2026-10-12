@@ -22,7 +22,7 @@ export function launchPlaybook(config: Config): string[] {
     "When the message includes a chat image attachment or an https:// JPEG/PNG link, import it yourself: call import_picture_from_url with the attachment URL, or open_picture_panel({ imageUrl }) (server auto-imports and returns pictureId in plain text). Do not ask them to copy a URL.",
     "When the picture panel shows Saved, call get_last_picture with handoffSessionId from open_picture_panel plain text, or prepare_launch with the same handoffSessionId — Claude custom connectors do not reliably expose panel iframe tools/call or ui/message. FORBIDDEN: ask the user to copy pic_.",
     "Infer name and symbol from the message (e.g. \"Launch TEST on mainnet\" → name TEST, symbol TEST; \"Moonbeam BEAM\" → name Moonbeam, symbol BEAM; \"tes test\" → name Tes Test, symbol TEST). Ask only if name or ticker is truly missing.",
-    "Then prepare_launch with name, symbol, and pictureId, imageUrl, or handoffSessionId (chain optional). Show the in-chat card.",
+    "Then prepare_launch with name, symbol, and pictureId, imageUrl, or handoffSessionId (chain optional). Always collect creatorWallet when the user gives a Solana payout address — until $PROMPT is live, on-chain creator fees lock to promptfun treasury; we pay creators manually. Show the in-chat card.",
     sponsored
       ? "On Solana mainnet pump.fun (default): no Phantom — they tap Launch it on the card; confirm_launch sends with promptfun as fee payer. Do not send confirm_launch until they tap Launch it."
       : budget.sponsoredLaunchesEnabled

@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#ebe6ff">
 <title>Creator fees · promptfun.fun</title>
-<meta name="description" content="Set your Solana wallet for pump.fun creator fees on promptfun.fun — 100% to you today; $PROMPT holder tiers (50%/100%) when the token mint goes live.">
+<meta name="description" content="Pump.fun creator fees on promptfun.fun — $PROMPT holder tier 100%, default 50/50. Set creatorWallet at launch.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site.css">
@@ -35,45 +35,36 @@
     <div class="wrap docs-grid">
       <div>
         <p class="eyebrow">Creator fees</p>
-        <h1 id="fees-title">Get your pump.fun creator fees</h1>
-        <p class="section-lede">When you launch through promptfun.fun on Solana, pump.fun assigns creator fees on trades. Lock them to your wallet at launch. <strong>promptfun.fun takes 0% platform cut</strong> — splits below apply to pump.fun’s creator-fee share only, not network fees.</p>
+        <h1 id="fees-title">Creator fees &amp; $PROMPT tiers</h1>
+        <p class="section-lede">Launch on pump.fun through promptfun.fun and earn SOL from trades. Set your payout wallet at launch. <strong>promptfun.fun takes 0% platform cut</strong> — the tiers below split pump.fun’s creator-fee share only (not network fees).</p>
 
-        <h2 id="steps">Three steps</h2>
+        <h2 id="steps">Set your payout wallet</h2>
         <ol class="connect-steps connect-steps-docs">
           <li>
-            <h3>Easiest: tell Claude in chat</h3>
-            <p>When you ask to launch a coin, include your Solana wallet in plain language. Claude sets <code>creatorWallet</code> on <code>prepare_launch</code> before you tap Launch it.</p>
-            <p class="fine">Example prompt: “Launch MOON on mainnet — send creator fees to my wallet: …” (paste your full address).</p>
-            <p class="fine">A Solana address is usually <strong>43–44 characters</strong>: letters and numbers only, no spaces. Example shape: <code>Ab1c…Xy9z</code> — yours will be one continuous string.</p>
+            <h3>Tell Claude in chat</h3>
+            <p>Include your Solana wallet when you launch. Claude sets <code>creatorWallet</code> on <code>prepare_launch</code> before you tap Launch it.</p>
+            <p class="fine">Example: “Launch MOON on mainnet — send creator fees to my wallet: …”</p>
           </li>
           <li>
             <h3>Claim wallet (email)</h3>
-            <p>Go to <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>. Sign in with the same email you use in Claude. We create or look up a user-owned Solana payout wallet for locked creator fees.</p>
-            <p class="fine">This path needs Privy configured on the promptfun.fun server. If claim is unavailable, use your own external wallet in chat instead.</p>
-          </li>
-          <li>
-            <h3>Always set a wallet</h3>
-            <p class="creator-fees-warn"><strong>Warning:</strong> If you launch without a wallet, creator fees can lock to the default server recipient — not you. Give an address in chat or set up claim before you confirm the launch.</p>
+            <p><a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a> — sign in with the same email as Claude for a user-owned Solana payout wallet when Privy is enabled.</p>
           </li>
         </ol>
 
-        <h2 id="today">Today (before $PROMPT mint)</h2>
-        <p><span class="status status-live">100% to you</span> Every launch sends the <strong>full pump.fun creator-fee share</strong> to your fee recipient. No 50/50 split is applied on-chain until the token policy is live.</p>
-
-        <h2 id="tiers">After $PROMPT launches</h2>
-        <p><span class="status status-soon">Unlocks with $PROMPT</span> Same week as our X product post and the mint going live. At <code>prepare_launch</code>, we read your <code>creatorWallet</code> balance on chain:</p>
+        <h2 id="tiers">Fee tiers at launch</h2>
+        <p><span class="status status-soon">Unlocks with $PROMPT</span> We read your <code>creatorWallet</code> when you launch:</p>
 
         <div class="fee-tier-cards fee-tier-cards-docs" aria-label="Creator fee tiers">
           <div class="fee-tier-card fee-tier-card-boost">
             <p class="fee-tier-label">Holder tier</p>
             <p class="fee-tier-value"><strong>100%</strong></p>
-            <p class="fee-tier-note">≥ 1 whole <strong>$PROMPT</strong> in <code>creatorWallet</code></p>
+            <p class="fee-tier-note">≥ 1 whole <strong>$PROMPT</strong> in <code>creatorWallet</code> at launch</p>
           </div>
           <p class="fee-tier-or" aria-hidden="true">or</p>
           <div class="fee-tier-card fee-tier-card-default">
             <p class="fee-tier-label">Default</p>
             <p class="fee-tier-value"><strong>50%</strong></p>
-            <p class="fee-tier-note">creator · <strong>50%</strong> promptfun.fun treasury</p>
+            <p class="fee-tier-note">to you · <strong>50%</strong> to promptfun.fun</p>
           </div>
         </div>
 
@@ -86,24 +77,23 @@
         </ul>
 
         <h2 id="network">Network fees vs creator fees</h2>
-        <p>The launch preview shows <strong>network fees</strong> (Solana rent and compute). On sponsored mainnet, promptfun pays those from the sponsor wallet. Creator fees accrue from trading on pump.fun and land when fees are distributed on chain.</p>
+        <p>The launch preview shows <strong>network fees</strong> (Solana rent and compute). On sponsored mainnet, promptfun.fun pays those from the sponsor wallet. Creator fees accrue from trading on pump.fun.</p>
 
         <h2 id="more">More</h2>
         <p>See the <a href="/#prompt-fees">Creator fees</a> beat on the home page, <a href="/docs">Docs</a> for connector setup, and pump.fun’s <a href="https://pump.fun/docs/fees" rel="noopener noreferrer" target="_blank">fee documentation</a>.</p>
-        <p class="fine docs-source">Tier policy effective when <strong>$PROMPT</strong> mint is live and promptfun enables checks in production. Launching or trading tokens is risky. Nothing here is financial advice.</p>
+        <p class="fine">Launching or trading tokens is risky. Nothing here is financial advice.</p>
       </div>
 
       <aside class="docs-aside" aria-label="On this page">
         <p class="prompts-title">On this page</p>
         <ul class="docs-toc">
-          <li><a href="#steps">Three steps</a></li>
-          <li><a href="#today">Before mint</a></li>
-          <li><a href="#tiers">$PROMPT tiers</a></li>
-          <li><a href="#wallet">Wallet</a></li>
+          <li><a href="#steps">Payout wallet</a></li>
+          <li><a href="#tiers">Fee tiers</a></li>
+          <li><a href="#wallet">Which wallet</a></li>
           <li><a href="#network">Network fees</a></li>
           <li><a href="#more">More</a></li>
         </ul>
-        <p class="fine"><a href="/docs">← All docs</a> · <a href="/#connect">Add to Claude</a></p>
+        <p class="fine"><a href="/#connect">Add to Claude</a> · <a href="/#faq">FAQ</a></p>
       </aside>
     </div>
   </section>

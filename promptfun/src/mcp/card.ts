@@ -79,6 +79,7 @@ export function cardHtml(): string {
       h += '<ul class="pv-list' + (r.status === "success" ? "" : " is-plain") + '">' + r.verified.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>';
     } else if (p) {
       h += '<p class="pv-label">What happens</p><ul class="pv-list">' + p.steps.map(function(x){ return '<li>' + esc(x) + '</li>'; }).join("") + '</ul>';
+      if (v.creatorFeeNote) h += '<p class="pv-note">' + esc(v.creatorFeeNote) + '</p>';
       if (!p.simulationOk) h += '<p class="warn-box">Simulation failed: ' + esc(p.simulationError) + '</p>';
     } else if (s === "submitted") {
       h += '<p class="pv-note">Signed by your wallet and sent. ${BRAND} is reading it back from the chain.</p>';

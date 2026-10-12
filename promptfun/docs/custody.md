@@ -15,7 +15,7 @@ promptfun beats getplugged.fun row #11 by giving **user-owned embedded Solana wa
 
 ## When fees lock to this wallet
 
-On sponsored pump.fun launches, if `prepare_launch` omits `creatorWallet` and the MCP caller is signed in (`PROMPTFUN_OAUTH_*` + Bearer token), promptfun resolves or creates the user's Solana wallet and sets `feeRecipient` to that address on chain.
+On sponsored pump.fun launches, if `prepare_launch` omits `creatorWallet` and the MCP caller is signed in (`PROMPTFUN_OAUTH_*` + Bearer token), promptfun resolves or creates the user's Solana wallet and stores it as `creatorWallet` on the intent. Until $PROMPT is live, on-chain creator fees lock to the promptfun treasury; the recorded wallet is used for manual payout ops.
 
 ## User-facing surfaces
 

@@ -46,7 +46,7 @@ function limitations(config: Config): string[] {
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
     "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). After the panel shows Saved, call get_last_picture or prepare_launch with handoffSessionId from open_picture_panel plain text (hs_…). FORBIDDEN: ask the user to copy pic_.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
-    "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% platform cut until $PROMPT tier policy is live (then non-holders split 50% creator / 50% treasury on pump.fun creator-fee share only).",
+    "Fees shown in the preview are network fees only. Until $PROMPT is live on chain, pump.fun creator fees lock to the promptfun official treasury wallet (100%); still pass creatorWallet on prepare_launch for records — promptfun pays creators manually off-chain. After $PROMPT is live: ≥1 whole $PROMPT in creatorWallet at prepare_launch → 100% creator on chain; otherwise 50% creator / 50% treasury. promptfun takes 0% platform cut on creator fees.",
   ];
 }
 
@@ -462,7 +462,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
         fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),
         venue: z.enum(["spl", "pumpfun", "erc20"]).optional(),
-        creatorWallet: z.string().max(64).optional().describe("Solana wallet for locked pump.fun creator fees on sponsored launches. Omit when the user is signed in to use their claim-later Privy wallet, or the sponsor fee recipient when not."),
+        creatorWallet: z.string().max(64).optional().describe("Solana wallet to record for creator fee payouts. Until $PROMPT is live, on-chain pump.fun creator fees lock to the promptfun treasury; pass this for manual payout ops. When signed in, omit to use the claim-later Privy wallet as the recorded address. After $PROMPT is live, this wallet receives on-chain shares per the holder tier."),
         idempotencyKey: z.string().max(64).optional(),
       }),
       annotations: READ,

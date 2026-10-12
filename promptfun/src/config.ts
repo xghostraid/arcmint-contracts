@@ -27,6 +27,12 @@ export interface Config {
   opsToken: string | null;
   /** Solana pubkey that receives 100% creator fees on sponsored pump.fun launches (defaults to sponsor). */
   sponsorFeeRecipient: string | null;
+  /** $PROMPT SPL mint; unset until token is live. */
+  promptMint: string | null;
+  /** Optional raw minimum $PROMPT balance for 100% tier (default: one whole token). */
+  promptMinBalanceRaw: bigint | null;
+  /** Receives pre-mint creator fees and the non-holder 50% after $PROMPT is live. */
+  promptfunTreasuryPubkey: string | null;
   enablePumpfunDevnet: boolean;
   /** Sponsored pump.fun launches on Solana mainnet (real SOL from sponsor; keep off without OAuth). */
   enableSponsoredMainnet: boolean;

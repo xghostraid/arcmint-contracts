@@ -6,6 +6,7 @@ import { findChain, recommendedLaunchChainKey, type ActionKind, type Chain } fro
 import { impersonatesBrand, isMajorSymbol } from "../brand.js";
 import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
 import { generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
+import { connectionFor } from "../chains/solana/adapter.js";
 import { IntentCatalog, type IntentRemoteStore } from "./catalog.js";
 import { IntentStore } from "./store.js";
 import { IntentError, type Built, type Intent, type LaunchParams, type TransferParams } from "./types.js";
@@ -21,6 +22,9 @@ import { assertGlobalSponsoredLaunchQuota } from "../platform/global-quota.js";
 import { assertMonthlyBudget, monthKeyUtc, recordSponsorSpendUsd } from "../platform/budget-ledger.js";
 import type { ClaimWalletView, WalletProvider } from "../wallets/types.js";
 import type { ClaimLaterWalletProvider } from "../wallets/claim-later.js";
+import { connectionFor } from "../chains/solana/adapter.js";
+import { resolvePumpfunCreatorFeeLock } from "../chains/solana/prompt-tier.js";
+import type { SolanaChain } from "../chains/registry.js";
 
 const U64_MAX = (1n << 64n) - 1n;
 
@@ -285,11 +289,27 @@ export class IntentService {
     const buildOpts = this.sponsoredBuildOptions(intent);
     if ((intent.params as LaunchParams).venue === "pumpfun" && buildOpts.sponsoredPumpMint) {
       const params = intent.params as LaunchParams;
-      const feeRecipient = params.feeRecipient ?? this.config.sponsorFeeRecipient ?? sponsor;
-      working = {
-        ...intent,
-        params: { ...params, feeRecipient },
-      };
+      if (!params.feeRecipient || !params.feeShareholders?.length) {
+        const chain = findChain(this.config, intent.chain);
+        if (chain?.family === "solana") {
+          const lock = await resolvePumpfunCreatorFeeLock(
+            this.config,
+            connectionFor(chain as SolanaChain),
+            params.creatorWallet,
+            this.config.sponsorFeeRecipient ?? sponsor,
+          );
+          working = {
+            ...intent,
+            params: {
+              ...params,
+              feeRecipient: lock.feeRecipient,
+              feeShareholders: lock.feeShareholders,
+              ...(lock.creatorWallet ? { creatorWallet: lock.creatorWallet } : {}),
+              preMintTreasuryRouting: lock.preMintTreasuryRouting,
+            },
+          };
+        }
+      }
     }
     const { built } = await this.buildInternal(working, sponsor, buildOpts);
     if (!built.simulation.ok) {
@@ -421,15 +441,35 @@ export class IntentService {
       throw new IntentError("That supply is too large for Solana with these decimals. Lower the supply or the decimals.");
     }
     let feeRecipient: string | undefined;
-    const creatorWallet = (input.creatorWallet ?? "").trim();
-    if (creatorWallet) {
+    let feeShareholders: LaunchParams["feeShareholders"];
+    let preMintTreasuryRouting: boolean | undefined;
+    let recordedCreatorWallet: string | undefined;
+    const creatorWalletInput = (input.creatorWallet ?? "").trim();
+    if (creatorWalletInput) {
       if (chain.family !== "solana") throw new IntentError("creatorWallet is only supported on Solana.");
       const adapter = adapterFor(chain.family);
-      if (!adapter.isAddress(creatorWallet)) throw new IntentError(`"${creatorWallet}" is not a valid Solana wallet for creator fees.`);
-      feeRecipient = creatorWallet;
+      if (!adapter.isAddress(creatorWalletInput)) {
+        throw new IntentError(`"${creatorWalletInput}" is not a valid Solana wallet for creator fees.`);
+      }
+      recordedCreatorWallet = creatorWalletInput;
     } else if (this.caller && this.claimWallets?.isConfigured() && chain.family === "solana") {
       const record = await (this.claimWallets as ClaimLaterWalletProvider).ensureSolanaWallet(this.caller.sub, this.caller.email);
-      feeRecipient = record.solanaAddress;
+      recordedCreatorWallet = record.solanaAddress;
+    }
+    if (venue === "pumpfun" && chain.family === "solana") {
+      const sponsorFallback = this.sponsorSigner?.publicKey ?? this.config.sponsorFeeRecipient ?? undefined;
+      const lock = await resolvePumpfunCreatorFeeLock(
+        this.config,
+        connectionFor(chain as SolanaChain),
+        recordedCreatorWallet,
+        sponsorFallback,
+      );
+      feeRecipient = lock.feeRecipient;
+      feeShareholders = lock.feeShareholders;
+      preMintTreasuryRouting = lock.preMintTreasuryRouting;
+      if (lock.creatorWallet) recordedCreatorWallet = lock.creatorWallet;
+    } else if (recordedCreatorWallet) {
+      feeRecipient = recordedCreatorWallet;
     }
     const params: LaunchParams = {
       name,
@@ -440,7 +480,10 @@ export class IntentService {
       metadataUri,
       ...(website ? { website } : {}),
       ...(x ? { x } : {}),
+      ...(recordedCreatorWallet ? { creatorWallet: recordedCreatorWallet } : {}),
       ...(feeRecipient ? { feeRecipient } : {}),
+      ...(feeShareholders ? { feeShareholders } : {}),
+      ...(preMintTreasuryRouting != null ? { preMintTreasuryRouting } : {}),
       fixedSupply: venue === "pumpfun" ? true : input.fixedSupply ?? true,
       venue,
     };

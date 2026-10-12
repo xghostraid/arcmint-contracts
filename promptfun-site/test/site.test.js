@@ -114,10 +114,14 @@ test("fee tiers and wallet guide on home, doc page, footer, and FAQ", async () =
   assert.match(html, /promptfun\.fun\/claim/);
   assert.match(html, /\/docs\/creator-fees\.html/);
   assert.doesNotMatch(html, /pre-mint|post-mint|treasury|manual payout|Unlocks with/i);
+  assert.doesNotMatch(html, /status-soon[^>]*>Hold \$PROMPT/i);
   const creatorDoc = await readPublic("docs/creator-fees.html");
   assert.match(creatorDoc, /Send trading fees to your wallet/);
   assert.match(creatorDoc, /\/#prompt-fees/);
-  assert.doesNotMatch(creatorDoc, /creatorWallet|prepare_launch|100% to creators/i);
+  assert.doesNotMatch(creatorDoc, /fee-tier-card-boost/);
+  for (const banned of [/creatorWallet/i, /prepare_launch/i, /treasury/i, /fee recipient/i, /creator-fee share/i]) {
+    assert.doesNotMatch(creatorDoc, banned, `creator-fees.html should avoid jargon: ${banned}`);
+  }
 });
 
 test("how-it-works is chat-first journey with simple fee tiers, not numbered clone rows", () => {
@@ -137,6 +141,9 @@ test("how-it-works is chat-first journey with simple fee tiers, not numbered clo
   assert.match(how, /You get 50%, promptfun\.fun gets 50%/);
   assert.doesNotMatch(how, /promptfun\.fun fee: 0%/i);
   assert.doesNotMatch(how, /pre-mint|treasury|creatorWallet|prepare_launch/i);
+  assert.doesNotMatch(how, /always 100%/i);
+  assert.doesNotMatch(how, /70%/);
+  assert.doesNotMatch(how, /40%/);
   assert.match(how, /class="fee-tier-cards"/);
   assert.match(how, /id="creator-fees"/);
   assert.match(how, /<em>Done<\/em> on chain/);

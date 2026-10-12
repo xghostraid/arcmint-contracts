@@ -42,7 +42,7 @@ test("sponsored pump.fun build compiles three instructions that decode", async (
     instructionFingerprint: null,
   };
 
-  const compiled = await buildPumpfunLaunchSponsored({} as never, intent, sponsor, feeRecipient, mintKp);
+  const compiled = await buildPumpfunLaunchSponsored({} as never, intent, sponsor, mintKp);
   assert.equal(compiled.instructions.length, 3);
 
   const message = new TransactionMessage({
@@ -100,7 +100,7 @@ test("sponsored pump.fun rejects oversized metadata URI before simulate", async 
     instructionFingerprint: null,
   };
   await assert.rejects(
-    () => buildPumpfunLaunchSponsored({} as never, intent, sponsor, feeRecipient, mintKp),
+    () => buildPumpfunLaunchSponsored({} as never, intent, sponsor, mintKp),
     /transaction too large/i,
   );
 });

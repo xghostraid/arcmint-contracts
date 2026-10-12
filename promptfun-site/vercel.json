@@ -43,6 +43,7 @@
       "env": ["PROMPTFUN_BACKEND_URL"]
     },
     { "src": "/docs", "dest": "/docs/index.html" },
+    { "src": "/docs/creator-fees", "dest": "/docs/creator-fees.html" },
     { "src": "/explore", "dest": "/explore/index.html" },
     { "src": "/terms", "dest": "/terms/index.html" },
     { "src": "/privacy", "dest": "/privacy/index.html" },

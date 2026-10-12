@@ -1,6 +1,6 @@
 import { findChain } from "../chains/registry.js";
 import type { Config } from "../config.js";
-import type { Intent } from "../intents/types.js";
+import type { Intent, LaunchParams } from "../intents/types.js";
 
 export interface IntentView {
   intentId: string;
@@ -40,6 +40,7 @@ export interface IntentView {
   executionMode: Intent["executionMode"];
   sponsoredPreview: boolean;
   sponsorPaysFee: boolean;
+  creatorFeeNote: string | null;
 }
 
 function nextStep(intent: Intent, approveUrl: string): string {
@@ -62,10 +63,29 @@ function nextStep(intent: Intent, approveUrl: string): string {
   }
 }
 
+function creatorFeeNote(intent: Intent): string | null {
+  if (intent.kind !== "launch_token") return null;
+  const params = intent.params as LaunchParams;
+  if (params.venue !== "pumpfun") return null;
+  if (params.preMintTreasuryRouting) {
+    return params.creatorWallet
+      ? "Creator fees route to promptfun until $PROMPT is live; we pay out manually to your recorded wallet."
+      : "Creator fees route to promptfun until $PROMPT is live; pass creatorWallet for manual payout records.";
+  }
+  if (params.feeShareholders?.length === 2) {
+    return "Creator fee share: 50% to your wallet, 50% to promptfun treasury (hold ≥1 $PROMPT for 100%).";
+  }
+  if (params.feeShareholders?.length === 1 && params.creatorWallet) {
+    return "Creator fee share: 100% to your wallet ($PROMPT holder tier).";
+  }
+  return null;
+}
+
 export function intentView(config: Config, intent: Intent, approveUrl: string): IntentView {
   const chain = findChain(config, intent.chain);
   const built = intent.built;
   const explorer = intent.receipt?.explorerUrl ?? null;
+  const feeNote = creatorFeeNote(intent);
   return {
     intentId: intent.id,
     kind: intent.kind,
@@ -106,6 +126,7 @@ export function intentView(config: Config, intent: Intent, approveUrl: string): 
     executionMode: intent.executionMode ?? "wallet",
     sponsoredPreview: intent.executionMode === "sponsor" && intent.status === "awaiting_confirm",
     sponsorPaysFee: intent.executionMode === "sponsor",
+    creatorFeeNote: feeNote,
   };
 }
 
@@ -124,6 +145,7 @@ export function intentText(view: IntentView): string {
       ? "Warning: real-money network behind an explicit flag; promptfun has not verified this path end to end."
       : "Note: this chain is configured but promptfun has not verified it end to end yet.");
   }
+  if (view.creatorFeeNote) lines.push(view.creatorFeeNote);
   if (view.preview) {
     lines.push("Decoded transaction:", ...view.preview.steps.map((s) => `- ${s}`));
     const p = view.preview;

@@ -1,7 +1,9 @@
 # Creator fees
 
-**Today:** pump.fun creator fees go to the launch fee recipient (`creatorWallet` or claim-later wallet). **promptfun takes 0%.**
+**Until $PROMPT is live:** pump.fun creator fees lock **on chain** to the promptfun official treasury wallet (100%). We still collect `creatorWallet` at `prepare_launch` for manual payout ops. **promptfun takes 0% platform cut.**
 
-The full product spec (including deferred **$PROMPT** holder tier) lives in the project Context doc **`docs/prompt-fee-tier-spec.md`** (not duplicated in git).
+**After $PROMPT is live:** ≥1 whole $PROMPT in `creatorWallet` at prepare_launch → 100% creator on chain; else 50% creator / 50% treasury.
 
-MCP `get_capabilities` → `limitations` states the same: network fees in preview; creator fees to `creatorWallet`; promptfun 0%.
+Full spec: **`docs/prompt-fee-tier-spec.md`** (mirrors project Context).
+
+MCP `get_capabilities` → `limitations` and `launchPlaybook` describe the same policy.

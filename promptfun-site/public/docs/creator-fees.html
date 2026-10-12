@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ebe6ff">
+<title>Creator fees · promptfun.fun</title>
+<meta name="description" content="How to set your Solana wallet so pump.fun creator fees go to you. promptfun.fun takes 0%; 100% to creators.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="promptfun.fun home">
+      <img src="/favicon.svg" alt="" width="32" height="32">
+      <span>promptfun<span class="brand-tld">.fun</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/#how">How it works</a>
+      <a href="/#creator-fees">Creator fees</a>
+    </nav>
+    <a class="btn btn-small" href="/#connect">Add to Claude</a>
+  </div>
+</header>
+
+<main id="main" class="subpage prose">
+  <section class="section section-tight" aria-labelledby="fees-title">
+    <div class="wrap docs-grid">
+      <div>
+        <p class="eyebrow">Creator fees</p>
+        <h1 id="fees-title">Get your pump.fun creator fees</h1>
+        <p class="section-lede">When you launch through promptfun.fun on Solana, pump.fun assigns creator fees on trades. Those fees go to the wallet you set at launch. <strong>promptfun.fun takes 0%</strong> — creators receive 100% of the pump.fun creator-fee share that goes to your recipient.</p>
+
+        <h2 id="steps">Three steps</h2>
+        <ol class="connect-steps connect-steps-docs">
+          <li>
+            <h3>Easiest: tell Claude in chat</h3>
+            <p>When you ask to launch a coin, include your Solana wallet in plain language. Claude sets <code>creatorWallet</code> on <code>prepare_launch</code> before you tap Launch it.</p>
+            <p class="fine">Example prompt: “Launch MOON on mainnet — send creator fees to my wallet: …” (paste your full address).</p>
+            <p class="fine">A Solana address is usually <strong>43–44 characters</strong>: letters and numbers only, no spaces. Example shape: <code>Ab1c…Xy9z</code> — yours will be one continuous string.</p>
+          </li>
+          <li>
+            <h3>Claim wallet (email)</h3>
+            <p>Go to <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>. Sign in with the same email you use in Claude. We create or look up a user-owned Solana payout wallet for locked creator fees.</p>
+            <p class="fine">This path needs Privy configured on the promptfun.fun server. If claim is unavailable, use your own external wallet in chat instead.</p>
+          </li>
+          <li>
+            <h3>Always set a wallet</h3>
+            <p class="creator-fees-warn"><strong>Warning:</strong> If you launch without a wallet, creator fees can lock to the default server recipient — not you. Give an address in chat or set up claim before you confirm the launch.</p>
+          </li>
+        </ol>
+
+        <h2 id="what-you-get">What you get</h2>
+        <ul class="docs-list">
+          <li><strong>100%</strong> of pump.fun creator fees that pump.fun routes to your launch fee recipient (<code>creatorWallet</code>).</li>
+          <li><strong>0%</strong> promptfun.fun fee on those creator fees.</li>
+          <li>Fees follow pump.fun’s own rules (lock timing, distribution, and amounts are set by pump.fun).</li>
+        </ul>
+
+        <h2 id="more">More</h2>
+        <p>See also the <a href="/#prompt-fees">Creator fees</a> beat on the home page, <a href="/docs">Docs</a> for connector setup, and pump.fun’s <a href="https://pump.fun/docs/fees" rel="noopener noreferrer" target="_blank">fee documentation</a>.</p>
+        <p class="fine">Launching or trading tokens is risky. Nothing here is financial advice.</p>
+      </div>
+
+      <aside class="docs-aside" aria-label="On this page">
+        <p class="prompts-title">On this page</p>
+        <ul class="docs-toc">
+          <li><a href="#steps">Three steps</a></li>
+          <li><a href="#what-you-get">What you get</a></li>
+          <li><a href="#more">More</a></li>
+        </ul>
+        <p class="fine"><a href="/#connect">Add to Claude</a> · <a href="/#faq">FAQ</a></p>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <nav class="footer-nav" aria-label="Legal and docs">
+      <a href="/docs">Docs</a>
+      <a href="/docs/creator-fees.html" aria-current="page">Creator fees</a>
+      <a href="/explore">Explore</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+    <p>Solana mainnet pump.fun launches are live via Claude. Real SOL; you are responsible for what you launch.</p>
+    <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+</body>
+</html>

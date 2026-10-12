@@ -100,10 +100,21 @@ test("every route is Sunny pop lilac inclined (alt), not cream/orange or the old
 });
 
 test("has every required section", () => {
-  for (const id of ["how", "chains", "connect", "safety", "faq", "prompt-fees"]) {
+  for (const id of ["how", "chains", "connect", "safety", "faq", "prompt-fees", "creator-fees"]) {
     assert.match(html, new RegExp(`id="${id}"`), `missing #${id}`);
   }
   assert.match(html, /class="hero"/);
+});
+
+test("creator fees instructions on home, doc page, footer, and FAQ", async () => {
+  assert.match(html, /Get your creator fees/);
+  assert.match(html, /creatorWallet/);
+  assert.match(html, /promptfun\.fun\/claim/);
+  assert.match(html, /\/docs\/creator-fees\.html/);
+  assert.match(html, /default server recipient/);
+  const creatorDoc = await readPublic("docs/creator-fees.html");
+  assert.match(creatorDoc, /100%/);
+  assert.match(creatorDoc, /promptfun\.fun takes 0%/i);
 });
 
 test("how-it-works is chat-first journey with 100% creator fees, not numbered clone rows", () => {
@@ -342,6 +353,7 @@ test("server serves the page with strict headers and refuses traversal", async (
     assert.equal((await fetch(`${base}/explore`)).status, 200);
     assert.equal((await fetch(`${base}/docs`)).status, 200);
     assert.equal((await fetch(`${base}/docs/`)).status, 200);
+    assert.equal((await fetch(`${base}/docs/creator-fees.html`)).status, 200);
     assert.equal((await fetch(`${base}/terms/`)).status, 200);
     assert.equal((await fetch(`${base}/privacy/`)).status, 200);
     const homeHtml = await (await fetch(`${base}/`)).text();

@@ -187,6 +187,26 @@
               <p class="fee-tier-note">of pump.fun creator fees to <code>creatorWallet</code></p>
             </div>
           </div>
+          <div class="creator-fees-block" id="creator-fees">
+            <h4 class="journey-title">Get your creator fees</h4>
+            <p class="journey-body">Three ways to make sure pump.fun sends creator fees to you — not a default server wallet. promptfun.fun keeps 0%.</p>
+            <ol class="connect-steps connect-steps-compact creator-fee-steps">
+              <li>
+                <h3>Easiest: tell Claude in chat</h3>
+                <p>When you launch, say your Solana wallet address in the same message (for example: “Launch MOON on mainnet — send creator fees to my wallet: …”). Claude passes it as <code>creatorWallet</code> on <code>prepare_launch</code>.</p>
+                <p class="fine">Your address is usually 43–44 characters: letters and numbers only, no spaces. Example shape: <code>Ab1c…Xy9z</code> (yours will be longer).</p>
+              </li>
+              <li>
+                <h3>Claim wallet (email)</h3>
+                <p>Before or after launch, open <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>, sign in with the same email you use in Claude, and get a user-owned Solana payout wallet. Works when Privy is configured on the server.</p>
+              </li>
+              <li>
+                <h3>If you skip this step</h3>
+                <p class="creator-fees-warn"><strong>Warning:</strong> If no wallet is set at launch, creator fees can lock to the default server recipient instead of you. Always give an address or set up claim before you tap Launch it.</p>
+              </li>
+            </ol>
+            <p class="journey-fine"><a href="/docs/creator-fees.html">Read the full creator fees guide</a></p>
+          </div>
           <p class="journey-fine"><span class="status status-live">promptfun.fun fee: 0%</span> We do not take a cut of pump.fun creator fees. Optional <strong>$PROMPT</strong> holder perks may ship after the token launches — not enforced on-chain yet.</p>
         </li>
       </ol>
@@ -326,7 +346,7 @@
             <p>In a chat, open + → Connectors and switch promptfun.fun on. Then say what you want. Claude shows you the preview, you tap Launch it, and the receipt comes back in the same chat.</p>
           </li>
         </ol>
-        <p class="fine">Full walkthrough in the <a href="/docs">Docs</a>.</p>
+        <p class="fine">Full walkthrough in the <a href="/docs">Docs</a>. Launching for creator fees? Tell Claude your Solana address or read <a href="/docs/creator-fees.html">how fees reach your wallet</a>.</p>
       </div>
 
       <div class="prompts" aria-labelledby="prompts-title">
@@ -407,6 +427,10 @@
           <p>No. Claude can prepare an action, but nothing happens onchain until you approve it in the chat, or in your wallet if you use one. If you cancel, nothing is sent.</p>
         </details>
         <details>
+          <summary>Where do pump.fun creator fees go?</summary>
+          <p>100% to the wallet you set at launch (<code>creatorWallet</code>). promptfun.fun takes 0%. Tell Claude your Solana address when you launch, or set a payout wallet at <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>. See the <a href="/docs/creator-fees.html">creator fees guide</a> or <a href="#creator-fees">Get your creator fees</a> on this page.</p>
+        </details>
+        <details>
           <summary>What does it cost?</summary>
           <p>Each chain charges a network fee. On Solana mainnet pump.fun, promptfun.fun pays real SOL from the sponsor wallet when you tap Launch it. The preview shows the estimate before you confirm. As of 9 Oct 2026, launching a token cost about $0.42–0.55 on Solana and $0.16–0.28 on Ethereum. See <a href="#fees">Network fees</a>. promptfun.fun hasn’t set its own pricing.</p>
         </details>
@@ -456,6 +480,7 @@
     <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
     <nav class="footer-nav" aria-label="Legal and docs">
       <a href="/docs">Docs</a>
+      <a href="/docs/creator-fees.html">Creator fees</a>
       <a href="/explore">Explore</a>
       <a href="/terms">Terms</a>
       <a href="/privacy">Privacy</a>

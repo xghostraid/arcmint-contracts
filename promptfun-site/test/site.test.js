@@ -106,16 +106,18 @@ test("has every required section", () => {
   assert.match(html, /class="hero"/);
 });
 
-test("creator fees instructions on home, doc page, footer, and FAQ", async () => {
-  assert.match(html, /creatorWallet/);
+test("trading fees copy on home, doc page, and FAQ", async () => {
+  assert.match(html, /Add your Solana wallet in Claude/i);
   assert.match(html, /promptfun\.fun\/claim/);
   assert.match(html, /\/docs\/creator-fees\.html/);
   const creatorDoc = await readPublic("docs/creator-fees.html");
   assert.match(creatorDoc, /100%/);
-  assert.match(creatorDoc, /0% platform cut/i);
-  assert.match(creatorDoc, /Unlocks with \$PROMPT/);
-  assert.doesNotMatch(creatorDoc, /official wallet/i);
-  assert.doesNotMatch(creatorDoc, /manually/i);
+  assert.match(creatorDoc, /50%/);
+  assert.match(creatorDoc, /Hold \$PROMPT/);
+  assert.match(creatorDoc, /You keep all trading fees/i);
+  for (const banned of [/creatorWallet/i, /prepare_launch/i, /on chain/i, /treasury/i, /fee recipient/i, /creator-fee share/i]) {
+    assert.doesNotMatch(creatorDoc, banned, `creator-fees.html should avoid jargon: ${banned}`);
+  }
 });
 
 test("how-it-works is chat-first journey with creator fee tiers, not numbered clone rows", () => {
@@ -133,22 +135,21 @@ test("how-it-works is chat-first journey with creator fee tiers, not numbered cl
   assert.match(how, /Solana mainnet/);
   assert.match(how, /100%/);
   assert.match(how, /50%/);
-  assert.match(how, /Unlocks with \$PROMPT/);
-  assert.doesNotMatch(how, /official wallet/i);
-  assert.doesNotMatch(how, /manually/i);
+  assert.match(how, /Hold \$PROMPT/);
+  assert.match(how, /You keep all trading fees/i);
+  assert.doesNotMatch(how, /creatorWallet/);
   assert.doesNotMatch(how, /always 100%/i);
   assert.doesNotMatch(how, /70%/);
   assert.doesNotMatch(how, /40%/);
-  assert.match(how, /pump\.fun creator fees/);
-  assert.match(how, /creatorWallet/);
+  assert.match(how, /Get paid when people trade your coin/);
   assert.match(how, /id="creator-fees"/);
   assert.match(how, /class="fee-tier-cards"/);
   assert.match(how, /<em>Done<\/em> on chain/);
 });
 
-test("creator fees doc page exists with tier cards", async () => {
+test("trading fees doc page has two tier cards", async () => {
   const body = await readPublic("docs/creator-fees.html");
-  assert.match(body, /Unlocks with \$PROMPT/);
+  assert.match(body, /Hold \$PROMPT/);
   assert.match(body, /fee-tier-card-boost/);
   assert.match(body, /50%/);
   assert.match(body, /100%/);

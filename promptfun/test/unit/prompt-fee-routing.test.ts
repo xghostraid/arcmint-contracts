@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Connection, Keypair } from "@solana/web3.js";
 import { loadConfig } from "../../src/config.js";
-import { officialTreasuryPubkey, resolvePumpfunCreatorFeeLock } from "../../src/chains/solana/prompt-tier.js";
+import {
+  officialTreasuryPubkey,
+  PROMPTFUN_OFFICIAL_WALLET_PUBKEY,
+  resolvePumpfunCreatorFeeLock,
+} from "../../src/chains/solana/prompt-tier.js";
 
 const TREASURY = Keypair.generate().publicKey.toBase58();
 const CREATOR = Keypair.generate().publicKey.toBase58();
@@ -33,4 +37,16 @@ test("officialTreasuryPubkey prefers treasury env over sponsor fee recipient", (
     PROMPTFUN_SPONSOR_FEE_RECIPIENT: Keypair.generate().publicKey.toBase58(),
   });
   assert.equal(officialTreasuryPubkey(config), TREASURY);
+});
+
+test("officialTreasuryPubkey uses production default when env and sponsor unset", () => {
+  const config = loadConfig({});
+  assert.equal(officialTreasuryPubkey(config), PROMPTFUN_OFFICIAL_WALLET_PUBKEY);
+  assert.equal(PROMPTFUN_OFFICIAL_WALLET_PUBKEY, "5YPhpDDtYtKaKnUgSskb4tXKZL9a7rj8siCuMS7qESpv");
+});
+
+test("pre-mint with no env locks to production default treasury", async () => {
+  const config = loadConfig({});
+  const lock = await resolvePumpfunCreatorFeeLock(config, {} as Connection, CREATOR, undefined);
+  assert.equal(lock.feeRecipient, PROMPTFUN_OFFICIAL_WALLET_PUBKEY);
 });

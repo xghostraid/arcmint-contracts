@@ -41,7 +41,7 @@ test("Claude is the main host: in the title, the hero headline and the primary C
     assert.match(tag[0], /claude/i, `meta ${name} should mention Claude`);
   }
   const hero = html.match(/<section class="hero"[\s\S]*?<\/section>/)[0];
-  assert.match(hero, /<h1[^>]*>TELL CLAUDE, PROMPT IT\./);
+  assert.match(hero, /<h1[^>]*>TELL CLAUDE,/);
   const primary = hero.match(/<div class="cta-row">\s*<a class="btn"[^>]*>([^<]*)<\/a>/);
   assert.ok(primary, "the hero needs a primary CTA");
   assert.equal(primary[1], "Add to Claude");
@@ -248,7 +248,7 @@ test("the hero demo is labelled as an illustration", () => {
 });
 
 test("the Launch it flow is the headline, demo shows preview and receipt, and chain copy matches sponsored mainnet", () => {
-  assert.match(html, /<h1[^>]*>TELL CLAUDE, PROMPT IT\.<br><em>LAUNCH IT\.<\/em><br>DONE\.<\/h1>/);
+  assert.match(html, /<h1[^>]*>TELL CLAUDE,<br>PROMPT IT\.<br><em>LAUNCH IT\.<\/em><br>DONE\.<\/h1>/);
   const demo = html.match(/<figure class="demo"[\s\S]*?<\/figure>/)[0];
   assert.match(demo, /card-preview[\s\S]*promptfun\.fun preview[\s\S]*Launch it/);
   assert.match(demo, /card-receipt[\s\S]*Receipt[\s\S]*Confirmed onchain/);

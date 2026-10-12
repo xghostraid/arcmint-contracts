@@ -107,15 +107,15 @@ test("has every required section", () => {
 });
 
 test("creator fees instructions on home, doc page, footer, and FAQ", async () => {
-  assert.match(html, /Get your creator fees/);
   assert.match(html, /creatorWallet/);
   assert.match(html, /promptfun\.fun\/claim/);
   assert.match(html, /\/docs\/creator-fees\.html/);
-  assert.match(html, /default server recipient/);
   const creatorDoc = await readPublic("docs/creator-fees.html");
   assert.match(creatorDoc, /100%/);
   assert.match(creatorDoc, /0% platform cut/i);
   assert.match(creatorDoc, /Unlocks with \$PROMPT/);
+  assert.doesNotMatch(creatorDoc, /official wallet/i);
+  assert.doesNotMatch(creatorDoc, /manually/i);
 });
 
 test("how-it-works is chat-first journey with creator fee tiers, not numbered clone rows", () => {
@@ -134,7 +134,8 @@ test("how-it-works is chat-first journey with creator fee tiers, not numbered cl
   assert.match(how, /100%/);
   assert.match(how, /50%/);
   assert.match(how, /Unlocks with \$PROMPT/);
-  assert.match(how, /Today: 100% to you/);
+  assert.doesNotMatch(how, /official wallet/i);
+  assert.doesNotMatch(how, /manually/i);
   assert.doesNotMatch(how, /always 100%/i);
   assert.doesNotMatch(how, /70%/);
   assert.doesNotMatch(how, /40%/);

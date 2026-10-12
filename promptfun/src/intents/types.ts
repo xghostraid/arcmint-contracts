@@ -15,10 +15,14 @@ export interface LaunchParams {
   /** Revoke the mint authority after minting, so supply can never grow. */
   fixedSupply: boolean;
   venue: "spl" | "pumpfun" | "erc20";
-  /** Sponsored pump.fun: primary creator wallet for locked creator fees. */
+  /** Sponsored pump.fun: primary on-chain fee recipient (treasury pre-mint; creator post-tier). */
   feeRecipient?: string;
-  /** Sponsored pump.fun: locked fee-sharing recipients (bps sum 10_000). Set when $PROMPT tier applies. */
+  /** Recorded creator Solana wallet for manual payout / post-$PROMPT tier checks. */
+  creatorWallet?: string;
+  /** Sponsored pump.fun: locked fee-sharing recipients (bps sum 10_000). */
   feeShareholders?: { address: string; shareBps: number }[];
+  /** True when fees lock to promptfun treasury until $PROMPT tier is active on chain. */
+  preMintTreasuryRouting?: boolean;
 }
 
 export interface TransferParams {

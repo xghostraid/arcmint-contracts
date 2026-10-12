@@ -130,7 +130,7 @@
       <div class="flow-intro">
         <p class="eyebrow">How it works</p>
         <h2 id="how-title">Prompt in Claude. Preview in chat. <em>Done</em> on chain.</h2>
-        <p class="section-lede">Same thread the whole way — sunny cards, plain words, and your approval before anything hits Solana. Creator fees follow pump.fun rules and flow to your wallet when you set <code>creatorWallet</code> at launch — promptfun.fun takes 0%.</p>
+        <p class="section-lede">Same thread the whole way — sunny cards, plain words, and your approval before anything hits Solana. Set your payout wallet at launch — hold <strong>$PROMPT</strong> there to unlock the top creator-fee tier on pump.fun trades. promptfun.fun takes 0% platform cut.</p>
       </div>
 
       <ol class="chat-journey">
@@ -178,42 +178,26 @@
             <span class="journey-tag">Creator fees</span>
             <img class="journey-doodle" src="/art/step-receipt.svg" alt="" width="56" height="56">
           </div>
-          <h3 class="journey-title">Earn on trades with pump.fun creator fees</h3>
-          <p class="journey-body">Set <code>creatorWallet</code> at launch so pump.fun creator fees lock to your Solana address. <strong>Right now</strong> you keep the full creator-fee share — promptfun.fun takes <strong>0% platform cut</strong>. Tier splits flip on when <strong>$PROMPT</strong> launches (same week as our X drop).</p>
-          <p class="journey-body journey-body-tight"><span class="status status-soon">Unlocks with $PROMPT</span> Live when the token mint goes live — not enforced until then.</p>
-          <div class="fee-tier-cards" aria-label="Creator fee tiers after $PROMPT launch">
+          <h3 class="journey-title" id="creator-fees">Earn on trades with pump.fun creator fees</h3>
+          <p class="journey-body">Set <code>creatorWallet</code> at launch — your Solana payout address for pump.fun creator fees. Hold <strong>$PROMPT</strong> in that wallet when you launch to land the sunny top tier. promptfun.fun takes <strong>0% platform cut</strong> (splits apply to pump.fun’s creator-fee share only).</p>
+          <p class="journey-body journey-body-tight"><span class="status status-soon">Unlocks with $PROMPT</span> Holder check at launch — one whole token in your payout wallet.</p>
+          <div class="fee-tier-cards" aria-label="Creator fee tiers">
             <div class="fee-tier-card fee-tier-card-boost">
               <p class="fee-tier-label">Holder tier</p>
               <p class="fee-tier-value"><strong>100%</strong></p>
-              <p class="fee-tier-note">to <code>creatorWallet</code> when it holds ≥ 1 whole <strong>$PROMPT</strong> at launch</p>
+              <p class="fee-tier-note">of pump.fun creator fees to <code>creatorWallet</code> when it holds ≥ 1 <strong>$PROMPT</strong> at launch</p>
             </div>
             <p class="fee-tier-or" aria-hidden="true">or</p>
             <div class="fee-tier-card fee-tier-card-default">
-              <p class="fee-tier-label">Default after token</p>
+              <p class="fee-tier-label">Default</p>
               <p class="fee-tier-value"><strong>50%</strong></p>
-              <p class="fee-tier-note">creator · <strong>50%</strong> promptfun.fun treasury (pump.fun share only)</p>
+              <p class="fee-tier-note">to you · <strong>50%</strong> to promptfun.fun (pump.fun share only)</p>
             </div>
           </div>
-          <p class="journey-fine"><span class="status status-live">Today: 100% to you</span> No silent splits before mint.</p>
-          <div class="creator-fees-block" id="creator-fees">
-            <h4 class="journey-title">Get your creator fees</h4>
-            <p class="journey-body">Three ways to make sure pump.fun sends creator fees to you — not a default server wallet. promptfun.fun keeps 0% platform cut.</p>
-            <ol class="connect-steps connect-steps-compact creator-fee-steps">
-              <li>
-                <h3>Easiest: tell Claude in chat</h3>
-                <p>When you launch, say your Solana wallet address in the same message (for example: “Launch MOON on mainnet — send creator fees to my wallet: …”). Claude passes it as <code>creatorWallet</code> on <code>prepare_launch</code>.</p>
-                <p class="fine">Your address is usually 43–44 characters: letters and numbers only, no spaces. Example shape: <code>Ab1c…Xy9z</code> (yours will be longer).</p>
-              </li>
-              <li>
-                <h3>Claim wallet (email)</h3>
-                <p>Before or after launch, open <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>, sign in with the same email you use in Claude, and get a user-owned Solana payout wallet. Works when Privy is configured on the server.</p>
-              </li>
-              <li>
-                <h3>If you skip this step</h3>
-                <p class="creator-fees-warn"><strong>Warning:</strong> If no wallet is set at launch, creator fees can lock to the default server recipient instead of you. Always give an address or set up claim before you tap Launch it.</p>
-              </li>
-            </ol>
-            <p class="journey-fine"><a href="/docs/creator-fees.html">Read the full creator fees guide</a></p>
+          <div class="creator-fees-block">
+            <h4 class="journey-title">Set your payout wallet</h4>
+            <p class="journey-body">Tell Claude your Solana address in the launch message, or use <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a> for a claim wallet when you are signed in.</p>
+            <p class="journey-fine"><a href="/docs/creator-fees.html">Read the creator fees guide</a></p>
           </div>
         </li>
       </ol>
@@ -435,7 +419,7 @@
         </details>
         <details>
           <summary>Where do pump.fun creator fees go?</summary>
-          <p>100% to the wallet you set at launch (<code>creatorWallet</code>). promptfun.fun takes 0%. Tell Claude your Solana address when you launch, or set a payout wallet at <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>. See the <a href="/docs/creator-fees.html">creator fees guide</a> or <a href="#creator-fees">Get your creator fees</a> on this page.</p>
+          <p>They follow pump.fun’s rules and lock to your payout wallet at launch (<code>creatorWallet</code>). Hold ≥ 1 whole <strong>$PROMPT</strong> in that wallet when you launch → <strong>100%</strong> of the creator-fee share to you on chain. Don’t hold → <strong>50%</strong> you / <strong>50%</strong> promptfun.fun. We take 0% platform cut. See <a href="/docs/creator-fees.html">creator fees</a> or <a href="#creator-fees">Creator fees</a> on this page.</p>
         </details>
         <details>
           <summary>What does it cost?</summary>

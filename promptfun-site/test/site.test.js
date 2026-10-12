@@ -166,7 +166,7 @@ test("chain claims are labelled honestly", () => {
   assert.match(evmMain, /Ethereum<\/span><span class="status status-soon"[^>]*>Coming next/);
   assert.match(html, /data-networks-panel/);
   assert.match(html, /\/networks\.js/);
-  assert.match(html, /mainnet, devnet &amp; testnets/);
+  assert.match(html, /Live · mainnet<\/p>/);
 });
 
 test("network fees are dated, sourced, and never a promptfun.fun price", () => {

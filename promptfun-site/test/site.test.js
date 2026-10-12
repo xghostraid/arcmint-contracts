@@ -221,6 +221,23 @@ test("connect section publishes the MCP URL with copy and Claude deep link", () 
     connect,
     /claude\.ai\/customize\/connectors\?modal=add-custom-connector[^"]*connectorUrl=https%3A%2F%2Fpromptfun\.fun%2Fmcp/,
   );
+  assert.match(
+    connect,
+    /<a[^>]*href="https:\/\/x\.com\/promptfunfun"[^>]*rel="noopener noreferrer"[^>]*target="_blank"[^>]*>Follow on X<\/a>/,
+  );
+});
+
+const OFFICIAL_X = "https://x.com/promptfunfun";
+
+test("every page footer links to the official X account", async () => {
+  const xLink =
+    /<a href="https:\/\/x\.com\/promptfunfun" rel="noopener noreferrer" target="_blank">Follow on X<\/a>/;
+  for (const file of await listHtmlPages()) {
+    const page = await readPublic(file);
+    const footer = page.match(/<footer class="footer"[\s\S]*?<\/footer>/);
+    assert.ok(footer, `${file} missing footer`);
+    assert.match(footer[0], xLink, `${file} footer must link to ${OFFICIAL_X}`);
+  }
 });
 
 test("the hero demo is labelled as an illustration", () => {

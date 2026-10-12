@@ -17,14 +17,27 @@
 
 ## Official wallet (ops)
 
-**Pubkey (production reference):** `HAon3RnrtQt3jNMBfXrTceWSjq7N5ume6APenYBUcYkK`
+**Pubkey (production reference):** `5YPhpDDtYtKaKnUgSskb4tXKZL9a7rj8siCuMS7qESpv`
+
+### Ops model (confirmed)
+
+This single wallet is treasury, sponsored-launch fee payer, and (later) **$PROMPT** launch authority.
+
+| Direction | What happens |
+|-----------|----------------|
+| **In (on chain)** | Pump.fun **creator / trading fees** from launched coins **accumulate in this wallet**. Pre-$PROMPT: **100%** of the configured fee share is routed here on chain. Post-$PROMPT (tier active): non-holder launches still send **50%** of the fee share here; holder launches send **0%** here (100% to `creatorWallet`). |
+| **Out (manual)** | Ops **manually distribute SOL** from this wallet to creators using each intent’s recorded `creatorWallet` (and payout records). Required for **pre-$PROMPT** (all trading fees land here first) and for any **manual payout workflow** even after tiers go live. Not described on the public website — backend, MCP, and this spec only. |
+| **Launch** | **$PROMPT** will be launched from this wallet when ready. Do **not** set `PROMPTFUN_PROMPT_MINT` until that mint exists on chain. |
+
+Same wallet is the **sponsor fee payer** when `PROMPTFUN_SPONSOR_SECRET_KEY` is set (network fees for sponsored launches are paid from here, separate from creator-fee accumulation).
 
 | Env | Purpose |
 |-----|---------|
 | `PROMPTFUN_TREASURY_PUBKEY` | Preferred treasury for pre-mint fees and post-mint non-holder 50%. |
 | `PROMPTFUN_SPONSOR_FEE_RECIPIENT` | Fallback when treasury unset (same pubkey as sponsor fee recipient in prod). |
+| `PROMPTFUN_SPONSOR_SECRET_KEY` | Secret key for the wallet above (production only; never commit). |
 
-Manual creator payouts off-chain until $PROMPT on-chain tiers are active.
+**Production (e.g. Vercel):** set `PROMPTFUN_SPONSOR_SECRET_KEY` to the secret for `5YPhpDDtYtKaKnUgSskb4tXKZL9a7rj8siCuMS7qESpv`. Set `PROMPTFUN_TREASURY_PUBKEY` and `PROMPTFUN_SPONSOR_FEE_RECIPIENT` to that same pubkey, or omit both and rely on the code default in `prompt-tier.ts`.
 
 ## Post-mint tier rules
 

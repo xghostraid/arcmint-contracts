@@ -1,23 +1,20 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddress, getMint } from "@solana/spl-token";
 import type { Config } from "../../config.js";
-import { IntentError } from "../../intents/types.js";
-
 export type FeeShareholder = { address: string; shareBps: number };
 
 const BPS_TOTAL = 10_000;
+
+/** Production treasury, sponsor fee recipient, and future $PROMPT launch wallet (same pubkey). */
+export const PROMPTFUN_OFFICIAL_WALLET_PUBKEY = "5YPhpDDtYtKaKnUgSskb4tXKZL9a7rj8siCuMS7qESpv";
 
 /** promptfun official wallet for pre-mint creator fees and post-mint non-holder half. */
 export function officialTreasuryPubkey(config: Config, sponsorFallback?: string): string {
   const treasury =
     config.promptfunTreasuryPubkey?.trim() ||
     config.sponsorFeeRecipient?.trim() ||
-    sponsorFallback?.trim();
-  if (!treasury) {
-    throw new IntentError(
-      "Pump.fun creator fees need PROMPTFUN_TREASURY_PUBKEY, PROMPTFUN_SPONSOR_FEE_RECIPIENT, or a configured sponsor wallet.",
-    );
-  }
+    sponsorFallback?.trim() ||
+    PROMPTFUN_OFFICIAL_WALLET_PUBKEY;
   return treasury;
 }
 

@@ -34,11 +34,11 @@ test("brand is promptfun.fun, never the old placeholder", () => {
 
 test("Claude is the main host: in the title, the hero headline and the primary CTA", () => {
   const title = html.match(/<title>([^<]*)<\/title>/)[1];
-  assert.match(title, /Say it in Claude\./);
+  assert.match(title, /TELL CLAUDE, PROMPT IT\. LAUNCH IT\. DONE\./);
   for (const name of ["description", "og:description"]) {
     const tag = html.match(new RegExp(`<meta\\b[^>]*(?:name|property)="${name}"[^>]*>`));
     assert.ok(tag, `missing meta ${name}`);
-    assert.match(tag[0], /Claude/, `meta ${name} should mention Claude`);
+    assert.match(tag[0], /claude/i, `meta ${name} should mention Claude`);
   }
   const hero = html.match(/<section class="hero"[\s\S]*?<\/section>/)[0];
   assert.match(hero, /<h1[^>]*>TELL CLAUDE,/);

@@ -180,7 +180,7 @@ export class IntentService {
   private isMandatorySponsoredMainnetPump(chain: Chain, intent: Intent): boolean {
     if (intent.kind !== "launch_token") return false;
     const venue = (intent.params as LaunchParams).venue;
-    if (venue !== "pumpfun" || chain.cluster !== "mainnet-beta") return false;
+    if (venue !== "pumpfun" || chain.family !== "solana" || chain.cluster !== "mainnet-beta") return false;
     return mainnetPumpSponsoredProductDefault(this.config);
   }
 

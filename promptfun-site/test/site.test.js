@@ -176,7 +176,10 @@ test("chain claims are labelled honestly", () => {
     assert.match(item, /class="status /, `unlabelled capability: ${item}`);
   }
   assert.match(chains, /Launch on pump\.fun \(Solana mainnet, no wallet\)<\/span><span class="status status-live"[^>]*>Live/);
-  assert.match(chains, /Ops testing on Solana devnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.doesNotMatch(chains, /solana-devnet/);
+  assert.doesNotMatch(chains, /Ops testing on Solana devnet/);
+  assert.doesNotMatch(chains, /Sponsored devnet \(optional\)/);
+  assert.doesNotMatch(chains, /pump\.fun on devnet/);
   assert.match(chains, /Robinhood Chain Testnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
   assert.match(chains, /EVM testnets[\s\S]*status-live/);
   const evmMain = chains.slice(chains.indexOf("EVM mainnets"));
@@ -254,7 +257,8 @@ test("the Launch it flow is the headline, demo shows preview and receipt, and ch
 
   const main = html.slice(html.indexOf("<main"), html.indexOf("</main>")).replace(/<figure class="demo"[\s\S]*?<\/figure>/, "");
   assert.match(main, /Launch on pump\.fun \(Solana mainnet, no wallet\)<\/span><span class="status status-live"[^>]*>Live/);
-  assert.match(main, /Sponsored devnet \(optional\)<\/span><span class="status status-live"[^>]*>Live · testnet/);
+  assert.doesNotMatch(main, /Sponsored devnet \(optional\)/);
+  assert.doesNotMatch(main, /solana-devnet/);
   assert.match(main, /Live on mainnet/);
 });
 

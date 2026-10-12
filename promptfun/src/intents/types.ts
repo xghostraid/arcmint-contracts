@@ -15,8 +15,10 @@ export interface LaunchParams {
   /** Revoke the mint authority after minting, so supply can never grow. */
   fixedSupply: boolean;
   venue: "spl" | "pumpfun" | "erc20";
-  /** Sponsored pump.fun: pubkey that receives locked creator fees (100%). */
+  /** Sponsored pump.fun: primary creator wallet for locked creator fees. */
   feeRecipient?: string;
+  /** Sponsored pump.fun: locked fee-sharing recipients (bps sum 10_000). Set when $PROMPT tier applies. */
+  feeShareholders?: { address: string; shareBps: number }[];
 }
 
 export interface TransferParams {

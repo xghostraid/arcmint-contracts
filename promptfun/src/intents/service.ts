@@ -6,6 +6,8 @@ import { findChain, recommendedLaunchChainKey, type ActionKind, type Chain } fro
 import { impersonatesBrand, isMajorSymbol } from "../brand.js";
 import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
 import { generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
+import { connectionFor } from "../chains/solana/adapter.js";
+import { resolvePromptFeeShareholders } from "../chains/solana/prompt-tier.js";
 import { IntentCatalog, type IntentRemoteStore } from "./catalog.js";
 import { IntentStore } from "./store.js";
 import { IntentError, type Built, type Intent, type LaunchParams, type TransferParams } from "./types.js";
@@ -431,6 +433,13 @@ export class IntentService {
       const record = await (this.claimWallets as ClaimLaterWalletProvider).ensureSolanaWallet(this.caller.sub, this.caller.email);
       feeRecipient = record.solanaAddress;
     }
+    let feeShareholders: LaunchParams["feeShareholders"];
+    // $PROMPT holder tier: only when PROMPTFUN_PROMPT_MINT is set and the mint account exists (see prompt-tier.ts).
+    if (venue === "pumpfun" && chain.family === "solana" && feeRecipient && this.config.promptMint) {
+      const conn = connectionFor(chain as never);
+      const resolved = await resolvePromptFeeShareholders(this.config, conn, feeRecipient);
+      if (resolved) feeShareholders = resolved;
+    }
     const params: LaunchParams = {
       name,
       symbol,
@@ -441,6 +450,7 @@ export class IntentService {
       ...(website ? { website } : {}),
       ...(x ? { x } : {}),
       ...(feeRecipient ? { feeRecipient } : {}),
+      ...(feeShareholders ? { feeShareholders } : {}),
       fixedSupply: venue === "pumpfun" ? true : input.fixedSupply ?? true,
       venue,
     };

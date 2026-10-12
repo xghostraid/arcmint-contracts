@@ -130,7 +130,7 @@
       <div class="flow-intro">
         <p class="eyebrow">How it works</p>
         <h2 id="how-title">Prompt in Claude. Preview in chat. <em>Done</em> on chain.</h2>
-        <p class="section-lede">Same thread the whole way — sunny cards, plain words, and your approval before anything hits Solana. When people trade your coin, you can earn fees. Add your Solana wallet in Claude when you launch.</p>
+        <p class="section-lede">Same thread the whole way — sunny cards, plain words, and your approval before anything hits Solana.</p>
       </div>
 
       <ol class="chat-journey">
@@ -175,26 +175,45 @@
 
         <li class="journey-beat journey-beat-fees" id="prompt-fees">
           <div class="journey-beat-head">
-            <span class="journey-tag">Creator fees</span>
+            <span class="journey-tag">Trading fees</span>
             <img class="journey-doodle" src="/art/step-receipt.svg" alt="" width="56" height="56">
           </div>
-          <h3 class="journey-title" id="creator-fees">Get paid when people trade your coin</h3>
-          <p class="journey-body">Add your Solana wallet in Claude when you launch. That is where your trading fees go.</p>
-          <p class="journey-body journey-body-tight"><span class="status status-soon">Hold $PROMPT</span> for the top tier — we check your wallet when you launch.</p>
+          <h3 class="journey-title">Your share of trading fees</h3>
+          <p class="journey-body">When people trade your coin, fees follow one of two simple tiers.</p>
           <div class="fee-tier-cards" aria-label="Trading fee tiers">
             <div class="fee-tier-card fee-tier-card-boost">
               <p class="fee-tier-label">You hold $PROMPT</p>
               <p class="fee-tier-value"><strong>100%</strong></p>
-              <p class="fee-tier-note">You keep all trading fees.</p>
+              <p class="fee-tier-note">You keep all trading fees from your coin.</p>
             </div>
             <p class="fee-tier-or" aria-hidden="true">or</p>
             <div class="fee-tier-card fee-tier-card-default">
               <p class="fee-tier-label">You don’t hold $PROMPT</p>
               <p class="fee-tier-value"><strong>50%</strong></p>
-              <p class="fee-tier-note">You get half. promptfun.fun gets half.</p>
+              <p class="fee-tier-note">You get 50%, promptfun.fun gets 50%.</p>
             </div>
           </div>
-          <p class="journey-fine">Example: “Launch MOON on mainnet — my wallet is …” · Or set a wallet at <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>. <a href="/docs/creator-fees.html">More on trading fees</a></p>
+        </li>
+
+        <li class="journey-beat journey-beat-wallet" id="creator-fees">
+          <div class="journey-beat-head">
+            <span class="journey-tag">Solana wallet</span>
+            <img class="journey-doodle" src="/art/step-say.svg" alt="" width="56" height="56">
+          </div>
+          <h3 class="journey-title">Get your trading fees in Claude</h3>
+          <p class="journey-body">Tell Claude which Solana wallet should receive fees when you launch — or set one up first at <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>.</p>
+          <ol class="connect-steps connect-steps-compact creator-fee-steps">
+            <li>
+              <h3>Easiest: say it in chat</h3>
+              <p>Include your Solana address in the same message as your launch (for example: “Launch MOON on mainnet — send my trading fees to …”).</p>
+              <p class="fine">A Solana address is usually 43–44 characters: letters and numbers only, no spaces.</p>
+            </li>
+            <li>
+              <h3>Or use claim (email)</h3>
+              <p>Sign in at <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a> with the same email you use in Claude to get a payout wallet linked to your account.</p>
+            </li>
+          </ol>
+          <p class="journey-fine"><a href="/docs/creator-fees.html">Wallet setup guide</a></p>
         </li>
       </ol>
     </div>
@@ -333,7 +352,7 @@
             <p>In a chat, open + → Connectors and switch promptfun.fun on. Then say what you want. Claude shows you the preview, you tap Launch it, and the receipt comes back in the same chat.</p>
           </li>
         </ol>
-        <p class="fine">Full walkthrough in the <a href="/docs">Docs</a>. Launching for creator fees? Tell Claude your Solana address or read <a href="/docs/creator-fees.html">how fees reach your wallet</a>.</p>
+        <p class="fine">Full walkthrough in the <a href="/docs">Docs</a>. Need a payout wallet? Tell Claude your Solana address or read the <a href="/docs/creator-fees.html">wallet setup guide</a>.</p>
       </div>
 
       <div class="prompts" aria-labelledby="prompts-title">
@@ -414,8 +433,8 @@
           <p>No. Claude can prepare an action, but nothing happens onchain until you approve it in the chat, or in your wallet if you use one. If you cancel, nothing is sent.</p>
         </details>
         <details>
-          <summary>Where do pump.fun creator fees go?</summary>
-          <p>Add your Solana wallet when you launch in Claude. Hold <strong>$PROMPT</strong> in that wallet and you keep <strong>100%</strong> of trading fees. Don’t hold <strong>$PROMPT</strong> and you get <strong>50%</strong>; promptfun.fun gets <strong>50%</strong>. See <a href="/docs/creator-fees.html">trading fees</a> or <a href="#creator-fees">the section above</a>.</p>
+          <summary>How are trading fees split?</summary>
+          <p>If your launch wallet holds <strong>$PROMPT</strong>, you keep <strong>100%</strong> of trading fees from your coin. If it doesn’t, you get <strong>50%</strong> and promptfun.fun gets <strong>50%</strong>. See <a href="#prompt-fees">fee tiers</a>. To receive fees, tell Claude your Solana address or use <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a> — <a href="/docs/creator-fees.html">wallet guide</a>.</p>
         </details>
         <details>
           <summary>What does it cost?</summary>

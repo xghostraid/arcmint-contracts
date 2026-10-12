@@ -106,53 +106,47 @@ test("has every required section", () => {
   assert.match(html, /class="hero"/);
 });
 
-test("trading fees copy on home, doc page, and FAQ", async () => {
-  assert.match(html, /Add your Solana wallet in Claude/i);
+test("fee tiers and wallet guide on home, doc page, footer, and FAQ", async () => {
+  assert.match(html, /You hold \$PROMPT/);
+  assert.match(html, /You don.t hold \$PROMPT/);
+  assert.match(html, /You get 50%, promptfun\.fun gets 50%/);
+  assert.match(html, /Get your trading fees in Claude/);
   assert.match(html, /promptfun\.fun\/claim/);
   assert.match(html, /\/docs\/creator-fees\.html/);
+  assert.doesNotMatch(html, /pre-mint|post-mint|treasury|manual payout|Unlocks with/i);
+  assert.doesNotMatch(html, /status-soon[^>]*>Hold \$PROMPT/i);
   const creatorDoc = await readPublic("docs/creator-fees.html");
-  assert.match(creatorDoc, /100%/);
-  assert.match(creatorDoc, /50%/);
-  assert.match(creatorDoc, /Hold \$PROMPT/);
-  assert.match(creatorDoc, /You keep all trading fees/i);
-  for (const banned of [/creatorWallet/i, /prepare_launch/i, /on chain/i, /treasury/i, /fee recipient/i, /creator-fee share/i]) {
+  assert.match(creatorDoc, /Send trading fees to your wallet/);
+  assert.match(creatorDoc, /\/#prompt-fees/);
+  assert.doesNotMatch(creatorDoc, /fee-tier-card-boost/);
+  for (const banned of [/creatorWallet/i, /prepare_launch/i, /treasury/i, /fee recipient/i, /creator-fee share/i]) {
     assert.doesNotMatch(creatorDoc, banned, `creator-fees.html should avoid jargon: ${banned}`);
   }
 });
 
-test("how-it-works is chat-first journey with creator fee tiers, not numbered clone rows", () => {
+test("how-it-works is chat-first journey with simple fee tiers, not numbered clone rows", () => {
   const how = html.match(/<section class="section section-flow" id="how"[\s\S]*?<\/section>/)[0];
   assert.match(how, /class="chat-journey"/);
   assert.doesNotMatch(how, /class="flow-steps"/);
   assert.doesNotMatch(how, /flow-num/);
   assert.doesNotMatch(how, /No tap, no coin/);
   const beats = [...how.matchAll(/<li class="journey-beat[^"]*"[^>]*>/g)];
-  assert.equal(beats.length, 4);
+  assert.equal(beats.length, 5);
   assert.match(how, /You approve every launch/);
   assert.match(how, /JPEG or PNG/);
   assert.match(how, /journey-upload-panel/);
   assert.match(how, /Mainnet pump\.fun is live/);
   assert.match(how, /Solana mainnet/);
-  assert.match(how, /100%/);
-  assert.match(how, /50%/);
-  assert.match(how, /Hold \$PROMPT/);
-  assert.match(how, /You keep all trading fees/i);
-  assert.doesNotMatch(how, /creatorWallet/);
+  assert.match(how, /You keep all trading fees from your coin/);
+  assert.match(how, /You get 50%, promptfun\.fun gets 50%/);
+  assert.doesNotMatch(how, /promptfun\.fun fee: 0%/i);
+  assert.doesNotMatch(how, /pre-mint|treasury|creatorWallet|prepare_launch/i);
   assert.doesNotMatch(how, /always 100%/i);
   assert.doesNotMatch(how, /70%/);
   assert.doesNotMatch(how, /40%/);
-  assert.match(how, /Get paid when people trade your coin/);
-  assert.match(how, /id="creator-fees"/);
   assert.match(how, /class="fee-tier-cards"/);
+  assert.match(how, /id="creator-fees"/);
   assert.match(how, /<em>Done<\/em> on chain/);
-});
-
-test("trading fees doc page has two tier cards", async () => {
-  const body = await readPublic("docs/creator-fees.html");
-  assert.match(body, /Hold \$PROMPT/);
-  assert.match(body, /fee-tier-card-boost/);
-  assert.match(body, /50%/);
-  assert.match(body, /100%/);
 });
 
 test("every in-page link points at a real section", () => {

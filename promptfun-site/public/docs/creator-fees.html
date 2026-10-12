@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#ebe6ff">
-<title>Trading fees · promptfun.fun</title>
-<meta name="description" content="Hold $PROMPT and keep 100% of trading fees on your coin. Otherwise 50/50 with promptfun.fun.">
+<title>Wallet for trading fees · promptfun.fun</title>
+<meta name="description" content="Tell Claude your Solana wallet so trading fees from your coin reach you. Fee tiers are on the home page.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site.css">
@@ -24,7 +24,7 @@
       <a href="/docs">Docs</a>
       <a href="/explore">Explore</a>
       <a href="/#how">How it works</a>
-      <a href="/#creator-fees">Trading fees</a>
+      <a href="/#prompt-fees">Fee tiers</a>
     </nav>
     <a class="btn btn-small" href="/#connect">Add to Claude</a>
   </div>
@@ -34,41 +34,34 @@
   <section class="section section-tight" aria-labelledby="fees-title">
     <div class="wrap docs-grid">
       <div>
-        <p class="eyebrow">Trading fees</p>
-        <h1 id="fees-title">Fees when people trade your coin</h1>
-        <p class="section-lede">You can earn SOL when traders buy and sell. Add your Solana wallet in Claude when you launch — that is where fees go.</p>
+        <p class="eyebrow">Solana wallet</p>
+        <h1 id="fees-title">Send trading fees to your wallet</h1>
+        <p class="section-lede">Fee tiers (with or without <strong>$PROMPT</strong>) are on the <a href="/#prompt-fees">home page</a>. This page is only about choosing the Solana wallet that receives your share.</p>
 
-        <h2 id="wallet">Add your wallet</h2>
-        <p>Say your wallet in the same message as your launch. Example: “Launch MOON on mainnet — my wallet is …”</p>
-        <p>Or open <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a> and sign in with email to set a wallet there.</p>
-
-        <h2 id="tiers">How much you keep</h2>
-        <p><span class="status status-soon">Hold $PROMPT</span> We look at your wallet when you launch.</p>
-
-        <div class="fee-tier-cards fee-tier-cards-docs" aria-label="Trading fee tiers">
-          <div class="fee-tier-card fee-tier-card-boost">
-            <p class="fee-tier-label">You hold $PROMPT</p>
-            <p class="fee-tier-value"><strong>100%</strong></p>
-            <p class="fee-tier-note">You keep all trading fees.</p>
-          </div>
-          <p class="fee-tier-or" aria-hidden="true">or</p>
-          <div class="fee-tier-card fee-tier-card-default">
-            <p class="fee-tier-label">You don’t hold $PROMPT</p>
-            <p class="fee-tier-value"><strong>50%</strong></p>
-            <p class="fee-tier-note">You get half. promptfun.fun gets half.</p>
-          </div>
-        </div>
+        <h2 id="steps">Two ways in Claude</h2>
+        <ol class="connect-steps connect-steps-docs">
+          <li>
+            <h3>Say your address when you launch</h3>
+            <p>Include your Solana wallet in plain language in the same chat message as your launch request.</p>
+            <p class="fine">Example: “Launch MOON on mainnet — send my trading fees to …” (paste your full address).</p>
+            <p class="fine">A Solana address is usually <strong>43–44 characters</strong>: letters and numbers only, no spaces.</p>
+          </li>
+          <li>
+            <h3>Claim wallet (email)</h3>
+            <p>Go to <a href="https://promptfun.fun/claim" rel="noopener noreferrer" target="_blank">promptfun.fun/claim</a>. Sign in with the same email you use in Claude. We link a user-owned Solana payout wallet to your account.</p>
+            <p class="fine">If claim is unavailable, paste your own external wallet address in chat instead.</p>
+          </li>
+        </ol>
 
         <h2 id="more">More</h2>
-        <p><a href="/#prompt-fees">Home page</a> · <a href="/docs">Docs</a> · <a href="https://pump.fun/docs/fees" rel="noopener noreferrer" target="_blank">pump.fun fees</a></p>
-        <p class="fine">Trading tokens is risky. This is not financial advice.</p>
+        <p><a href="/#prompt-fees">Trading fee tiers</a> · <a href="/docs">Docs</a> · <a href="/#connect">Add to Claude</a></p>
+        <p class="fine">Launching or trading tokens is risky. Nothing here is financial advice.</p>
       </div>
 
       <aside class="docs-aside" aria-label="On this page">
         <p class="prompts-title">On this page</p>
         <ul class="docs-toc">
-          <li><a href="#wallet">Your wallet</a></li>
-          <li><a href="#tiers">How much you keep</a></li>
+          <li><a href="#steps">Two ways in Claude</a></li>
           <li><a href="#more">More</a></li>
         </ul>
         <p class="fine"><a href="/#connect">Add to Claude</a> · <a href="/#faq">FAQ</a></p>

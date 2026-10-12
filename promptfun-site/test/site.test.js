@@ -106,7 +106,7 @@ test("has every required section", () => {
   assert.match(html, /class="hero"/);
 });
 
-test("how-it-works is chat-first journey with 100% creator fees, not numbered clone rows", () => {
+test("how-it-works is chat-first journey with creator fee tiers, not numbered clone rows", () => {
   const how = html.match(/<section class="section section-flow" id="how"[\s\S]*?<\/section>/)[0];
   assert.match(how, /class="chat-journey"/);
   assert.doesNotMatch(how, /class="flow-steps"/);
@@ -120,13 +120,25 @@ test("how-it-works is chat-first journey with 100% creator fees, not numbered cl
   assert.match(how, /Mainnet pump\.fun is live/);
   assert.match(how, /Solana mainnet/);
   assert.match(how, /100%/);
-  assert.match(how, /promptfun\.fun fee: 0%/i);
+  assert.match(how, /50%/);
+  assert.match(how, /Unlocks with \$PROMPT/);
+  assert.match(how, /Today: 100% to you/);
+  assert.doesNotMatch(how, /always 100%/i);
   assert.doesNotMatch(how, /70%/);
   assert.doesNotMatch(how, /40%/);
   assert.match(how, /pump\.fun creator fees/);
   assert.match(how, /creatorWallet/);
+  assert.match(how, /id="creator-fees"/);
   assert.match(how, /class="fee-tier-cards"/);
   assert.match(how, /<em>Done<\/em> on chain/);
+});
+
+test("creator fees doc page exists with tier cards", async () => {
+  const body = await readPublic("docs/creator-fees.html");
+  assert.match(body, /Unlocks with \$PROMPT/);
+  assert.match(body, /fee-tier-card-boost/);
+  assert.match(body, /50%/);
+  assert.match(body, /100%/);
 });
 
 test("every in-page link points at a real section", () => {

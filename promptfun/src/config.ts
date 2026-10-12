@@ -35,6 +35,12 @@ export interface Config {
   /** Privy app credentials for claim-later embedded Solana wallets (env only; never commit secrets). */
   privyAppId: string | null;
   privyAppSecret: string | null;
+  /** SPL mint for $PROMPT; when set and mint exists on chain, prepare_launch enforces holder tier splits. */
+  promptMint: string | null;
+  /** Raw token amount for holder tier (default: one whole token from mint decimals). */
+  promptMinBalanceRaw: bigint | null;
+  /** Receives 50% of creator-fee share for non-holders when tier is enforced; falls back to sponsor fee recipient. */
+  promptfunTreasuryPubkey: string | null;
   env: NodeJS.ProcessEnv;
 }
 
@@ -75,6 +81,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     enablePayoutCron: env.PROMPTFUN_ENABLE_PAYOUT_CRON === "0" ? false : flag(env.PROMPTFUN_ENABLE_PAYOUT_CRON) || flag(env.PROMPTFUN_ENABLE_SPONSORED_LAUNCHES),
     privyAppId: env.PROMPTFUN_PRIVY_APP_ID?.trim() || null,
     privyAppSecret: env.PROMPTFUN_PRIVY_APP_SECRET?.trim() || null,
+    promptMint: env.PROMPTFUN_PROMPT_MINT?.trim() || null,
+    promptMinBalanceRaw: env.PROMPTFUN_PROMPT_MIN_BALANCE?.trim()
+      ? BigInt(env.PROMPTFUN_PROMPT_MIN_BALANCE.trim())
+      : null,
+    promptfunTreasuryPubkey: env.PROMPTFUN_TREASURY_PUBKEY?.trim() || null,
     env,
   };
 }

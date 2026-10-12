@@ -29,6 +29,7 @@ export function launchPlaybook(config: Config): string[] {
         ? "Sponsored testnets: Launch it on the card. Wallet mode: approveUrl for EVM or when sponsored is paused."
         : "Wallet mode: they open approveUrl and sign. Do not claim success until get_action_status is confirmed.",
     "Call get_capabilities when they ask what is supported or which chain to use — not on every launch.",
+    "Creator fees: today 100% of pump.fun creator-fee share to creatorWallet. After $PROMPT mint goes live, holders (≥ 1 whole $PROMPT in creatorWallet at prepare_launch) keep 100%; otherwise 50% creator / 50% promptfun treasury — enforced only when PROMPTFUN_PROMPT_MINT is configured.",
   ];
 }
 

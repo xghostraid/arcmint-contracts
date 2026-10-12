@@ -67,14 +67,13 @@ export async function buildPumpfunLaunch(conn: Connection, intent: Intent, signe
 }
 
 /**
- * Atomic sponsored pump.fun launch: create_v2 + fee-sharing config + locked 100% share to `feeRecipient`.
+ * Atomic sponsored pump.fun launch: create_v2 + fee-sharing config + locked fee shares.
  * Fee payer and on-chain creator for create_v2 are the sponsor; mint key is held server-side.
  */
 export async function buildPumpfunLaunchSponsored(
   conn: Connection,
   intent: Intent,
   sponsor: PublicKey,
-  feeRecipient: PublicKey,
   mintKeypair: Keypair,
 ) {
   void conn;
@@ -82,6 +81,17 @@ export async function buildPumpfunLaunchSponsored(
   if (!params.metadataUri) throw new IntentError("pump.fun needs a metadata link (an IPFS or HTTPS JSON with name, symbol, image).");
 
   const mint = mintKeypair.publicKey;
+  const defaultRecipient = new PublicKey(params.feeRecipient ?? sponsor.toBase58());
+  const shareholderRows =
+    params.feeShareholders?.length
+      ? params.feeShareholders
+      : [{ address: defaultRecipient.toBase58(), shareBps: 10_000 }];
+  const shareSum = shareholderRows.reduce((s, r) => s + r.shareBps, 0);
+  if (shareSum !== 10_000) {
+    throw new IntentError(`Creator fee shares must total 100% (10000 bps), got ${shareSum}.`);
+  }
+  const shareholders = shareholderRows.map((r) => ({ address: new PublicKey(r.address), shareBps: r.shareBps }));
+
   const pump = sdk().PUMP_SDK;
   const createIx = await pump.createV2Instruction({
     mint,
@@ -93,7 +103,6 @@ export async function buildPumpfunLaunchSponsored(
     mayhemMode: false,
   });
   const feeConfigIx = await pump.createFeeSharingConfig({ creator: sponsor, mint, pool: null });
-  const shareholders = [{ address: feeRecipient, shareBps: 10_000 }];
   const feeShareIx = await pump.updateFeeShares({
     authority: sponsor,
     mint,
@@ -124,8 +133,10 @@ export async function buildPumpfunLaunchSponsored(
       if (!ok) throw new Error("Compiled pump.fun launch does not decode back to the request. Refusing to show it.");
       const fs = decoded.pumpFeeSharing;
       if (!fs?.created || !fs.updated) throw new Error("Fee-sharing instructions missing from decoded transaction.");
-      const share = fs.recipients.find((r) => r.address === feeRecipient.toBase58() && r.shareBps === 10_000);
-      if (!share) throw new Error("Creator fee share does not match the intended recipient.");
+      for (const row of shareholderRows) {
+        const share = fs.recipients.find((r) => r.address === row.address && r.shareBps === row.shareBps);
+        if (!share) throw new Error(`Creator fee share missing for ${row.address} (${row.shareBps} bps).`);
+      }
     },
   };
 }

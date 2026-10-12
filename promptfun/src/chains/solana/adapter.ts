@@ -308,12 +308,10 @@ export const solanaAdapter: ChainAdapter = {
     if (intent.kind === "launch_token") {
       if (params.venue === "pumpfun" && options?.sponsoredPumpMint) {
         const mintKp = options.sponsoredPumpMint;
-        const feeRecipient = new PublicKey((intent.params as LaunchParams).feeRecipient ?? signer.toBase58());
         compiled = await buildPumpfunLaunchSponsored(
           conn,
           intent,
           signer,
-          feeRecipient,
           Keypair.fromSecretKey(mintKp.secretKey),
         );
       } else if (params.venue === "pumpfun") {

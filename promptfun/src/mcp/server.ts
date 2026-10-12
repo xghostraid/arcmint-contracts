@@ -46,7 +46,7 @@ function limitations(config: Config): string[] {
     "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
     "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). After the panel shows Saved, call get_last_picture or prepare_launch with handoffSessionId from open_picture_panel plain text (hs_…). FORBIDDEN: ask the user to copy pic_.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
-    "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% of creator fees.",
+    "Fees shown in the preview are network fees only. pump.fun creator fees go to the launch fee recipient (creatorWallet at launch); promptfun takes 0% platform cut until $PROMPT tier policy is live (then non-holders split 50% creator / 50% treasury on pump.fun creator-fee share only).",
   ];
 }
 

@@ -434,6 +434,10 @@ h1 em, h2 em {
   background: var(--done-bar);
   box-shadow: var(--sh);
 }
+.fee-tier-card-default {
+  background: var(--paper);
+}
+.journey-body-tight { margin-top: 10px; }
 .fee-tier-label { margin: 0; color: var(--ink-2); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .fee-tier-value { margin: 8px 0 0; font-size: clamp(32px, 5vw, 44px); font-weight: 700; letter-spacing: -0.04em; line-height: 1; color: var(--ink); }
 .fee-tier-value strong { font-weight: 700; color: var(--lilac-deep); }

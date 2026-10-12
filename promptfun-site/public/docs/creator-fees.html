@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ebe6ff">
+<title>Creator fees · promptfun.fun</title>
+<meta name="description" content="How pump.fun creator fees work on promptfun.fun — 100% to creators today; $PROMPT holder tiers go live with the token mint.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="promptfun.fun home">
+      <img src="/favicon.svg" alt="" width="32" height="32">
+      <span>promptfun<span class="brand-tld">.fun</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/#prompt-fees">Creator fees</a>
+      <a href="/#connect">Add to Claude</a>
+    </nav>
+    <a class="btn btn-small" href="/#connect">Add to Claude</a>
+  </div>
+</header>
+
+<main id="main" class="subpage prose">
+  <section class="section section-tight" aria-labelledby="fees-title">
+    <div class="wrap docs-grid">
+      <div>
+        <p class="eyebrow">Creator fees</p>
+        <h1 id="fees-title">Your pump.fun share — Sunny simple</h1>
+        <p class="section-lede">promptfun.fun does not add a platform tax on launches. Creator fees are whatever pump.fun assigns to your coin’s fee recipients — we just help you lock them to <code>creatorWallet</code> at launch.</p>
+
+        <h2 id="today">Today (before $PROMPT mint)</h2>
+        <p><span class="status status-live">100% to you</span> Every launch sends the <strong>full pump.fun creator-fee share</strong> to your fee recipient. promptfun.fun keeps <strong>0% platform cut</strong>. No 50/50 split is applied on-chain until the token policy is live.</p>
+
+        <h2 id="tiers">After $PROMPT launches</h2>
+        <p><span class="status status-soon">Unlocks with $PROMPT</span> Same week as our X product post and the mint going live. At <code>prepare_launch</code>, we read your <code>creatorWallet</code> balance on chain:</p>
+
+        <div class="fee-tier-cards fee-tier-cards-docs" aria-label="Creator fee tiers">
+          <div class="fee-tier-card fee-tier-card-boost">
+            <p class="fee-tier-label">Holder tier</p>
+            <p class="fee-tier-value"><strong>100%</strong></p>
+            <p class="fee-tier-note">≥ 1 whole <strong>$PROMPT</strong> in <code>creatorWallet</code></p>
+          </div>
+          <p class="fee-tier-or" aria-hidden="true">or</p>
+          <div class="fee-tier-card fee-tier-card-default">
+            <p class="fee-tier-label">Default</p>
+            <p class="fee-tier-value"><strong>50%</strong></p>
+            <p class="fee-tier-note">creator · <strong>50%</strong> promptfun.fun treasury</p>
+          </div>
+        </div>
+
+        <p class="fine">Splits apply to <strong>pump.fun creator-fee share only</strong> — not network fees (sponsor still pays those on mainnet) and not an extra promptfun markup.</p>
+
+        <h2 id="wallet">Which wallet counts?</h2>
+        <ul class="docs-list">
+          <li><strong><code>creatorWallet</code></strong> you pass at launch, or</li>
+          <li>Your signed-in claim-later Solana wallet when OAuth + Privy are enabled and you omit <code>creatorWallet</code>.</li>
+        </ul>
+
+        <h2 id="network">Network fees vs creator fees</h2>
+        <p>The launch preview shows <strong>network fees</strong> (Solana rent and compute). On sponsored mainnet, promptfun pays those from the sponsor wallet. Creator fees accrue from trading on pump.fun and land when fees are distributed on chain.</p>
+
+        <p class="fine docs-source">Policy effective when <strong>$PROMPT</strong> mint is live and promptfun enables tier checks in production. Questions? See the <a href="/#faq">FAQ</a> or <a href="/#prompt-fees">home creator-fees beat</a>.</p>
+      </div>
+
+      <aside class="docs-aside" aria-label="On this page">
+        <p class="prompts-title">On this page</p>
+        <ul class="docs-toc">
+          <li><a href="#today">Before mint</a></li>
+          <li><a href="#tiers">$PROMPT tiers</a></li>
+          <li><a href="#wallet">Wallet</a></li>
+          <li><a href="#network">Network fees</a></li>
+        </ul>
+        <p class="fine"><a href="/docs">← All docs</a></p>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <nav class="footer-nav" aria-label="Legal and docs">
+      <a href="/docs">Docs</a>
+      <a href="/docs/creator-fees.html">Creator fees</a>
+      <a href="/explore">Explore</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+    <p>Solana mainnet pump.fun launches are live via Claude. Real SOL; you are responsible for what you launch.</p>
+    <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+</body>
+</html>

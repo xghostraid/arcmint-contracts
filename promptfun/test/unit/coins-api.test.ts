@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadConfig } from "../../src/config.js";
 import "../../src/chains/index.js";
-import { IntentStore } from "../../src/intents/store.js";
-import { CoinIndexStore } from "../../src/indexer/store.js";
 import { CoinIndexService } from "../../src/indexer/service.js";
+import { openMemoryStores } from "../../src/db/test-helpers.js";
 
-test("resolveQuery rejects bad params", () => {
+test("resolveQuery rejects bad params", async () => {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:" });
-  const indexer = new CoinIndexService(config, new IntentStore(":memory:"), new CoinIndexStore(":memory:"));
+  const { intents, coins } = await openMemoryStores();
+  const indexer = new CoinIndexService(config, intents, coins);
   assert.equal(indexer.resolveQuery(new URLSearchParams("sort=nope")).ok, false);
   assert.equal(indexer.resolveQuery(new URLSearchParams("limit=200")).ok, false);
   assert.equal(indexer.resolveQuery(new URLSearchParams("network=devnet")).ok, false);
@@ -23,10 +23,11 @@ test("resolveQuery rejects bad params", () => {
   if (testnet.ok) assert.equal(testnet.query.network, "testnet");
 });
 
-test("stats returns zero when empty", () => {
+test("stats returns zero when empty", async () => {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:" });
-  const indexer = new CoinIndexService(config, new IntentStore(":memory:"), new CoinIndexStore(":memory:"));
-  const stats = indexer.stats();
+  const { intents, coins } = await openMemoryStores();
+  const indexer = new CoinIndexService(config, intents, coins);
+  const stats = await indexer.stats();
   assert.equal(stats.coins, 0);
   assert.equal(stats.mainnetCoins, 0);
 });

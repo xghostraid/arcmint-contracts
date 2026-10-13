@@ -52,14 +52,14 @@ export class CoinIndexService {
 
   private async bootstrap(): Promise<void> {
     if (this.stopped) return;
-    for (const coin of syncCoinsFromIntents(this.config, this.intents)) {
-      if (shouldIndexCoin(this.config, coin.chainKey)) this.store.upsert(coin);
+    for (const coin of await syncCoinsFromIntents(this.config, this.intents)) {
+      if (shouldIndexCoin(this.config, coin.chainKey)) await this.store.upsert(coin);
     }
     for (const spec of CHAIN_IMPORTS) {
       if (!this.config.indexTestnetDemos) continue;
       try {
         const imported = await importKnownCoin(this.config, spec);
-        if (imported) this.store.upsert(imported);
+        if (imported) await this.store.upsert(imported);
       } catch {
         // No fake coins when RPC is down.
       }
@@ -72,12 +72,12 @@ export class CoinIndexService {
     if (this.refreshing) return;
     this.refreshing = true;
     try {
-      for (const record of this.store.all()) {
+      for (const record of await this.store.all()) {
         const chain = findChain(this.config, record.chainKey);
         if (!chain) continue;
         try {
           record.live = await refreshLive(this.config, chain, record);
-          this.store.upsert(record);
+          await this.store.upsert(record);
         } catch {
           // Keep last snapshot.
         }
@@ -114,9 +114,9 @@ export class CoinIndexService {
     };
   }
 
-  list(query: CoinQuery): CoinsListResponse {
+  async list(query: CoinQuery): Promise<CoinsListResponse> {
     const generatedAt = new Date().toISOString();
-    let rows = this.store.all().map((r) => this.summaryFor(r)).filter((s): s is CoinSummary => !!s);
+    let rows = (await this.store.all()).map((r) => this.summaryFor(r)).filter((s): s is CoinSummary => !!s);
     if (query.chain) rows = rows.filter((c) => c.chain.key === query.chain);
     if (query.network === "mainnet") rows = rows.filter((c) => !c.chain.testnet);
     if (query.network === "testnet") rows = rows.filter((c) => c.chain.testnet);
@@ -132,9 +132,9 @@ export class CoinIndexService {
     return { coins: slice, total, sort: query.sort, limit: query.limit, offset: query.offset, generatedAt };
   }
 
-  stats(): StatsResponse {
+  async stats(): Promise<StatsResponse> {
     const generatedAt = new Date().toISOString();
-    const summaries = this.store.all().map((r) => this.summaryFor(r)).filter((s): s is CoinSummary => !!s);
+    const summaries = (await this.store.all()).map((r) => this.summaryFor(r)).filter((s): s is CoinSummary => !!s);
     const mainnetSummaries = summaries.filter((c) => !c.chain.testnet);
     const byChain: Record<string, number> = {};
     for (const c of mainnetSummaries) byChain[c.chain.key] = (byChain[c.chain.key] ?? 0) + 1;
@@ -169,9 +169,9 @@ export class CoinIndexService {
   > {
     let record: CoinRecord | null = null;
     if (idOrAddress.includes(":")) {
-      record = this.store.get(decodeURIComponent(idOrAddress));
+      record = await this.store.get(decodeURIComponent(idOrAddress));
     } else {
-      const matches = this.store.findByAddress(idOrAddress);
+      const matches = await this.store.findByAddress(idOrAddress);
       if (chainHint) {
         record = matches.find((m) => m.chainKey === chainHint) ?? null;
       } else if (matches.length === 1) {
@@ -195,7 +195,7 @@ export class CoinIndexService {
     if (ageMs > 30_000) {
       try {
         record.live = await refreshLive(this.config, chain, record);
-        this.store.upsert(record);
+        await this.store.upsert(record);
       } catch {
         // serve stale
       }
@@ -203,17 +203,17 @@ export class CoinIndexService {
     return { ok: true, detail: toDetail(chain, record) };
   }
 
-  findByIntentOrAddress(coin: string, chain?: string): CoinDetail | null {
-    const byIntent = this.store.all().find((c) => c.intentId === coin);
+  async findByIntentOrAddress(coin: string, chain?: string): Promise<CoinDetail | null> {
+    const byIntent = (await this.store.all()).find((c) => c.intentId === coin);
     if (byIntent) {
       const chainDef = findChain(this.config, byIntent.chainKey);
       if (chainDef) return toDetail(chainDef, byIntent);
     }
     let record: CoinRecord | null = null;
     if (coin.includes(":")) {
-      record = this.store.get(decodeURIComponent(coin));
+      record = await this.store.get(decodeURIComponent(coin));
     } else {
-      const matches = this.store.findByAddress(coin);
+      const matches = await this.store.findByAddress(coin);
       if (chain) record = matches.find((m) => m.chainKey === chain) ?? null;
       else if (matches.length === 1) record = matches[0]!;
     }
@@ -222,15 +222,15 @@ export class CoinIndexService {
     return chainDef ? toDetail(chainDef, record) : null;
   }
 
-  upsertFromIntent(record: CoinRecord): void {
-    this.store.upsert(record);
+  async upsertFromIntent(record: CoinRecord): Promise<void> {
+    await this.store.upsert(record);
   }
 
-  syncIntents(): void {
-    for (const coin of syncCoinsFromIntents(this.config, this.intents)) {
+  async syncIntents(): Promise<void> {
+    for (const coin of await syncCoinsFromIntents(this.config, this.intents)) {
       if (!shouldIndexCoin(this.config, coin.chainKey)) continue;
-      const existing = this.store.get(coin.id);
-      this.store.upsert(existing ? { ...coin, live: existing.live } : coin);
+      const existing = await this.store.get(coin.id);
+      await this.store.upsert(existing ? { ...coin, live: existing.live } : coin);
     }
   }
 
@@ -301,7 +301,7 @@ export function handleCoinsApi(
       res.end();
       return true;
     }
-    sendJson(200, indexer.stats());
+    void indexer.stats().then((body) => sendJson(200, body));
     return true;
   }
   if (pathname === "/api/coins") {
@@ -315,7 +315,7 @@ export function handleCoinsApi(
       res.end();
       return true;
     }
-    sendJson(200, indexer.list(parsed.query));
+    void indexer.list(parsed.query).then((body) => sendJson(200, body));
     return true;
   }
   const detailMatch = /^\/api\/coins\/(.+)$/.exec(pathname);

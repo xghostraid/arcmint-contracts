@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadConfig } from "../../src/config.js";
 import "../../src/chains/index.js";
-import { IntentStore } from "../../src/intents/store.js";
-import { CoinIndexStore } from "../../src/indexer/store.js";
 import { CoinIndexService } from "../../src/indexer/service.js";
+import { openMemoryStores } from "../../src/db/test-helpers.js";
 import { coinFromIntent } from "../../src/indexer/sync.js";
 import { coinId } from "../../src/indexer/record.js";
 import { defaultLiveSnapshot } from "../../src/indexer/live.js";
@@ -63,13 +62,12 @@ test("coinFromIntent maps confirmed launch receipts", () => {
   assert.equal(coin!.recordedFrom, "receipt");
 });
 
-test("CoinIndexService lists and sorts seeded coins", () => {
+test("CoinIndexService lists and sorts seeded coins", async () => {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:" });
-  const intents = new IntentStore(":memory:");
-  const store = new CoinIndexStore(":memory:");
+  const { intents, coins: store } = await openMemoryStores();
   const indexer = new CoinIndexService(config, intents, store);
   const chain = findChain(config, "solana-devnet")!;
-  store.upsert({
+  await store.upsert({
     id: coinId("solana-devnet", "aaa"),
     chainKey: "solana-devnet",
     venue: "spl",
@@ -89,7 +87,7 @@ test("CoinIndexService lists and sorts seeded coins", () => {
     intentId: null,
     live: defaultLiveSnapshot(chain, "spl"),
   });
-  store.upsert({
+  await store.upsert({
     id: coinId("solana-devnet", "bbb"),
     chainKey: "solana-devnet",
     venue: "spl",
@@ -109,22 +107,21 @@ test("CoinIndexService lists and sorts seeded coins", () => {
     intentId: null,
     live: defaultLiveSnapshot(chain, "spl"),
   });
-  const testnetList = indexer.list({ sort: "new", q: null, chain: null, network: "testnet", limit: 50, offset: 0 });
+  const testnetList = await indexer.list({ sort: "new", q: null, chain: null, network: "testnet", limit: 50, offset: 0 });
   assert.equal(testnetList.total, 2);
   assert.equal(testnetList.coins[0]!.symbol, "NEW");
-  const mainnetList = indexer.list({ sort: "new", q: null, chain: null, network: "mainnet", limit: 50, offset: 0 });
+  const mainnetList = await indexer.list({ sort: "new", q: null, chain: null, network: "mainnet", limit: 50, offset: 0 });
   assert.equal(mainnetList.total, 0);
 });
 
-test("CoinIndexService skips testnet intents unless PROMPTFUN_INDEX_TESTNET_DEMOS", () => {
+test("CoinIndexService skips testnet intents unless PROMPTFUN_INDEX_TESTNET_DEMOS", async () => {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:" });
-  const intents = new IntentStore(":memory:");
-  intents.save(baseIntent());
-  const store = new CoinIndexStore(":memory:");
+  const { intents, coins: store } = await openMemoryStores();
+  await intents.save(baseIntent());
   const indexer = new CoinIndexService(config, intents, store);
-  indexer.syncIntents();
-  assert.equal(store.count(), 0);
+  await indexer.syncIntents();
+  assert.equal(await store.count(), 0);
   const withDemos = new CoinIndexService(loadConfig({ PROMPTFUN_DB: ":memory:", PROMPTFUN_INDEX_TESTNET_DEMOS: "1" }), intents, store);
-  withDemos.syncIntents();
-  assert.equal(store.count(), 1);
+  await withDemos.syncIntents();
+  assert.equal(await store.count(), 1);
 });

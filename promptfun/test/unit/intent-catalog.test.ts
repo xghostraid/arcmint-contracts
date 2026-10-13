@@ -6,6 +6,7 @@ import "../../src/chains/index.js";
 import type { IntentRemoteStore } from "../../src/intents/catalog.js";
 import { IntentService } from "../../src/intents/service.js";
 import { IntentStore } from "../../src/intents/store.js";
+import { openMemoryStores } from "../../src/db/test-helpers.js";
 import type { Intent } from "../../src/intents/types.js";
 import { PictureService } from "../../src/pictures/service.js";
 import { PictureStore } from "../../src/pictures/store.js";
@@ -33,12 +34,16 @@ test("prepare mirrors intent to remote catalog; another instance can confirm pat
   const remote = new MemoryIntentRemote();
   const config = loadConfig({ PROMPTFUN_DB: ":memory:", PROMPTFUN_ENABLE_LOCALNET: "1" });
   const pictures = new PictureService(config, new PictureStore(":memory:"));
-  const writer = new IntentService(config, new IntentStore(":memory:"), pictures, null, null, remote);
-  const reader = new IntentService(config, new IntentStore(":memory:"), pictures, null, null, remote);
+  const writerDb = await openMemoryStores();
+  const readerDb = await openMemoryStores();
+  const writer = new IntentService(config, writerDb.intents, pictures, null, null, remote);
+  const reader = new IntentService(config, readerDb.intents, pictures, null, null, remote);
 
   const intent = await writer.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to });
   assert.ok(remote.map.has(intent.id));
-  assert.equal(new IntentStore(":memory:").get(intent.id), null);
+  const empty = await IntentStore.openPath(":memory:");
+  assert.equal(await empty.get(intent.id), null);
+  await empty.close();
 
   const loaded = await reader.get(intent.id);
   assert.equal(loaded.id, intent.id);

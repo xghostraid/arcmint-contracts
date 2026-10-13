@@ -37,7 +37,7 @@ const testEnv = {
 
 test("OPTIONS /api/pictures/upload returns CORS for claude.ai", async () => {
   const config = loadConfig(testEnv);
-  const app = createApp(config);
+  const app = await createApp(config);
   await app.listen();
   const base = app.config.publicUrl;
 
@@ -56,7 +56,7 @@ test("OPTIONS /api/pictures/upload returns CORS for claude.ai", async () => {
 
 test("POST /api/pictures/upload echoes Allow-Origin for claude.com widget", async () => {
   const config = loadConfig(testEnv);
-  const app = createApp(config);
+  const app = await createApp(config);
   await app.listen();
   const base = app.config.publicUrl;
 

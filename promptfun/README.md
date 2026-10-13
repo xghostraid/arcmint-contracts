@@ -102,6 +102,7 @@ Previews show **"Network fee (paid to <chain>, not promptfun)"**:
 
 Ship the Node service from this folder (`promptfun/`):
 
+- **Vercel (`promptfun-mcp`):** set **`TURSO_DATABASE_URL`** + **`TURSO_AUTH_TOKEN`** (Turso) *or* link **Vercel Postgres** so **`POSTGRES_URL`** is present. Without one of these, intents and the coin index reset on every deploy. Pictures still use Vercel Blob when `BLOB_READ_WRITE_TOKEN` is set.
 - **Docker:** `docker build -t promptfun-mcp . && docker run -p 8787:8787 --env-file .env promptfun-mcp`
 - **Render (Blueprint):** at the **repo root**, `render.yaml` defines a Web Service with `rootDir: promptfun`, Docker build from `Dockerfile`, health check `GET /api/stats`, and a 1 GB disk at `/data` for `PROMPTFUN_DB=/data/promptfun.sqlite`. In [Render](https://render.com) → **New** → **Blueprint** → connect `xghostraid/arcmint-contracts` on `main`. On first sync, fill every env var marked `sync: false` in the Dashboard (see `.env.example` for meanings). Minimum for Claude via the Vercel site: `PROMPTFUN_PUBLIC_URL=https://promptfun.fun` and a strong `PROMPTFUN_OAUTH_SIGNING_SECRET`. Copy the service URL (e.g. `https://promptfun-mcp.onrender.com`) into Vercel **`PROMPTFUN_BACKEND_URL`**. **Node instead of Docker:** same Blueprint service — set `runtime: node`, `buildCommand: npm ci && npm run build`, `startCommand: npm start` (remove `dockerfilePath`).
 - **Fly.io:** `fly volumes create promptfun_data -r iad` (once), then `fly deploy` (uses `fly.toml` + persistent `/data` for SQLite).
@@ -115,7 +116,10 @@ Copy `.env.example` into your host’s environment UI (never commit secrets). Se
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | Listen address |
 | `PROMPTFUN_PUBLIC_URL` | `http://127.0.0.1:$PORT` | Public origin for approval links. Also the allowed `Host` for `/mcp`. |
-| `PROMPTFUN_DB` | `./data/promptfun.sqlite` | Intent store (`node:sqlite`). It holds no keys. |
+| `PROMPTFUN_DB` | `./data/promptfun.sqlite` | Local SQLite path for intents + coin index (Docker/Render/Fly). No keys stored. |
+| `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` | — | **Vercel/production:** Turso/libSQL URL (preferred). Same schema as SQLite; survives serverless redeploys. |
+| `LIBSQL_URL` + `LIBSQL_AUTH_TOKEN` | — | Alias for Turso/libSQL. |
+| `POSTGRES_URL` or `PROMPTFUN_POSTGRES_URL` | — | **Vercel Postgres** when the project is linked to Storage → Postgres (`POSTGRES_URL` is injected automatically). |
 | `PROMPTFUN_ENABLE_LOCALNET` | off | Enable `solana-localnet` (`solana-test-validator`) and `evm-localnet` (`anvil`) |
 | `PROMPTFUN_ENABLE_PUMPFUN_MAINNET` | off | Enable pump.fun launches on Solana mainnet. **Spends real SOL.** Single-user local runs only. |
 | `PROMPTFUN_ENABLE_EVM_MAINNETS` | off | Enable EVM mainnets. **Spends real ETH, BNB, or POL.** Single-user local runs only. |

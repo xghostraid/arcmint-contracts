@@ -9,6 +9,8 @@ import type { Config } from "./config.js";
 import { findChain } from "./chains/registry.js";
 import { IntentService } from "./intents/service.js";
 import { IntentStore } from "./intents/store.js";
+import { openMainDb } from "./db/main-db.js";
+import { migrateMainDb } from "./db/schema.js";
 import { IntentError } from "./intents/types.js";
 import { PictureService } from "./pictures/service.js";
 import { PictureStore } from "./pictures/store.js";
@@ -85,11 +87,13 @@ export interface App {
   close(): Promise<void>;
 }
 
-export function createApp(config: Config): App {
-  const store = new IntentStore(config.dbPath);
+export async function createApp(config: Config): Promise<App> {
+  const mainDb = await openMainDb(config.promptfunDb);
+  await migrateMainDb(mainDb);
+  const store = await IntentStore.open(mainDb);
   const pictureStore = new PictureStore(config.dbPath);
   const pictures = new PictureService(config, pictureStore);
-  const coinStore = new CoinIndexStore(config.dbPath);
+  const coinStore = await CoinIndexStore.open(mainDb);
   const platform = config.oauthEnabled ? new PlatformStore(platformDbPath(config.dbPath)) : null;
   const oauth = platform ? new OAuthServer(config, platform) : null;
   const claimWallets = platform && config.privyAppId && config.privyAppSecret
@@ -257,9 +261,10 @@ export function createApp(config: Config): App {
       await mcp.close();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       server.closeAllConnections?.();
-      store.close();
+      await store.close();
       pictureStore.close();
-      coinStore.close();
+      await coinStore.close();
+      await mainDb.close();
       platform?.close();
     },
   };

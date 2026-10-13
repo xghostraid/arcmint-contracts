@@ -2,7 +2,7 @@ import { createApp } from "./app.js";
 import { BRAND } from "./brand.js";
 import { loadConfig } from "./config.js";
 
-const app = createApp(loadConfig());
+const app = await createApp(loadConfig());
 const url = await app.listen();
 console.error(`${BRAND} listening on ${url} (MCP at ${url}/mcp, approvals at ${app.config.publicUrl}/approve/<id>)`);
 

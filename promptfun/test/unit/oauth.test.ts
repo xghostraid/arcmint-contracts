@@ -24,7 +24,7 @@ test("OAuth register → authorize → token flow", async () => {
     PROMPTFUN_OAUTH_EXPOSE_MAGIC_LINK: "1",
     PROMPTFUN_OAUTH_SIGNING_SECRET: "test-secret",
   });
-  const app = createApp(config);
+  const app = await createApp(config);
   const base = await app.listen();
   try {
     const meta = await fetch(`${base}/.well-known/oauth-protected-resource`);
@@ -102,7 +102,7 @@ test("MCP returns 401 with WWW-Authenticate when OAuth required", async () => {
     PROMPTFUN_OAUTH_REQUIRED: "1",
     PROMPTFUN_OAUTH_SIGNING_SECRET: "test-secret",
   });
-  const app = createApp(config);
+  const app = await createApp(config);
   const base = await app.listen();
   try {
     const res = await fetch(`${base}/mcp`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });

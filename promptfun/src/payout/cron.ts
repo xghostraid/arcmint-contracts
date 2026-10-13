@@ -49,7 +49,7 @@ export class PayoutCron {
     this.running = true;
     try {
       const payer = loadKeypair(this.config.sponsorSecretKey);
-      for (const record of this.coinStore.all()) {
+      for (const record of await this.coinStore.all()) {
         if (record.venue !== "pumpfun") continue;
         const chain = findChain(this.config, record.chainKey);
         if (!chain || chain.family !== "solana" || !chain.testnet) continue;
@@ -93,6 +93,6 @@ export class PayoutCron {
         lastPaidAt: new Date().toISOString(),
       },
     };
-    this.coinStore.upsert(updated);
+    await this.coinStore.upsert(updated);
   }
 }

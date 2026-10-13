@@ -44,11 +44,12 @@ test("prepare_launch accepts imageUrl on pump.fun mainnet path", async () => {
     PROMPTFUN_PUBLIC_URL: "http://127.0.0.1:9999",
   });
   const { IntentService } = await import("../../src/intents/service.js");
-  const { IntentStore } = await import("../../src/intents/store.js");
+  const { openMemoryStores } = await import("../../src/db/test-helpers.js");
   const pictures = new PictureService(config, new PictureStore(":memory:"));
   const jpeg = tinyJpeg();
   const saved = await pictures.saveBuffer("image/jpeg", jpeg);
-  const service = new IntentService(config, new IntentStore(":memory:"), pictures);
+  const { intents } = await openMemoryStores();
+  const service = new IntentService(config, intents, pictures);
 
   await assert.rejects(
     service.prepareLaunch({ chain: "solana-mainnet", name: "Rocket", symbol: "RKT" }),

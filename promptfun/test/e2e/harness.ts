@@ -17,7 +17,7 @@ export interface Harness {
 export async function startHarness(env: Record<string, string> = {}): Promise<Harness> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "promptfun-"));
   const config = loadConfig({ ...process.env, HOST: "127.0.0.1", PORT: "0", PROMPTFUN_DB: path.join(dir, "db.sqlite"), ...env });
-  const app = createApp(config);
+  const app = await createApp(config);
   const base = await app.listen();
   config.publicUrl = base;
   const client = new Client({ name: "promptfun-e2e", version: "0.0.0" });

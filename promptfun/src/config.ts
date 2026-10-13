@@ -1,10 +1,14 @@
 import path from "node:path";
 import { PROMPTFUN_PROMPT_MINT_LIVE } from "./chains/solana/prompt-tier.js";
+import { resolvePromptfunDb, sqlitePathForAuxStores, type PromptfunDbConfig } from "./db/resolve.js";
 
 export interface Config {
   host: string;
   port: number;
   publicUrl: string;
+  /** Resolved durable DB for intents + coin index (Turso, Postgres, or SQLite file). */
+  promptfunDb: PromptfunDbConfig;
+  /** SQLite path for pictures / platform aux tables (file mode when primary DB is remote). */
   dbPath: string;
   enableLocalnet: boolean;
   enablePumpfunMainnet: boolean;
@@ -65,11 +69,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const port = Number(env.PORT || 8787);
   const host = env.HOST || "127.0.0.1";
   const publicUrl = (env.PROMPTFUN_PUBLIC_URL || `http://127.0.0.1:${port}`).replace(/\/+$/, "");
+  const promptfunDb = resolvePromptfunDb(env);
+  const dbPath = sqlitePathForAuxStores(promptfunDb, env);
   return {
     host,
     port,
     publicUrl,
-    dbPath: env.PROMPTFUN_DB || path.resolve(process.cwd(), "data/promptfun.sqlite"),
+    promptfunDb,
+    dbPath,
     enableLocalnet: flag(env.PROMPTFUN_ENABLE_LOCALNET),
     enablePumpfunMainnet: flag(env.PROMPTFUN_ENABLE_PUMPFUN_MAINNET),
     enableEvmMainnets: flag(env.PROMPTFUN_ENABLE_EVM_MAINNETS),

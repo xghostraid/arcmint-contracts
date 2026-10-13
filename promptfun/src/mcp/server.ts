@@ -555,8 +555,10 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         const intent = await service.get(intentId);
         let structured = v as unknown as Record<string, unknown>;
         if (intent.status === "confirmed" && intent.kind === "launch_token" && coins) {
-          coins.syncIntents();
-          const detail = coins.findByIntentOrAddress(intentId) ?? (intent.receipt?.tokenAddress ? coins.findByIntentOrAddress(intent.receipt.tokenAddress, intent.chain) : null);
+          await coins.syncIntents();
+          const detail =
+            (await coins.findByIntentOrAddress(intentId)) ??
+            (intent.receipt?.tokenAddress ? await coins.findByIntentOrAddress(intent.receipt.tokenAddress, intent.chain) : null);
           if (detail) {
             structured = { ...structured, coin: detail };
             const lines = [
@@ -589,8 +591,8 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
     async ({ coin, chain }) => {
       try {
         if (!coins) throw new IntentError("Coin index is not available.");
-        coins.syncIntents();
-        const detail: CoinDetail | null = coins.findByIntentOrAddress(coin, chain);
+        await coins.syncIntents();
+        const detail: CoinDetail | null = await coins.findByIntentOrAddress(coin, chain);
         if (!detail) throw new IntentError("No indexed coin matches that id.");
         const splitLine =
           detail.feeSplit.recipients?.length

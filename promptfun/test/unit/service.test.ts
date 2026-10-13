@@ -5,20 +5,21 @@ import { loadConfig } from "../../src/config.js";
 import "../../src/chains/index.js";
 import { allChains } from "../../src/chains/registry.js";
 import { IntentService } from "../../src/intents/service.js";
-import { IntentStore } from "../../src/intents/store.js";
 import { PictureService } from "../../src/pictures/service.js";
 import { PictureStore } from "../../src/pictures/store.js";
+import { openMemoryStores } from "../../src/db/test-helpers.js";
 import { usdValue } from "../../src/util/price.js";
 
-function service(env: Record<string, string> = {}) {
+async function service(env: Record<string, string> = {}) {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:", PROMPTFUN_ENABLE_LOCALNET: "1", ...env });
   const pictures = new PictureService(config, new PictureStore(":memory:"));
-  return new IntentService(config, new IntentStore(":memory:"), pictures);
+  const { intents } = await openMemoryStores();
+  return new IntentService(config, intents, pictures);
 }
 const to = Keypair.generate().publicKey.toBase58();
 
 test("launch input is normalised and checked before any network call", async () => {
-  const s = service();
+  const s = await service();
   const intent = await s.prepareLaunch({ chain: "solana-devnet", name: " My Coin ", symbol: "myc", supply: "1,000,000" });
   assert.equal(intent.status, "awaiting_wallet");
   assert.deepEqual([(intent.params as any).name, (intent.params as any).symbol, (intent.params as any).supply, (intent.params as any).decimals], ["My Coin", "MYC", "1000000", 9]);
@@ -34,44 +35,44 @@ test("launch input is normalised and checked before any network call", async () 
 });
 
 test("prepareLaunch defaults to solana-mainnet when chain is omitted", async () => {
-  const pump = service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
+  const pump = await service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
   await assert.rejects(pump.prepareLaunch({ name: "P", symbol: "PP" }), /coin image|metadata link/);
   const withMeta = await pump.prepareLaunch({ name: "P", symbol: "PP", metadataUri: "https://x.io/m.json" });
   assert.equal(withMeta.chain, "solana-mainnet");
 });
 
 test("gated and unbuilt chains refuse with the reason", async () => {
-  const s = service();
+  const s = await service();
   await assert.rejects(s.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "P", metadataUri: "https://x.io/m.json" }), /Mainnet is off/);
   await assert.rejects(s.prepareTransfer({ chain: "robinhood", asset: "native", amount: "1", to: "0x0000000000000000000000000000000000000001" }), /Mainnet is off/);
   const rh = await s.prepareTransfer({ chain: "robinhood-testnet", asset: "native", amount: "0.001", to: "0x0000000000000000000000000000000000000001" });
   assert.equal(rh.status, "awaiting_wallet");
   await assert.rejects(s.prepareTransfer({ chain: "robinhood-testnet", asset: "native", amount: "1", to: "0x0000000000000000000000000000000000000000" }), /not a Robinhood Chain Testnet wallet address/);
-  const pump = service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
+  const pump = await service({ PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1" });
   await assert.rejects(pump.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "PP" }), /open_picture_panel/);
   await assert.rejects(pump.prepareLaunch({ chain: "solana-mainnet", name: "P", symbol: "PP", supply: "5", metadataUri: "https://x.io/m.json" }), /1,000,000,000/);
   await assert.rejects(pump.prepareTransfer({ chain: "solana-mainnet", asset: "native", amount: "1", to }), /does not support transfers/);
 });
 
 test("transfer amounts are checked against the native decimals", async () => {
-  const s = service();
+  const s = await service();
   await assert.rejects(s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "0.0000000001", to }), /decimal places/);
   await assert.rejects(s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "0", to }), /more than zero/);
   await assert.rejects(s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to: "nope" }), /not a Solana/);
 });
 
 test("the same live request is deduplicated; a finished one is not", async () => {
-  const s = service();
+  const s = await service();
   const a = await s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to });
   const b = await s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to });
   assert.equal(a.id, b.id);
-  s.store.save({ ...a, status: "confirmed" });
+  await s.store.save({ ...a, status: "confirmed" });
   const c = await s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to });
   assert.notEqual(c.id, a.id);
 });
 
 test("intents expire and cannot be built after expiry", async () => {
-  const s = service({ PROMPTFUN_INTENT_TTL_MS: "1" });
+  const s = await service({ PROMPTFUN_INTENT_TTL_MS: "1" });
   const a = await s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to });
   await new Promise((r) => setTimeout(r, 5));
   assert.equal((await s.get(a.id)).status, "expired");
@@ -79,7 +80,7 @@ test("intents expire and cannot be built after expiry", async () => {
 });
 
 test("intent creation is rate limited", async () => {
-  const s = service({ PROMPTFUN_MAX_INTENTS_PER_HOUR: "2" });
+  const s = await service({ PROMPTFUN_MAX_INTENTS_PER_HOUR: "2" });
   await s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "1", to });
   await s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "2", to });
   await assert.rejects(s.prepareTransfer({ chain: "solana-localnet", asset: "native", amount: "3", to }), /Too many/);

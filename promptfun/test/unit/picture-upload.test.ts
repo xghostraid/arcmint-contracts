@@ -12,7 +12,7 @@ function tinyJpeg(): Buffer {
 
 test("POST /api/pictures/upload accepts raw JPEG without MCP JSON body", async () => {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:", PROMPTFUN_PUBLIC_URL: "http://127.0.0.1:9999" });
-  const app = createApp(config);
+  const app = await createApp(config);
   await app.listen();
   const base = app.config.publicUrl;
   const jpeg = tinyJpeg();

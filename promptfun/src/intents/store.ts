@@ -1,31 +1,38 @@
-import fs from "node:fs";
-import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { MainDb } from "../db/main-db.js";
+import { migrateMainDb } from "../db/schema.js";
 import type { Intent } from "./types.js";
 
 /** Intents only: no keys, no signatures beyond what is already public on chain. */
 export class IntentStore {
-  private db: DatabaseSync;
+  private readonly db: MainDb;
+  private readonly ownsDb: boolean;
 
-  constructor(dbPath: string) {
-    if (dbPath !== ":memory:") fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-    this.db = new DatabaseSync(dbPath);
-    this.db.exec(`
-      PRAGMA journal_mode = WAL;
-      CREATE TABLE IF NOT EXISTS intents (
-        id TEXT PRIMARY KEY,
-        idempotency_key TEXT NOT NULL,
-        status TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        body TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS intents_idem ON intents (idempotency_key);
-      CREATE INDEX IF NOT EXISTS intents_status ON intents (status);
-    `);
+  private constructor(db: MainDb, ownsDb: boolean) {
+    this.db = db;
+    this.ownsDb = ownsDb;
   }
 
-  save(intent: Intent): void {
-    this.db
+  /** Open store (runs idempotent migrations). Share one MainDb across IntentStore + CoinIndexStore in production. */
+  static async open(db: MainDb): Promise<IntentStore> {
+    await migrateMainDb(db);
+    return new IntentStore(db, false);
+  }
+
+  /** Convenience for tests: opens a dedicated connection and owns lifecycle. */
+  static async openPath(dbPath: string): Promise<IntentStore> {
+    const { resolvePromptfunDb } = await import("../db/resolve.js");
+    const { openMainDb } = await import("../db/main-db.js");
+    const config =
+      dbPath === ":memory:"
+        ? resolvePromptfunDb({ PROMPTFUN_DB: ":memory:" })
+        : resolvePromptfunDb({ PROMPTFUN_DB: dbPath });
+    const main = await openMainDb(config);
+    await migrateMainDb(main);
+    return new IntentStore(main, true);
+  }
+
+  async save(intent: Intent): Promise<void> {
+    await this.db
       .prepare(
         `INSERT INTO intents (id, idempotency_key, status, created_at, body) VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET status = excluded.status, body = excluded.body`,
@@ -33,47 +40,49 @@ export class IntentStore {
       .run(intent.id, intent.idempotencyKey, intent.status, Date.parse(intent.createdAt), JSON.stringify(intent));
   }
 
-  get(id: string): Intent | null {
-    const row = this.db.prepare("SELECT body FROM intents WHERE id = ?").get(id) as { body: string } | undefined;
-    return row ? (JSON.parse(row.body) as Intent) : null;
+  async get(id: string): Promise<Intent | null> {
+    const row = await this.db.prepare("SELECT body FROM intents WHERE id = ?").get(id);
+    const body = row?.body;
+    return typeof body === "string" ? (JSON.parse(body) as Intent) : null;
   }
 
   /** Newest intent with this key that is still in flight. Finished or expired intents never block a new one. */
-  findLive(idempotencyKey: string): Intent | null {
-    const row = this.db
+  async findLive(idempotencyKey: string): Promise<Intent | null> {
+    const row = await this.db
       .prepare(
         `SELECT body FROM intents WHERE idempotency_key = ? AND status IN ('awaiting_wallet','awaiting_confirm','built','submitted')
          ORDER BY created_at DESC LIMIT 1`,
       )
-      .get(idempotencyKey) as { body: string } | undefined;
-    return row ? (JSON.parse(row.body) as Intent) : null;
+      .get(idempotencyKey);
+    const body = row?.body;
+    return typeof body === "string" ? (JSON.parse(body) as Intent) : null;
   }
 
-  withStatus(...statuses: string[]): Intent[] {
+  async withStatus(...statuses: string[]): Promise<Intent[]> {
     const marks = statuses.map(() => "?").join(",");
-    const rows = this.db.prepare(`SELECT body FROM intents WHERE status IN (${marks})`).all(...statuses) as Array<{ body: string }>;
-    return rows.map((row) => JSON.parse(row.body) as Intent);
+    const rows = await this.db.prepare(`SELECT body FROM intents WHERE status IN (${marks})`).all(...statuses);
+    return rows.map((row) => JSON.parse(String(row.body)) as Intent);
   }
 
-  countSince(sinceMs: number): number {
-    const row = this.db.prepare("SELECT COUNT(*) AS n FROM intents WHERE created_at >= ?").get(sinceMs) as { n: number };
-    return Number(row.n);
+  async countSince(sinceMs: number): Promise<number> {
+    const row = await this.db.prepare("SELECT COUNT(*) AS n FROM intents WHERE created_at >= ?").get(sinceMs);
+    return Number(row?.n ?? 0);
   }
 
   /** Confirmed sponsored token launches since `sinceMs` (global cap, getplugged-style). */
-  countSponsoredLaunchesSince(sinceMs: number): number {
-    const rows = this.db
+  async countSponsoredLaunchesSince(sinceMs: number): Promise<number> {
+    const rows = await this.db
       .prepare("SELECT body FROM intents WHERE created_at >= ? AND status = 'confirmed'")
-      .all(sinceMs) as Array<{ body: string }>;
+      .all(sinceMs);
     let n = 0;
     for (const row of rows) {
-      const intent = JSON.parse(row.body) as { executionMode?: string; kind?: string };
+      const intent = JSON.parse(String(row.body)) as { executionMode?: string; kind?: string };
       if (intent.executionMode === "sponsor" && intent.kind === "launch_token") n++;
     }
     return n;
   }
 
-  close(): void {
-    this.db.close();
+  async close(): Promise<void> {
+    if (this.ownsDb) await this.db.close();
   }
 }

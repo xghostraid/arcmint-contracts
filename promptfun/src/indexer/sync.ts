@@ -39,9 +39,9 @@ export function coinFromIntent(config: Config, intent: Intent): CoinRecord | nul
   return record;
 }
 
-export function syncCoinsFromIntents(config: Config, intents: IntentStore): CoinRecord[] {
+export async function syncCoinsFromIntents(config: Config, intents: IntentStore): Promise<CoinRecord[]> {
   const out: CoinRecord[] = [];
-  for (const intent of intents.withStatus("confirmed")) {
+  for (const intent of await intents.withStatus("confirmed")) {
     const coin = coinFromIntent(config, intent);
     if (coin) out.push(coin);
   }

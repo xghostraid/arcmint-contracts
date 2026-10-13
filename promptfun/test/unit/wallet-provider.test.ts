@@ -10,7 +10,7 @@ import { ClaimLaterWalletProvider, platformSubFromEmail } from "../../src/wallet
 import { PrivyApiClient, solanaEmbeddedAddress } from "../../src/wallets/privy-api.js";
 import { createApp } from "../../src/app.js";
 import { IntentService } from "../../src/intents/service.js";
-import { IntentStore } from "../../src/intents/store.js";
+import { openMemoryStores } from "../../src/db/test-helpers.js";
 import { PictureService } from "../../src/pictures/service.js";
 import { PictureStore } from "../../src/pictures/store.js";
 
@@ -96,7 +96,8 @@ test("prepare_launch binds feeRecipient to claim wallet for signed-in caller", a
   );
   const claimProvider = new ClaimLaterWalletProvider(config, platform, privy);
   const pictures = new PictureService(config, new PictureStore(":memory:"));
-  const s = new IntentService(config, new IntentStore(":memory:"), pictures, platform, claimProvider);
+  const { intents } = await openMemoryStores();
+  const s = new IntentService(config, intents, pictures, platform, claimProvider);
   const email = "launch@example.com";
   const sub = createHash("sha256").update(`promptfun:${email}`).digest("hex").slice(0, 32);
   s.setCaller({ sub, email });
@@ -122,7 +123,7 @@ test("POST /claim returns magic link in dev mode", async () => {
     PROMPTFUN_PRIVY_APP_ID: "app-id",
     PROMPTFUN_PRIVY_APP_SECRET: "app-secret",
   });
-  const app = createApp(config);
+  const app = await createApp(config);
   const base = await app.listen();
   try {
     const form = new URLSearchParams({ email: "claim@example.com" });
@@ -146,7 +147,7 @@ test("GET /api/claim/wallet requires Bearer token", async () => {
     PROMPTFUN_PRIVY_APP_SECRET: "app-secret",
     PROMPTFUN_OAUTH_SIGNING_SECRET: "test-secret",
   });
-  const app = createApp(config);
+  const app = await createApp(config);
   const base = await app.listen();
   try {
     const anon = await fetch(`${base}/api/claim/wallet`);

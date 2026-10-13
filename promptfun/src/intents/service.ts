@@ -175,8 +175,8 @@ export class IntentService {
     return chain;
   }
 
-  private rateLimit(): void {
-    if (this.store.countSince(Date.now() - 3_600_000) >= this.config.maxIntentsPerHour) {
+  private async rateLimit(): Promise<void> {
+    if ((await this.store.countSince(Date.now() - 3_600_000)) >= this.config.maxIntentsPerHour) {
       throw new IntentError("Too many requests in the last hour. Try again later.", "rate_limited");
     }
   }
@@ -224,9 +224,9 @@ export class IntentService {
   }
 
   private async finishPrepare(intent: Omit<Intent, "id" | "createdAt" | "updatedAt" | "expiresAt" | "status" | "built" | "submission" | "receipt" | "error" | "events" | "executionMode" | "instructionFingerprint">, chain: Chain): Promise<Intent> {
-    const live = this.store.findLive(intent.idempotencyKey);
+    const live = await this.store.findLive(intent.idempotencyKey);
     if (live && Date.parse(live.expiresAt) > Date.now()) return live;
-    this.rateLimit();
+    await this.rateLimit();
     const created = now();
     const full: Intent = {
       ...intent,
@@ -540,7 +540,7 @@ export class IntentService {
   }
 
   async get(id: string): Promise<Intent> {
-    let intent = this.store.get(id);
+    let intent = await this.store.get(id);
     if (!intent && this.remote.enabled()) {
       intent = await this.remote.load(id);
       if (intent) await this.persist(intent);
@@ -550,7 +550,7 @@ export class IntentService {
   }
 
   private async persist(intent: Intent): Promise<void> {
-    this.store.save(intent);
+    await this.store.save(intent);
     if (this.remote.enabled()) await this.remote.mirror(intent);
   }
 
@@ -604,7 +604,7 @@ export class IntentService {
       throw new IntentError("Sign in is required for sponsored launches.", "unauthorized");
     }
     try {
-      assertGlobalSponsoredLaunchQuota(this.store);
+      await assertGlobalSponsoredLaunchQuota(this.store);
       if (this.platform) {
         assertMonthlyBudget(this.platform, this.config.monthlyBudgetUsd, monthKeyUtc());
         if (this.caller) assertLaunchQuota(this.platform, this.caller.sub);
@@ -718,7 +718,7 @@ export class IntentService {
       if (this.polling) return;
       this.polling = true;
       try {
-        for (const intent of this.store.withStatus("submitted")) {
+        for (const intent of await this.store.withStatus("submitted")) {
           await this.refresh(intent.id).catch(() => undefined);
         }
       } finally {

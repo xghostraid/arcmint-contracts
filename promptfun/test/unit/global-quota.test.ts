@@ -39,12 +39,12 @@ function sponsoredIntent(id: string): Intent {
   };
 }
 
-test("global sponsored launch cap matches getplugged hourly limit", () => {
-  const store = new IntentStore(":memory:");
+test("global sponsored launch cap matches getplugged hourly limit", async () => {
+  const store = await IntentStore.openPath(":memory:");
   for (let i = 0; i < GLOBAL_SPONSORED_LAUNCHES_PER_HOUR; i++) {
     const hex = i.toString(16).padStart(32, "0");
-    store.save(sponsoredIntent(`int_${hex}`));
+    await store.save(sponsoredIntent(`int_${hex}`));
   }
-  assert.throws(() => assertGlobalSponsoredLaunchQuota(store), /Global launch limit/);
-  store.close();
+  await assert.rejects(() => assertGlobalSponsoredLaunchQuota(store), /Global launch limit/);
+  await store.close();
 });

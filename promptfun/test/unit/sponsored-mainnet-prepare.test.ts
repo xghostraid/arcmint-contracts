@@ -5,11 +5,11 @@ import { Keypair } from "@solana/web3.js";
 import { loadConfig } from "../../src/config.js";
 import "../../src/chains/index.js";
 import { IntentService } from "../../src/intents/service.js";
-import { IntentStore } from "../../src/intents/store.js";
 import { PictureService } from "../../src/pictures/service.js";
 import { PictureStore } from "../../src/pictures/store.js";
+import { openMemoryStores } from "../../src/db/test-helpers.js";
 
-function mainnetSponsoredService(env: Record<string, string> = {}) {
+async function mainnetSponsoredService(env: Record<string, string> = {}) {
   const kp = Keypair.generate();
   const config = loadConfig({
     PROMPTFUN_DB: ":memory:",
@@ -20,7 +20,8 @@ function mainnetSponsoredService(env: Record<string, string> = {}) {
     ...env,
   });
   const pictures = new PictureService(config, new PictureStore(":memory:"));
-  return new IntentService(config, new IntentStore(":memory:"), pictures);
+  const { intents } = await openMemoryStores();
+  return new IntentService(config, intents, pictures);
 }
 
 test("mainnet pump sponsored product rejects when sponsor key is missing", async () => {
@@ -31,7 +32,8 @@ test("mainnet pump sponsored product rejects when sponsor key is missing", async
     PROMPTFUN_ENABLE_SPONSORED_MAINNET: "1",
   });
   const pictures = new PictureService(config, new PictureStore(":memory:"));
-  const s = new IntentService(config, new IntentStore(":memory:"), pictures);
+  const { intents } = await openMemoryStores();
+  const s = new IntentService(config, intents, pictures);
   await assert.rejects(
     s.prepareLaunch({
       chain: "solana-mainnet",
@@ -48,7 +50,7 @@ test("mainnet pump sponsored product rejects when sponsor key is missing", async
 });
 
 test("mainnet pump sponsored does not persist awaiting_wallet when preview build fails", async () => {
-  const s = mainnetSponsoredService();
+  const s = await mainnetSponsoredService();
   const store = s.store;
   type BuildInternal = IntentService["buildInternal"];
   const proto = IntentService.prototype as unknown as { buildInternal: BuildInternal };
@@ -71,7 +73,7 @@ test("mainnet pump sponsored does not persist awaiting_wallet when preview build
         return true;
       },
     );
-    assert.equal(store.countSince(0), 0);
+    assert.equal(await store.countSince(0), 0);
   } finally {
     proto.buildInternal = orig;
   }

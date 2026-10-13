@@ -40,7 +40,7 @@ if (bal < 0.05 * LAMPORTS_PER_SOL) {
   await conn.confirmTransaction(sig, "confirmed");
 }
 
-const store = new IntentStore(config.dbPath);
+const store = await IntentStore.openPath(config.dbPath);
 const pictures = new PictureService(config, new PictureStore(config.dbPath));
 const service = new IntentService(config, store, pictures);
 const tag = Date.now().toString(36).slice(-5).toUpperCase();
@@ -84,4 +84,4 @@ const evidence = {
 fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
 fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
 console.log(JSON.stringify(evidence, null, 2));
-store.close();
+await store.close();

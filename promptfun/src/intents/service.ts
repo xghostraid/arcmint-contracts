@@ -30,6 +30,7 @@ const U64_MAX = (1n << 64n) - 1n;
 
 export type { LastPictureHandoff } from "../pictures/handoff-store.js";
 import { PictureHandoffStore, type LastPictureHandoff } from "../pictures/handoff-store.js";
+import { blobReadWriteToken } from "../blob/token.js";
 
 export interface LaunchInput {
   chain?: string;
@@ -85,12 +86,9 @@ export class IntentService {
     remote: IntentRemoteStore | null = null,
   ) {
     this.sponsorSigner = createFeePayerSigner(config);
-    this.remote =
-      remote ??
-      new IntentCatalog(config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null);
-    this.pictureHandoffs = new PictureHandoffStore(
-      config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null,
-    );
+    const blobToken = blobReadWriteToken(config.env);
+    this.remote = remote ?? new IntentCatalog(blobToken);
+    this.pictureHandoffs = new PictureHandoffStore(blobToken);
   }
 
   /** Called when a launch intent first reaches confirmed+success (poller, refresh, or submit path). */
@@ -557,7 +555,14 @@ export class IntentService {
 
   private async persist(intent: Intent): Promise<void> {
     this.store.save(intent);
-    if (this.remote.enabled()) await this.remote.mirror(intent);
+    if (!this.remote.enabled()) return;
+    try {
+      await this.remote.mirror(intent);
+    } catch (err) {
+      console.warn(
+        `[promptfun] intent blob mirror failed for ${intent.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   private async expireIfDue(intent: Intent): Promise<Intent> {

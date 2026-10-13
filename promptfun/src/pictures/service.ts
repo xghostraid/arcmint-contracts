@@ -4,6 +4,7 @@ import type { TokenMetadataFields } from "../metadata/build.js";
 import { createIpfsPinner, type IpfsPinner, MemoryIpfsPinner, usesPublicIpfsPinner } from "../ipfs/index.js";
 import { IntentError } from "../intents/types.js";
 import { PictureCatalog } from "./catalog.js";
+import { blobReadWriteToken } from "../blob/token.js";
 import { PictureStore, type PictureRow } from "./store.js";
 import { fetchImageFromUrl } from "./fetch-url.js";
 import { sanitizeImage } from "./sanitize.js";
@@ -18,7 +19,7 @@ export class PictureService {
 
   constructor(readonly config: Config, readonly store: PictureStore) {
     this.pinner = createIpfsPinner(config);
-    this.catalog = new PictureCatalog(config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null);
+    this.catalog = new PictureCatalog(blobReadWriteToken(config.env));
   }
 
   memoryBlobs(): Map<string, Buffer> | null {

@@ -109,6 +109,8 @@ Ship the Node service from this folder (`promptfun/`):
 
 Copy `.env.example` into your host’s environment UI (never commit secrets). Set `PROMPTFUN_PUBLIC_URL` to `https://promptfun.fun` when the Vercel site proxies `/mcp` and `/api` to this service. Render Blueprint keys use `sync: false` so secrets stay in the Dashboard only.
 
+**Vercel `promptfun-mcp`:** exact Production env checklist — [docs/vercel-promptfun-mcp-env.md](docs/vercel-promptfun-mcp-env.md).
+
 ## Configuration
 
 | Variable | Default | Meaning |

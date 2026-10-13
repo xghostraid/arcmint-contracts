@@ -28,6 +28,7 @@ import { handleNetworksApi } from "./api/networks.js";
 import { PayoutCron } from "./payout/cron.js";
 import { ClaimLaterWalletProvider } from "./wallets/claim-later.js";
 import { handleClaimRoutes } from "./wallets/routes.js";
+import { blobReadWriteToken, logBlobStorageStartup } from "./blob/token.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = [path.resolve(here, "../public"), path.resolve(here, "../../public")].find((dir) => fs.existsSync(dir))!;
@@ -87,6 +88,7 @@ export interface App {
 }
 
 export function createApp(config: Config): App {
+  logBlobStorageStartup(config.env);
   const store = new IntentStore(config.dbPath);
   const pictureStore = new PictureStore(config.dbPath);
   const pictures = new PictureService(config, pictureStore);
@@ -96,7 +98,7 @@ export function createApp(config: Config): App {
   const claimWallets = platform && config.privyAppId && config.privyAppSecret
     ? new ClaimLaterWalletProvider(config, platform)
     : null;
-  const intentRemote = new IntentCatalog(config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null);
+  const intentRemote = new IntentCatalog(blobReadWriteToken(config.env));
   const service = new IntentService(config, store, pictures, platform, claimWallets, intentRemote);
   const coins = new CoinIndexService(config, store, coinStore, intentRemote);
   service.setLaunchIndexHook(() => coins.syncIntents());

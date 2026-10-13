@@ -631,6 +631,26 @@ h1 em, h2 em {
 .explore-table tbody tr:last-child th, .explore-table tbody tr:last-child td { border-bottom: 0; }
 .explore-table thead th { background: var(--blue-soft); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
 .explore-table tbody tr:nth-child(even) { background: var(--bg); }
+.coin-row-head { display: flex; gap: 12px; align-items: center; }
+.coin-row-text { min-width: 0; }
+.coin-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid var(--edge);
+  flex-shrink: 0;
+  background: var(--paper);
+}
+.coin-thumb--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  background: var(--blue-soft);
+}
 .coin-name { display: block; font-weight: 700; color: var(--ink); }
 .coin-meta { display: block; margin-top: 2px; color: var(--ink-3); font-size: 13px; font-weight: 600; }
 .sparkline { display: block; }

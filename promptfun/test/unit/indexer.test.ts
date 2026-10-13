@@ -116,6 +116,38 @@ test("CoinIndexService lists and sorts seeded coins", () => {
   assert.equal(mainnetList.total, 0);
 });
 
+test("syncIntents preserves imageUrl when intent row lacks it", () => {
+  const config = loadConfig({ PROMPTFUN_DB: ":memory:" });
+  const intents = new IntentStore(":memory:");
+  const store = new CoinIndexStore(":memory:");
+  const indexer = new CoinIndexService(config, intents, store);
+  const chain = findChain(config, "solana-devnet")!;
+  store.upsert({
+    id: coinId("solana-devnet", "Mint11111111111111111111111111111111111112"),
+    chainKey: "solana-devnet",
+    venue: "spl",
+    address: "Mint11111111111111111111111111111111111112",
+    name: "Unit Coin",
+    symbol: "UNIT",
+    decimals: 6,
+    supply: "1000000",
+    imageUrl: "https://promptfun.fun/api/pictures/pic_0123456789abcdef01234567",
+    creator: "c",
+    launchedAt: "2026-10-09T10:00:00.000Z",
+    launchTx: "sig111",
+    description: "",
+    metadataUri: "https://promptfun.fun/m/pic_0123456789abcdef01234567",
+    recordedFrom: "receipt",
+    verified: [],
+    intentId: "int_0123456789abcdef0123456789abcdef",
+    live: defaultLiveSnapshot(chain, "spl"),
+  });
+  intents.save(baseIntent());
+  indexer.syncIntents();
+  const row = store.get(coinId("solana-devnet", "Mint11111111111111111111111111111111111112"));
+  assert.equal(row?.imageUrl, "https://promptfun.fun/api/pictures/pic_0123456789abcdef01234567");
+});
+
 test("CoinIndexService skips testnet intents unless PROMPTFUN_INDEX_TESTNET_DEMOS", () => {
   const config = loadConfig({ PROMPTFUN_DB: ":memory:" });
   const intents = new IntentStore(":memory:");

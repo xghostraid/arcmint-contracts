@@ -50,6 +50,54 @@
     if (statusEl) statusEl.textContent = msg;
   };
 
+  const shortCa = (address) => {
+    if (!address || address.length < 12) return address || "n/a";
+    return `${address.slice(0, 4)}…${address.slice(-4)}`;
+  };
+
+  const copyCaLabel = (coin) => {
+    const who = coin.name || coin.symbol || "token";
+    if (coin.chain?.family === "evm") return `Copy contract address for ${who}`;
+    return `Copy mint address for ${who}`;
+  };
+
+  const copyText = async (text, fallbackEl) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      if (!fallbackEl) return false;
+      const range = document.createRange();
+      range.selectNodeContents(fallbackEl);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      try {
+        document.execCommand("copy");
+      } catch {
+        return false;
+      }
+      sel?.removeAllRanges();
+      return true;
+    }
+  };
+
+  const attachCopyCa = (btn, fullAddress, codeEl) => {
+    const defaultLabel = btn.textContent;
+    btn.addEventListener("click", async () => {
+      if (!fullAddress) return;
+      const ok = await copyText(fullAddress, codeEl);
+      if (!ok) return;
+      btn.textContent = "Copied";
+      btn.classList.add("is-copied");
+      btn.setAttribute("aria-live", "polite");
+      window.setTimeout(() => {
+        btn.textContent = defaultLabel;
+        btn.classList.remove("is-copied");
+      }, 2000);
+    });
+  };
+
   const renderRows = (coins) => {
     tbody.replaceChildren();
     if (!coins.length) {
@@ -108,6 +156,31 @@
       head.appendChild(textWrap);
       th.appendChild(head);
       tr.appendChild(th);
+
+      const caTd = document.createElement("td");
+      caTd.dataset.label = "CA";
+      const caWrap = document.createElement("div");
+      caWrap.className = "coin-ca";
+      const fullAddress = coin.address || "";
+      const code = document.createElement("code");
+      code.className = "coin-ca-text";
+      code.title = fullAddress || "Address not available";
+      code.textContent = shortCa(fullAddress);
+      caWrap.appendChild(code);
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "btn btn-small copy-ca-btn";
+      copyBtn.textContent = "Copy CA";
+      copyBtn.setAttribute("aria-label", copyCaLabel(coin));
+      if (!fullAddress) {
+        copyBtn.disabled = true;
+      } else {
+        attachCopyCa(copyBtn, fullAddress, code);
+      }
+      caWrap.appendChild(copyBtn);
+      caTd.appendChild(caWrap);
+      tr.appendChild(caTd);
+
       tr.appendChild(chartCell);
       const capTd = document.createElement("td");
       capTd.dataset.label = "Market cap";

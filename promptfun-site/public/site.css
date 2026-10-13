@@ -653,6 +653,11 @@ h1 em, h2 em {
 }
 .coin-name { display: block; font-weight: 700; color: var(--ink); }
 .coin-meta { display: block; margin-top: 2px; color: var(--ink-3); font-size: 13px; font-weight: 600; }
+.coin-ca { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.coin-ca-text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; font-weight: 600; color: var(--ink-2); letter-spacing: 0.02em; word-break: break-all; }
+.copy-ca-btn { min-height: 36px; padding: 0 12px; font-size: 13px; flex-shrink: 0; }
+.copy-ca-btn.is-copied { background: var(--green-soft); border-color: var(--edge); }
+.copy-ca-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .sparkline { display: block; }
 .sparkline rect { fill: var(--cta); opacity: 0.85; }
 .sparkline-empty { opacity: 0.35; }

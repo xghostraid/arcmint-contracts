@@ -1,5 +1,10 @@
 import { createRequire } from "node:module";
-import { Keypair, PublicKey, type Connection, type TransactionInstruction } from "@solana/web3.js";
+import {
+  Keypair,
+  PublicKey,
+  type Connection,
+  type TransactionInstruction,
+} from "@solana/web3.js";
 
 type PumpSdkModule = typeof import("@pump-fun/pump-sdk");
 let pumpSdk: PumpSdkModule | null = null;
@@ -19,6 +24,27 @@ export const PUMPFUN_DECIMALS = 6;
 
 export function generatePumpMintKeypair(): Keypair {
   return Keypair.generate();
+}
+
+type ShareholderRow = { address: PublicKey; shareBps: number };
+
+/**
+ * pump-fees `update_fee_shares` expects one writable remaining account per *new* shareholder.
+ * @pump-fun/pump-sdk 4.x only passes `currentShareholders` there, which breaks the initial lock
+ * (empty current list) and simulates as 6013 NotEnoughRemainingAccounts.
+ */
+export function attachPumpFeeShareRemainingAccounts(
+  ix: TransactionInstruction,
+  newShareholders: ShareholderRow[],
+): void {
+  for (const sh of newShareholders) {
+    const id = sh.address.toBase58();
+    const alreadyRemaining = ix.keys.some(
+      (k) => k.pubkey.toBase58() === id && k.isWritable && !k.isSigner,
+    );
+    if (alreadyRemaining) continue;
+    ix.keys.push({ pubkey: sh.address, isWritable: true, isSigner: false });
+  }
 }
 
 /**
@@ -110,9 +136,11 @@ export async function buildPumpfunLaunchSponsored(
     newShareholders: shareholders,
     bondingCurveComplete: false,
   });
+  attachPumpFeeShareRemainingAccounts(feeShareIx, shareholders);
 
   let instructions = [createIx, feeConfigIx, feeShareIx];
   let followUpInstructions: TransactionInstruction[] | undefined;
+  let followUpInstructions2: TransactionInstruction[] | undefined;
   let stagedInterimShareholder: (typeof shareholders)[number] | undefined;
   if (versionedTxWireSize(instructions, sponsor).raw > SOLANA_TX_RAW_MAX) {
     if (shareholders.length <= 1) {
@@ -122,30 +150,36 @@ export async function buildPumpfunLaunchSponsored(
       );
     }
     stagedInterimShareholder = shareholders[0];
+    const interimShareholders = [{ address: stagedInterimShareholder.address, shareBps: 10_000 }];
     const interimShareIx = await pump.updateFeeShares({
       authority: sponsor,
       mint,
       currentShareholders: [],
-      newShareholders: [{ address: stagedInterimShareholder.address, shareBps: 10_000 }],
+      newShareholders: interimShareholders,
       bondingCurveComplete: false,
     });
-    instructions = [createIx, feeConfigIx, interimShareIx];
+    attachPumpFeeShareRemainingAccounts(interimShareIx, interimShareholders);
+    const followUpShareIx = await pump.updateFeeShares({
+      authority: sponsor,
+      mint,
+      currentShareholders: [stagedInterimShareholder.address],
+      newShareholders: shareholders,
+      bondingCurveComplete: false,
+    });
+    attachPumpFeeShareRemainingAccounts(followUpShareIx, shareholders);
+    const compactPrimary = [createIx, feeConfigIx, interimShareIx];
+    if (versionedTxWireSize(compactPrimary, sponsor).raw <= SOLANA_TX_RAW_MAX) {
+      instructions = compactPrimary;
+      followUpInstructions = [followUpShareIx];
+    } else {
+      instructions = [createIx, feeConfigIx];
+      followUpInstructions = [interimShareIx];
+      followUpInstructions2 = [followUpShareIx];
+    }
     try {
       assertVersionedTxFits(instructions, sponsor);
-    } catch (err) {
-      throw new IntentError((err as Error).message, "tx_too_large");
-    }
-    followUpInstructions = [
-      await pump.updateFeeShares({
-        authority: sponsor,
-        mint,
-        currentShareholders: [stagedInterimShareholder.address],
-        newShareholders: shareholders,
-        bondingCurveComplete: false,
-      }),
-    ];
-    try {
       assertVersionedTxFits(followUpInstructions, sponsor);
+      if (followUpInstructions2) assertVersionedTxFits(followUpInstructions2, sponsor);
     } catch (err) {
       throw new IntentError((err as Error).message, "tx_too_large");
     }
@@ -160,6 +194,7 @@ export async function buildPumpfunLaunchSponsored(
   return {
     instructions,
     followUpInstructions,
+    followUpInstructions2,
     stagedInterimShareholder,
     mints: new Map<string, MintFacts>([[mint.toBase58(), { decimals: PUMPFUN_DECIMALS, symbol: params.symbol }]]),
     deposits: 0n,
@@ -175,10 +210,14 @@ export async function buildPumpfunLaunchSponsored(
       const fs = decoded.pumpFeeSharing;
       if (!fs?.created || !fs.updated) throw new Error("Fee-sharing instructions missing from decoded transaction.");
       if (stagedInterimShareholder) {
-        const interim = fs.recipients.find(
-          (r) => r.address === stagedInterimShareholder!.address.toBase58() && r.shareBps === 10_000,
-        );
-        if (!interim) throw new Error("Interim creator fee share missing from staged launch transaction.");
+        if (followUpInstructions2) {
+          if (!fs?.created) throw new Error("Fee-sharing config missing from staged launch transaction.");
+        } else {
+          const interim = fs.recipients.find(
+            (r) => r.address === stagedInterimShareholder!.address.toBase58() && r.shareBps === 10_000,
+          );
+          if (!interim) throw new Error("Interim creator fee share missing from staged launch transaction.");
+        }
       } else {
         for (const row of shareholderRows) {
           const share = fs.recipients.find((r) => r.address === row.address && r.shareBps === row.shareBps);

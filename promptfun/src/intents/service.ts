@@ -210,9 +210,19 @@ export class IntentService {
         : err instanceof Error
           ? err.message
           : String(err);
+    const code = err instanceof IntentError ? err.code : "sponsor_preview_failed";
+    const lower = detail.toLowerCase();
+    const looksLikeBalance =
+      code === "insufficient_sponsor_sol" ||
+      /not enough sol|insufficient lamports|insufficient sol/i.test(detail);
+    const hint = looksLikeBalance
+      ? "Top up the sponsor wallet with mainnet SOL."
+      : code === "simulation_failed" || /simulation failed|custom program error|0x177d|notenoughremainingaccounts/i.test(lower)
+        ? "This failed during RPC simulation (pump.fun fee-sharing or transaction build), not because the sponsor wallet is empty — fix server build/RPC config or retry after a deploy."
+        : "Fix server config or retry after a deploy.";
     return new IntentError(
-      `Sponsored launch preview failed: ${detail}. Top up the sponsor wallet with mainnet SOL or fix server config — do not switch the user to an external wallet for mainnet pump.fun.`,
-      err instanceof IntentError ? err.code : "sponsor_preview_failed",
+      `Sponsored launch preview failed: ${detail}. ${hint} Do not switch the user to an external wallet for mainnet pump.fun.`,
+      code,
     );
   }
 
@@ -619,7 +629,13 @@ export class IntentService {
     const withBuilt = await this.update(intent, { status: "built", built, error: null }, "confirmed_in_chat", "User confirmed launch in chat.");
     let submitted = await this.submit(withBuilt.id, signed);
     if (built.followUpPayload && chain.family === "solana") {
-      submitted = await this.submitSponsoredPumpFeeShareFollowUp(chain as SolanaChain, submitted, built);
+      const interimSig = await this.submitSponsoredPumpFeeShareFollowUp(chain as SolanaChain, submitted, built, 1);
+      submitted = interimSig.intent;
+      if (built.followUpPayload2) {
+        submitted = (
+          await this.submitSponsoredPumpFeeShareFollowUp(chain as SolanaChain, submitted, built, 2, interimSig.signature)
+        ).intent;
+      }
     }
     if (this.platform) {
       const sub = this.caller?.sub ?? "anonymous";
@@ -630,8 +646,14 @@ export class IntentService {
     return submitted;
   }
 
-  private async submitSponsoredPumpFeeShareFollowUp(chain: SolanaChain, intent: Intent, primaryBuilt: Built): Promise<Intent> {
-    const submissionId = intent.submission?.id;
+  private async submitSponsoredPumpFeeShareFollowUp(
+    chain: SolanaChain,
+    intent: Intent,
+    primaryBuilt: Built,
+    stage: 1 | 2,
+    waitForSignature?: string,
+  ): Promise<{ intent: Intent; signature: string }> {
+    const submissionId = waitForSignature ?? intent.submission?.id;
     if (!submissionId) throw new IntentError("Launch transaction was not submitted.", "wrong_state");
     const conn = connectionFor(chain);
     const sponsor = new PublicKey(this.sponsorSigner!.publicKey);
@@ -643,31 +665,48 @@ export class IntentService {
       if (st?.confirmationStatus === "confirmed" || st?.confirmationStatus === "finalized") break;
       await new Promise((r) => setTimeout(r, 1500));
     }
+    const previewPayload = stage === 2 ? primaryBuilt.followUpPayload2 : primaryBuilt.followUpPayload;
+    const previewDigest = stage === 2 ? primaryBuilt.followUpDigest2 : primaryBuilt.followUpDigest;
+    if (!previewPayload || !previewDigest) {
+      throw new IntentError("Fee-share follow-up is missing from the preview.", "mismatch");
+    }
     const mintEntry = Object.entries(primaryBuilt.coSignerSecrets ?? {})[0];
     if (!mintEntry) throw new IntentError("Missing mint co-signer for fee-share follow-up.", "sponsor_unconfigured");
     const mintKp = Keypair.fromSecretKey(Buffer.from(mintEntry[1], "base64"));
     const compiled = await buildPumpfunLaunchSponsored(conn, intent, sponsor, mintKp);
-    if (!compiled.followUpInstructions?.length) {
+    const followInstructions =
+      stage === 2 ? compiled.followUpInstructions2 : compiled.followUpInstructions;
+    if (!followInstructions?.length) {
       throw new IntentError("Fee-share follow-up is missing from the compiled launch.", "mismatch");
     }
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
     const followMsg = new TransactionMessage({
       payerKey: sponsor,
       recentBlockhash: blockhash,
-      instructions: compiled.followUpInstructions,
+      instructions: followInstructions,
     }).compileToLegacyMessage();
+    const followDigest = Buffer.from(followMsg.serialize()).toString("base64");
+    if (followDigest !== previewDigest) {
+      throw new IntentError("The live fee-share follow-up no longer matches the preview. Nothing was sent.", "mismatch");
+    }
     const followPayload = Buffer.from(new VersionedTransaction(followMsg).serialize()).toString("base64");
     const followBuilt: Built = {
       ...primaryBuilt,
       payload: followPayload,
-      digest: Buffer.from(followMsg.serialize()).toString("base64"),
+      digest: followDigest,
       coSignerSecrets: undefined,
     };
     const followSigned = await this.sponsorSigner!.signSolanaTransaction(chain.key, intent, followBuilt, followPayload);
     const followTx = VersionedTransaction.deserialize(Buffer.from(followSigned, "base64"));
     const followSig = await conn.sendRawTransaction(followTx.serialize(), { skipPreflight: false, maxRetries: 2 });
     await conn.confirmTransaction({ signature: followSig, blockhash, lastValidBlockHeight }, "confirmed");
-    return this.update(intent, {}, "fee_shares_set", `Creator fee shares finalized (${followSig.slice(0, 12)}…).`);
+    const detail =
+      stage === 2 || !primaryBuilt.followUpPayload2
+        ? `Creator fee shares finalized (${followSig.slice(0, 12)}…).`
+        : `Interim creator fee shares set (${followSig.slice(0, 12)}…).`;
+    const eventType = stage === 2 || !primaryBuilt.followUpPayload2 ? "fee_shares_set" : "fee_shares_interim";
+    const updated = await this.update(intent, {}, eventType, detail);
+    return { intent: updated, signature: followSig };
   }
 
   async submit(id: string, walletPayload: string): Promise<Intent> {

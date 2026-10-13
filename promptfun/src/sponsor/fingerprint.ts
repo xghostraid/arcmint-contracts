@@ -16,10 +16,14 @@ export function solanaInstructionFingerprint(built: Built): string {
   const followUp = built.followUpPayload
     ? TransactionMessage.decompile(VersionedTransaction.deserialize(Buffer.from(built.followUpPayload, "base64")).message).instructions
     : null;
+  const followUp2 = built.followUpPayload2
+    ? TransactionMessage.decompile(VersionedTransaction.deserialize(Buffer.from(built.followUpPayload2, "base64")).message).instructions
+    : null;
   return createHash("sha256").update(JSON.stringify({
     signer: built.signer,
     tokenAddress: built.tokenAddress,
     instructions: instructionFingerprintPayload(msg.instructions),
     ...(followUp ? { followUpInstructions: instructionFingerprintPayload(followUp) } : {}),
+    ...(followUp2 ? { followUpInstructions2: instructionFingerprintPayload(followUp2) } : {}),
   })).digest("hex");
 }

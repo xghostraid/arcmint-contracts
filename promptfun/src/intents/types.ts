@@ -101,6 +101,9 @@ export interface Built {
   /** Second sponsored Solana tx (base64 wire) when fee shares are staged off the launch tx for size limits. */
   followUpPayload?: string;
   followUpDigest?: string;
+  /** Third sponsored Solana tx when interim fee shares need their own tx for size limits. */
+  followUpPayload2?: string;
+  followUpDigest2?: string;
 }
 
 export interface Receipt {

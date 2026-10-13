@@ -1,14 +1,38 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Keypair, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
-import { buildPumpfunLaunchSponsored } from "../../src/chains/solana/pumpfun.js";
+import {
+  attachPumpFeeShareRemainingAccounts,
+  buildPumpfunLaunchSponsored,
+} from "../../src/chains/solana/pumpfun.js";
 import { SOLANA_TX_BASE64_MAX, SOLANA_TX_RAW_MAX } from "../../src/chains/solana/tx-size.js";
 import { decodeInstructions } from "../../src/chains/solana/decode.js";
 import type { Intent, LaunchParams } from "../../src/intents/types.js";
 
+test("updateFeeShares instructions include remaining accounts for new shareholders", async () => {
+  const sponsor = Keypair.generate().publicKey;
+  const shareholder = Keypair.generate().publicKey;
+  const { createRequire } = await import("node:module");
+  const { PUMP_SDK } = createRequire(import.meta.url)("@pump-fun/pump-sdk") as typeof import("@pump-fun/pump-sdk");
+  const mint = Keypair.generate().publicKey;
+  const ix = await PUMP_SDK.updateFeeShares({
+    authority: sponsor,
+    mint,
+    currentShareholders: [],
+    newShareholders: [{ address: shareholder, shareBps: 10_000 }],
+    bondingCurveComplete: false,
+  });
+  assert.equal(
+    ix.keys.some((k) => k.pubkey.equals(shareholder)),
+    false,
+    "SDK alone omits shareholder remaining accounts",
+  );
+  attachPumpFeeShareRemainingAccounts(ix, [{ address: shareholder, shareBps: 10_000 }]);
+  assert.ok(ix.keys.some((k) => k.pubkey.equals(shareholder) && k.isWritable));
+});
+
 test("sponsored pump.fun build compiles three instructions that decode", async () => {
   const sponsor = Keypair.generate().publicKey;
-  const feeRecipient = Keypair.generate().publicKey;
   const mintKp = Keypair.generate();
   const params: LaunchParams = {
     name: "Test",
@@ -16,10 +40,10 @@ test("sponsored pump.fun build compiles three instructions that decode", async (
     supply: "1000000000",
     decimals: 6,
     description: "",
-    metadataUri: "http://127.0.0.1:8787/m/pic_000000000000000000000000",
+    metadataUri: "https://promptfun.fun/m/pic_test",
     fixedSupply: true,
     venue: "pumpfun",
-    feeRecipient: feeRecipient.toBase58(),
+    feeRecipient: sponsor.toBase58(),
   };
   const intent: Intent = {
     id: "int_test",

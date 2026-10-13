@@ -386,14 +386,17 @@ export const solanaAdapter: ChainAdapter = {
 
     let followUpPayload: string | undefined;
     let followUpDigest: string | undefined;
-    const followUp = "followUpInstructions" in compiled
-      ? (compiled as { followUpInstructions?: import("@solana/web3.js").TransactionInstruction[] }).followUpInstructions
-      : undefined;
-    if (followUp?.length) {
+    let followUpPayload2: string | undefined;
+    let followUpDigest2: string | undefined;
+    const compiledFollow = compiled as {
+      followUpInstructions?: import("@solana/web3.js").TransactionInstruction[];
+      followUpInstructions2?: import("@solana/web3.js").TransactionInstruction[];
+    };
+    const encodeFollow = (instructions: import("@solana/web3.js").TransactionInstruction[]) => {
       const followMsg = new TransactionMessage({
         payerKey: signer,
         recentBlockhash: blockhash,
-        instructions: followUp,
+        instructions,
       }).compileToLegacyMessage();
       const followRaw = Buffer.from(new VersionedTransaction(followMsg).serialize());
       if (followRaw.length > SOLANA_TX_RAW_MAX || followRaw.toString("base64").length > SOLANA_TX_BASE64_MAX) {
@@ -402,8 +405,20 @@ export const solanaAdapter: ChainAdapter = {
           "tx_too_large",
         );
       }
-      followUpPayload = followRaw.toString("base64");
-      followUpDigest = Buffer.from(followMsg.serialize()).toString("base64");
+      return {
+        payload: followRaw.toString("base64"),
+        digest: Buffer.from(followMsg.serialize()).toString("base64"),
+      };
+    };
+    if (compiledFollow.followUpInstructions?.length) {
+      const encoded = encodeFollow(compiledFollow.followUpInstructions);
+      followUpPayload = encoded.payload;
+      followUpDigest = encoded.digest;
+    }
+    if (compiledFollow.followUpInstructions2?.length) {
+      const encoded = encodeFollow(compiledFollow.followUpInstructions2);
+      followUpPayload2 = encoded.payload;
+      followUpDigest2 = encoded.digest;
     }
 
     const mintKp = "mintKeypair" in compiled ? (compiled as { mintKeypair: Keypair }).mintKeypair : null;
@@ -422,6 +437,7 @@ export const solanaAdapter: ChainAdapter = {
         ? { coSignerSecrets: { [mintKp.publicKey.toBase58()]: Buffer.from(mintKp.secretKey).toString("base64") } }
         : {}),
       ...(followUpPayload ? { followUpPayload, followUpDigest } : {}),
+      ...(followUpPayload2 ? { followUpPayload2, followUpDigest2 } : {}),
     };
     return built;
   },

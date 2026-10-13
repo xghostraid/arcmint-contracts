@@ -43,12 +43,6 @@ export interface Config {
   /** Privy app credentials for claim-later embedded Solana wallets (env only; never commit secrets). */
   privyAppId: string | null;
   privyAppSecret: string | null;
-  /** SPL mint for $PROMPT; when set and mint exists on chain, prepare_launch enforces holder tier splits. */
-  promptMint: string | null;
-  /** Raw token amount for holder tier (default: one whole token from mint decimals). */
-  promptMinBalanceRaw: bigint | null;
-  /** Receives 50% of creator-fee share for non-holders when tier is enforced; falls back to sponsor fee recipient. */
-  promptfunTreasuryPubkey: string | null;
   env: NodeJS.ProcessEnv;
 }
 

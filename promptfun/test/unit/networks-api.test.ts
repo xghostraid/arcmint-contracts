@@ -5,7 +5,7 @@ import { loadConfig } from "../../src/config.js";
 import { networksPayload, siteNetworkState } from "../../src/api/networks.js";
 import { findChain } from "../../src/chains/registry.js";
 
-test("production config marks mainnet, devnet and EVM testnets live on site", () => {
+test("production public networks API omits EVM testnets and marks Solana mainnet live", () => {
   const config = loadConfig({
     PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1",
     PROMPTFUN_ENABLE_PUMPFUN_DEVNET: "1",
@@ -16,10 +16,21 @@ test("production config marks mainnet, devnet and EVM testnets live on site", ()
   const byKey = Object.fromEntries(payload.chains.map((c) => [c.key, c]));
   assert.equal(byKey["solana-mainnet"].siteState, "live");
   assert.equal(byKey["solana-devnet"].siteState, "live");
-  assert.equal(byKey["robinhood-testnet"].siteState, "live");
-  assert.equal(byKey["ethereum-sepolia"].siteState, "live");
+  assert.equal(byKey["robinhood-testnet"], undefined);
+  assert.equal(byKey["ethereum-sepolia"], undefined);
   assert.equal(byKey["ethereum"].siteState, "soon");
   assert.equal(payload.recommendedLaunchChain, "solana-mainnet");
+  assert.match(payload.evmWalletFeeNote, /does not sponsor EVM gas/);
+});
+
+test("Robinhood mainnet in public API includes wallet fee note when live", () => {
+  const config = loadConfig({
+    PROMPTFUN_ENABLE_PUMPFUN_MAINNET: "1",
+    PROMPTFUN_ENABLE_ROBINHOOD_MAINNET: "1",
+  });
+  const rh = networksPayload(config).chains.find((c) => c.key === "robinhood");
+  assert.equal(rh?.siteState, "live");
+  assert.match(rh?.walletFeeNote ?? "", /does not sponsor EVM gas/);
 });
 
 test("siteNetworkState respects disabled mainnet flag", () => {

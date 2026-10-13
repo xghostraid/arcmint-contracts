@@ -186,8 +186,8 @@ test("chain claims are labelled honestly", () => {
   assert.doesNotMatch(chains, /Ops testing on Solana devnet/);
   assert.doesNotMatch(chains, /Sponsored devnet \(optional\)/);
   assert.doesNotMatch(chains, /pump\.fun on devnet/);
-  assert.match(chains, /Robinhood Chain Testnet<\/span><span class="status status-live"[^>]*>Live · testnet/);
-  assert.match(chains, /EVM testnets[\s\S]*status-live/);
+  assert.match(chains, /data-chain-section="evm-testnets"/);
+  assert.match(chains, /Robinhood Chain<\/span><span class="status status-soon"[^>]*>Coming soon/);
   const evmMain = chains.slice(chains.indexOf("EVM mainnets"));
   const order = ["Ethereum", "Robinhood Chain", "Base"].map((name) => evmMain.indexOf(`</span>${name}</span>`));
   assert.ok(order.every((i) => i > 0), "Ethereum, Robinhood Chain and Base are all listed");

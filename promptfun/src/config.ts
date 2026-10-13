@@ -13,6 +13,8 @@ export interface Config {
   enableLocalnet: boolean;
   enablePumpfunMainnet: boolean;
   enableEvmMainnets: boolean;
+  /** Robinhood Chain mainnet (4663) only; does not enable other EVM mainnets. */
+  enableRobinhoodMainnet: boolean;
   enableSponsoredLaunches: boolean;
   sponsorSecretKey: string | null;
   sponsorMaxLamportsPerLaunch: bigint;
@@ -80,6 +82,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     enableLocalnet: flag(env.PROMPTFUN_ENABLE_LOCALNET),
     enablePumpfunMainnet: flag(env.PROMPTFUN_ENABLE_PUMPFUN_MAINNET),
     enableEvmMainnets: flag(env.PROMPTFUN_ENABLE_EVM_MAINNETS),
+    enableRobinhoodMainnet: flag(env.PROMPTFUN_ENABLE_ROBINHOOD_MAINNET),
     enableSponsoredLaunches: flag(env.PROMPTFUN_ENABLE_SPONSORED_LAUNCHES),
     sponsorSecretKey: env.PROMPTFUN_SPONSOR_SECRET_KEY?.trim() || null,
     sponsorMaxLamportsPerLaunch: BigInt(env.PROMPTFUN_SPONSOR_MAX_LAMPORTS || "20000000"),

@@ -2,6 +2,13 @@ export const BRAND = "promptfun.fun";
 export const SHORT = "promptfun";
 export const VERSION = "0.1.0";
 
+/** Shown wherever Robinhood / EVM wallet mode is described (MCP, docs). */
+export const EVM_WALLET_FEE_NOTE =
+  "You pay network fees with your wallet — promptfun does not sponsor EVM gas.";
+/** Site HTML must use the full brand domain per marketing tests. */
+export const EVM_WALLET_FEE_NOTE_SITE =
+  "You pay network fees with your wallet — promptfun.fun does not sponsor EVM gas.";
+
 const BLOCKED = ["promptfun", "prompt fun", "promptfunfun", "promptfun.fun"];
 
 function squash(text: string): string {

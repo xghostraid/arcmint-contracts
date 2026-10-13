@@ -26,6 +26,19 @@
       chip.textContent = labelFor(chain.siteState, chain.testnet);
       chip.title = chain.disabledReason || "";
     }
+    const rh = byKey.robinhood;
+    const rhLive = rh && rh.siteState === "live";
+    const testnets = panel.querySelector('[data-chain-section="evm-testnets"]');
+    if (testnets) testnets.hidden = true;
+    const evmMainHead = panel.querySelector("[data-evm-mainnets-head]");
+    if (evmMainHead && rhLive) {
+      evmMainHead.className = "status status-live";
+      evmMainHead.textContent = "Live";
+    }
+    const rhNote = panel.querySelector("[data-robinhood-mainnet-note]");
+    if (rhNote && rh?.walletFeeNote) {
+      rhNote.textContent = `Robinhood Chain mainnet: ERC-20 launch and transfers via Claude — wallet approval on chainId 4663 (real ETH). ${rh.walletFeeNote.replace("promptfun does", "promptfun.fun does")}`;
+    }
     panel.dataset.state = "live";
   };
 

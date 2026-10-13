@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
-import { BRAND, SHORT, VERSION } from "../brand.js";
+import { BRAND, EVM_WALLET_FEE_NOTE, SHORT, VERSION } from "../brand.js";
 import { adapterFor } from "../chains/index.js";
 import { chainsForCapabilities, recommendedLaunchChainKey } from "../chains/registry.js";
 import type { IntentService } from "../intents/service.js";
@@ -11,7 +11,7 @@ import { CARD_URI, cardHtml } from "./card.js";
 import { PICTURE_URI, pictureHtml } from "./picture.js";
 import { mainnetPumpSponsoredProductDefault, sponsorBudgetSnapshot } from "../sponsor/budget.js";
 import { intentText, intentView } from "./view.js";
-import { EXAMPLE_USER_PROMPTS, launchPlaybook, serverInstructions } from "./launch-playbook.js";
+import { exampleUserPrompts, launchPlaybook, serverInstructions } from "./launch-playbook.js";
 import { newHandoffSessionId } from "../pictures/handoff-store.js";
 
 import type { Config } from "../config.js";
@@ -43,7 +43,10 @@ function limitations(config: Config): string[] {
         ? "OAuth is available but optional; set PROMPTFUN_OAUTH_REQUIRED=1 on shared servers."
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
-    "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. EVM mainnets are off.",
+    config.enableRobinhoodMainnet
+      ? `Robinhood Chain mainnet (chainId 4663) is live: ERC-20 launch and transfers via prepare_launch / prepare_transfer with wallet approval on /approve (real ETH). ${EVM_WALLET_FEE_NOTE} Ethereum, Base, and other EVM mainnets stay off unless PROMPTFUN_ENABLE_EVM_MAINNETS=1.`
+      : "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. Robinhood Chain mainnet is off until PROMPTFUN_ENABLE_ROBINHOOD_MAINNET=1.",
+    EVM_WALLET_FEE_NOTE,
     "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). After the panel shows Saved, call get_last_picture or prepare_launch with handoffSessionId from open_picture_panel plain text (hs_…). FORBIDDEN: ask the user to copy pic_.",
     "Wallet support: Solana Wallet Standard wallets (Phantom, Solflare, Backpack) on mainnet or devnet, and EIP-6963 EVM wallets (MetaMask, Rabby, Coinbase Wallet) in a desktop browser.",
     "Fees shown in the preview are network fees only. Until $PROMPT is live on chain, pump.fun creator fees lock to the promptfun official treasury wallet (100%); still pass creatorWallet on prepare_launch for records — promptfun pays creators manually off-chain. After $PROMPT is live: ≥1 whole $PROMPT in creatorWallet at prepare_launch → 100% creator on chain; otherwise 50% creator / 50% treasury. promptfun takes 0% platform cut on creator fees.",
@@ -171,7 +174,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
           text: [
             `${BRAND} ${VERSION}. Chains:`, ...lines,
             "Launch playbook (short user prompts):", ...PLAYBOOK.map((l) => `- ${l}`),
-            "Example things users say:", ...EXAMPLE_USER_PROMPTS.map((p) => `- “${p}”`),
+            "Example things users say:", ...exampleUserPrompts(config).map((p) => `- “${p}”`),
             "Limitations:", ...LIMITATIONS.map((l) => `- ${l}`),
             "Hosts:", ...HOSTS.map((h) => `- ${h.host} (${h.role}): ${h.connect} ${h.notes.join(" ")}`),
           ].join("\n"),
@@ -180,12 +183,13 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
           version: VERSION,
           recommendedLaunchChain: recommendedLaunchChainKey(config),
           launchPlaybook: PLAYBOOK,
-          exampleUserPrompts: [...EXAMPLE_USER_PROMPTS],
+          exampleUserPrompts: [...exampleUserPrompts(config)],
           chains,
           limitations: LIMITATIONS,
           hosts: HOSTS,
           promptfunFee: "0",
           sponsoredLaunches: sponsorBudgetSnapshot(config),
+          evmWalletFeeNote: EVM_WALLET_FEE_NOTE,
           sponsorPublicKey: service.sponsorPublicKey?.() ?? null,
           claimWalletUrl: service.claimWalletUrl(),
         },

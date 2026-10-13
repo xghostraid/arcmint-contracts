@@ -1,6 +1,6 @@
 import type { Config } from "../config.js";
 import { recommendedLaunchChainKey } from "../chains/registry.js";
-import { BRAND, SHORT } from "../brand.js";
+import { BRAND, EVM_WALLET_FEE_NOTE, SHORT } from "../brand.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 
 /** Shown on the site and in get_capabilities for copy-paste examples. */
@@ -9,6 +9,14 @@ export const EXAMPLE_USER_PROMPTS = [
   "Launch Moonbeam BEAM on mainnet with this photo.",
   "Launch tes test with this image",
 ] as const;
+
+export function exampleUserPrompts(config: Config): readonly string[] {
+  if (!config.enableRobinhoodMainnet) return EXAMPLE_USER_PROMPTS;
+  return [
+    ...EXAMPLE_USER_PROMPTS,
+    `Launch Acme ACME as an ERC-20 on Robinhood Chain (chain robinhood) — I'll approve in MetaMask. ${EVM_WALLET_FEE_NOTE}`,
+  ];
+}
 
 export function launchPlaybook(config: Config): string[] {
   const chain = recommendedLaunchChainKey(config) ?? "solana-mainnet";
@@ -28,9 +36,12 @@ export function launchPlaybook(config: Config): string[] {
       : budget.sponsoredLaunchesEnabled
         ? "Sponsored testnets: Launch it on the card. Wallet mode: approveUrl for EVM or when sponsored is paused."
         : "Wallet mode: they open approveUrl and sign. Do not claim success until get_action_status is confirmed.",
+    config.enableRobinhoodMainnet
+      ? `Robinhood Chain mainnet: prepare_launch or prepare_transfer with chain robinhood; user opens approveUrl and signs (real ETH). ${EVM_WALLET_FEE_NOTE} Never use confirm_launch for EVM.`
+      : null,
     "Call get_capabilities when they ask what is supported or which chain to use — not on every launch.",
     "Creator fees: $PROMPT is live on Solana. Holders (≥ 1 whole $PROMPT in creatorWallet at prepare_launch) keep 100% on chain; otherwise 50% creator / 50% promptfun treasury. Tier gate uses PROMPTFUN_PROMPT_MINT (defaults to live mint when unset).",
-  ];
+  ].filter((line): line is string => line != null);
 }
 
 export function serverInstructions(config: Config): string {

@@ -1,7 +1,13 @@
 import type http from "node:http";
 import type { Config } from "../config.js";
 import { chainsForCapabilities, recommendedLaunchChainKey, type Chain } from "../chains/registry.js";
+import { EVM_WALLET_FEE_NOTE } from "../brand.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
+
+/** Public /api/networks omits EVM testnets (no testnet promotion on the marketing site). */
+export function chainsForPublicNetworksApi(chains: Chain[]): Chain[] {
+  return chains.filter((c) => c.key !== "solana-localnet" && c.key !== "evm-localnet" && !(c.family === "evm" && c.testnet));
+}
 
 export type SiteNetworkState = "live" | "soon" | "off";
 
@@ -16,7 +22,7 @@ export function siteNetworkState(chain: Chain): SiteNetworkState {
 
 function publicChainRow(chain: Chain) {
   const state = siteNetworkState(chain);
-  return {
+  const row = {
     key: chain.key,
     name: chain.name,
     family: chain.family,
@@ -26,16 +32,20 @@ function publicChainRow(chain: Chain) {
     siteState: state,
     disabledReason: chain.disabledReason ?? null,
     actions: chain.actions,
+    walletFeeNote: null as string | null,
   };
+  if (chain.key === "robinhood" && state === "live") {
+    row.walletFeeNote = EVM_WALLET_FEE_NOTE;
+  }
+  return row;
 }
 
 export function networksPayload(config: Config) {
-  const chains = chainsForCapabilities(config)
-    .filter((c) => c.key !== "solana-localnet" && c.key !== "evm-localnet")
-    .map(publicChainRow);
+  const chains = chainsForPublicNetworksApi(chainsForCapabilities(config)).map(publicChainRow);
   return {
     recommendedLaunchChain: recommendedLaunchChainKey(config),
     sponsoredLaunches: sponsorBudgetSnapshot(config),
+    evmWalletFeeNote: EVM_WALLET_FEE_NOTE,
     chains,
     generatedAt: new Date().toISOString(),
   };

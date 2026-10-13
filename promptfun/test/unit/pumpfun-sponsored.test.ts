@@ -6,7 +6,7 @@ import { SOLANA_TX_BASE64_MAX, SOLANA_TX_RAW_MAX } from "../../src/chains/solana
 import { decodeInstructions } from "../../src/chains/solana/decode.js";
 import type { Intent, LaunchParams } from "../../src/intents/types.js";
 
-test("sponsored pump.fun build compiles three instructions that decode", async () => {
+test("sponsored pump.fun build compiles primary + follow-up fee shares", async () => {
   const sponsor = Keypair.generate().publicKey;
   const feeRecipient = Keypair.generate().publicKey;
   const mintKp = Keypair.generate();
@@ -43,7 +43,8 @@ test("sponsored pump.fun build compiles three instructions that decode", async (
   };
 
   const compiled = await buildPumpfunLaunchSponsored({} as never, intent, sponsor, mintKp);
-  assert.equal(compiled.instructions.length, 3);
+  assert.equal(compiled.instructions.length, 2);
+  assert.equal(compiled.followUpInstructions?.length, 1);
 
   const message = new TransactionMessage({
     payerKey: sponsor,
@@ -54,14 +55,23 @@ test("sponsored pump.fun build compiles three instructions that decode", async (
   compiled.check(decoded);
   assert.ok(decoded.pumpCreate);
   assert.ok(decoded.pumpFeeSharing?.created);
-  assert.ok(decoded.pumpFeeSharing?.updated);
+  assert.equal(decoded.pumpFeeSharing?.updated, false);
 
-  assert.equal(decoded.steps.length, 3);
+  assert.equal(decoded.steps.length, 2);
 
   const tx = new VersionedTransaction(message);
   const raw = tx.serialize();
   assert.ok(raw.length <= SOLANA_TX_RAW_MAX, `raw tx ${raw.length} > ${SOLANA_TX_RAW_MAX}`);
   assert.ok(Buffer.from(raw).toString("base64").length <= SOLANA_TX_BASE64_MAX);
+
+  const followMsg = new TransactionMessage({
+    payerKey: sponsor,
+    recentBlockhash: "11111111111111111111111111111111",
+    instructions: compiled.followUpInstructions!,
+  }).compileToLegacyMessage();
+  const followDecoded = decodeInstructions(TransactionMessage.decompile(followMsg).instructions, compiled.mints);
+  compiled.checkFollowUp(followDecoded);
+  assert.ok(followDecoded.pumpFeeSharing?.updated);
 });
 
 test("sponsored pump.fun with two fee shareholders stages follow-up tx under size limit", async () => {
@@ -107,6 +117,7 @@ test("sponsored pump.fun with two fee shareholders stages follow-up tx under siz
   };
 
   const compiled = await buildPumpfunLaunchSponsored({} as never, intent, sponsor, mintKp);
+  assert.equal(compiled.instructions.length, 2);
   assert.ok(compiled.followUpInstructions?.length === 1);
 
   const primaryMsg = new TransactionMessage({
@@ -126,6 +137,9 @@ test("sponsored pump.fun with two fee shareholders stages follow-up tx under siz
   const followRaw = new VersionedTransaction(followMsg).serialize();
   assert.ok(followRaw.length <= SOLANA_TX_RAW_MAX, `follow-up raw ${followRaw.length}`);
   assert.ok(Buffer.from(followRaw).toString("base64").length <= SOLANA_TX_BASE64_MAX);
+
+  const followDecoded = decodeInstructions(TransactionMessage.decompile(followMsg).instructions, compiled.mints);
+  compiled.checkFollowUp(followDecoded);
 });
 
 test("sponsored pump.fun rejects oversized metadata URI before simulate", async () => {
@@ -133,12 +147,13 @@ test("sponsored pump.fun rejects oversized metadata URI before simulate", async 
   const feeRecipient = Keypair.generate().publicKey;
   const mintKp = Keypair.generate();
   const params: LaunchParams = {
-    name: "A Very Long Token Name Here!!!!",
+    name: "A Very Long Token Name Here!!!!".repeat(3),
     symbol: "LONGSYMBOL",
     supply: "1000000000",
     decimals: 6,
     description: "",
-    metadataUri: "ipfs://bafybeigdyrzt5sfp7udm17uh4l0y5qenqwf2jq4vxqjq4vxqjq4vxqjq4extra",
+    metadataUri:
+      "ipfs://bafybeigdyrzt5sfp7udm17uh4l0y5qenqwf2jq4vxqjq4vxqjq4vxqjq4extra" + "x".repeat(200),
     fixedSupply: true,
     venue: "pumpfun",
     feeRecipient: feeRecipient.toBase58(),

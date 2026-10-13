@@ -210,10 +210,17 @@ export class IntentService {
         : err instanceof Error
           ? err.message
           : String(err);
-    return new IntentError(
-      `Sponsored launch preview failed: ${detail}. Top up the sponsor wallet with mainnet SOL or fix server config — do not switch the user to an external wallet for mainnet pump.fun.`,
-      err instanceof IntentError ? err.code : "sponsor_preview_failed",
-    );
+    const code = err instanceof IntentError ? err.code : "sponsor_preview_failed";
+    const simulationOrProgram =
+      /simulation failed/i.test(detail) ||
+      /custom program error/i.test(detail) ||
+      /0x177d/i.test(detail) ||
+      code === "simulation_failed" ||
+      code === "tx_too_large";
+    const suffix = simulationOrProgram
+      ? " This is a transaction or program error, not sponsor SOL balance — fix launch params or retry after deploy."
+      : " Top up the sponsor wallet with mainnet SOL or fix server config — do not switch the user to an external wallet for mainnet pump.fun.";
+    return new IntentError(`Sponsored launch preview failed: ${detail}.${suffix}`, code);
   }
 
   private async finishPrepare(intent: Omit<Intent, "id" | "createdAt" | "updatedAt" | "expiresAt" | "status" | "built" | "submission" | "receipt" | "error" | "events" | "executionMode" | "instructionFingerprint">, chain: Chain): Promise<Intent> {

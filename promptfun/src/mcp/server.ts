@@ -485,6 +485,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
   const confirmLaunchHandler = async ({ intentId }: { intentId: string }): Promise<ToolResult> => {
     try {
       const intent = await service.confirmLaunch(intentId);
+      if (coins && intent.status === "confirmed" && intent.kind === "launch_token") coins.syncIntents();
       return await intentResult(intent.id);
     } catch (err) {
       return fail(err);

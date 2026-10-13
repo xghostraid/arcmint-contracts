@@ -26,6 +26,27 @@
         set("paid", "n/a", "No creator fees counted yet.");
       }
       band.dataset.state = "live";
+      const chartBox = band.querySelector("[data-top-chart]");
+      const chartSlot = band.querySelector("[data-top-chart-slot]");
+      const chartName = band.querySelector("[data-top-chart-name]");
+      if (chartBox && chartSlot && data.coins > 0) {
+        fetch(`${origin}/api/coins?sort=top&limit=1&network=mainnet`, { headers: { Accept: "application/json" } })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((body) => {
+            const top = body?.coins?.[0];
+            if (!top || !window.promptfunSparkline) return;
+            chartSlot.replaceChildren(
+              window.promptfunSparkline.sparklineSvg(top.market?.chartPoints, {
+                width: 120,
+                height: 36,
+                label: `${top.symbol} bonding-curve trend`,
+              }),
+            );
+            chartName.textContent = `${top.name} ($${top.symbol})`;
+            chartBox.hidden = false;
+          })
+          .catch(() => {});
+      }
     })
     .catch(() => {
       set("coins", "n/a", "Public stats are not available from this host yet.");

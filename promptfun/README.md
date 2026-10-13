@@ -117,9 +117,10 @@ Copy `.env.example` into your host’s environment UI (never commit secrets). Se
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | Listen address |
 | `PROMPTFUN_PUBLIC_URL` | `http://127.0.0.1:$PORT` | Public origin for approval links. Also the allowed `Host` for `/mcp`. |
 | `PROMPTFUN_DB` | `./data/promptfun.sqlite` | Local SQLite path for intents + coin index (Docker/Render/Fly). No keys stored. |
-| `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` | — | **Vercel/production:** Turso/libSQL URL (preferred). Same schema as SQLite; survives serverless redeploys. |
+| `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` | — | **Vercel/production (preferred):** Turso/libSQL — intents and coins survive redeploys. |
 | `LIBSQL_URL` + `LIBSQL_AUTH_TOKEN` | — | Alias for Turso/libSQL. |
-| `POSTGRES_URL` or `PROMPTFUN_POSTGRES_URL` | — | **Vercel Postgres** when the project is linked to Storage → Postgres (`POSTGRES_URL` is injected automatically). |
+| `POSTGRES_URL` or `PROMPTFUN_POSTGRES_URL` | — | **Vercel Postgres** when Storage → Postgres is linked. |
+| `BLOB_READ_WRITE_TOKEN` | — | Fallback: mirror confirmed intents to Blob; `/api/coins` rehydrates when the local index is empty (not a substitute for durable DB on hot paths). |
 | `PROMPTFUN_ENABLE_LOCALNET` | off | Enable `solana-localnet` (`solana-test-validator`) and `evm-localnet` (`anvil`) |
 | `PROMPTFUN_ENABLE_PUMPFUN_MAINNET` | off | Enable pump.fun launches on Solana mainnet. **Spends real SOL.** Single-user local runs only. |
 | `PROMPTFUN_ENABLE_EVM_MAINNETS` | off | Enable EVM mainnets. **Spends real ETH, BNB, or POL.** Single-user local runs only. |

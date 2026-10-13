@@ -3,13 +3,20 @@ import type { Config } from "../config.js";
 import { findChain } from "../chains/registry.js";
 import { connectionFor } from "../chains/solana/adapter.js";
 import { decodeInstructions } from "../chains/solana/decode.js";
+import { PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
 import { deployData } from "../chains/evm/token.js";
 import { createPublicClient, http } from "viem";
 import { coinId, type CoinRecord } from "./record.js";
 import { defaultLiveSnapshot, readEvmTokenMeta, readSolanaMintMeta } from "./live.js";
 
+export interface ChainImportSpec {
+  chainKey: string;
+  launchTx: string;
+  address: string;
+}
+
 /** Verified promptfun launches on public testnets (see README / registry evidence). */
-export const CHAIN_IMPORTS = [
+export const CHAIN_IMPORTS: readonly ChainImportSpec[] = [
   {
     chainKey: "solana-devnet",
     launchTx: "Lvr3Gs42ZPMteZZZrDG48g3S9peoC6pg2UneTWPa5GHy2rUTwqe5Jmeuna8r42XPusL8SYcXVk6iB4bR9LKf1EY",
@@ -22,7 +29,19 @@ export const CHAIN_IMPORTS = [
   },
 ] as const;
 
-export async function importKnownCoin(config: Config, spec: (typeof CHAIN_IMPORTS)[number]): Promise<CoinRecord | null> {
+/**
+ * Mainnet showcase coins always indexed (even when testnet demos are hidden).
+ * PCAT: sponsored pump.fun launch from fee payer 5YPhp…ESpv (Oct 2026).
+ */
+export const MAINNET_CHAIN_IMPORTS: readonly ChainImportSpec[] = [
+  {
+    chainKey: "solana-mainnet",
+    launchTx: "3igUQd5Dc36tmpJY7ufZ6X7RaqCxPV3NJa4St2miDZk7wbXBu3CwuW3VeYny55bD2nnCsm6cKPEdjSgQybadRqcv",
+    address: "GQcyhYE7iRi9yn3jxpndX5nXWUSCupj2Ughve5nLvXbs",
+  },
+] as const;
+
+export async function importKnownCoin(config: Config, spec: ChainImportSpec): Promise<CoinRecord | null> {
   const chain = findChain(config, spec.chainKey);
   if (!chain) return null;
   if (chain.family === "solana") return importSolanaLaunch(config, chain, spec.launchTx, spec.address);
@@ -42,12 +61,46 @@ async function importSolanaLaunch(config: Config, chain: ReturnType<typeof findC
     data: Buffer.from(ix.data),
   }));
   const decoded = decodeInstructions(ixs as never, new Map());
+  const launchedAt = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : new Date().toISOString();
+
+  if (decoded.pumpCreate) {
+    const pc = decoded.pumpCreate;
+    if (pc.mint !== mintExpected) return null;
+    const meta = await readSolanaMintMeta(chain, pc.mint).catch(() => null);
+    const verified = [
+      `pump.fun create_v2 for "${pc.name}" (${pc.symbol}) at mint ${pc.mint}.`,
+      `Metadata URI in launch tx: ${pc.uri}.`,
+      `Creator field in instruction: ${pc.creator}.`,
+      meta ? `On-chain metadata read: ${meta.name} (${meta.symbol}), supply ${meta.supply}.` : "Token metadata account read skipped or pending.",
+    ];
+    const record: CoinRecord = {
+      id: coinId(chain.key, pc.mint),
+      chainKey: chain.key,
+      venue: "pumpfun",
+      address: pc.mint,
+      name: meta?.name ?? pc.name,
+      symbol: meta?.symbol ?? pc.symbol,
+      decimals: meta?.decimals ?? PUMPFUN_DECIMALS,
+      supply: meta?.supply ?? PUMPFUN_SUPPLY,
+      imageUrl: null,
+      creator: pc.creator,
+      launchedAt,
+      launchTx,
+      description: "Mainnet pump.fun launch via promptfun.fun sponsored Claude flow.",
+      metadataUri: meta?.uri ?? pc.uri,
+      recordedFrom: "chain-import",
+      verified,
+      intentId: null,
+      live: defaultLiveSnapshot(chain, "pumpfun"),
+    };
+    return record;
+  }
+
   if (!decoded.createdMint?.seed.startsWith("pf")) return null;
   const mint = decoded.createdMint.mint;
   if (mint !== mintExpected) return null;
   const meta = await readSolanaMintMeta(chain, mint);
   const signer = decoded.createdMint.base;
-  const launchedAt = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : new Date().toISOString();
   const verified = [
     `Mint ${mint} created by ${signer} with promptfun's launch seed ${decoded.createdMint.seed}.`,
     `Name and symbol read from chain: ${meta.name} (${meta.symbol}).`,

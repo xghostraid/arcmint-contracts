@@ -6,6 +6,8 @@ export interface IntentRemoteStore {
   enabled(): boolean;
   mirror(intent: Intent): Promise<void>;
   load(id: string): Promise<Intent | null>;
+  /** Best-effort scan of mirrored intents (Vercel Blob) for explore rehydration after ephemeral SQLite. */
+  listMirrored?(max?: number): Promise<Intent[]>;
 }
 
 export class IntentCatalog implements IntentRemoteStore {
@@ -24,6 +26,30 @@ export class IntentCatalog implements IntentRemoteStore {
       addRandomSuffix: false,
       token,
     });
+  }
+
+  async listMirrored(max = 400): Promise<Intent[]> {
+    const token = this.token?.trim();
+    if (!token) return [];
+    const out: Intent[] = [];
+    let cursor: string | undefined;
+    while (out.length < max) {
+      const page = await list({ prefix: "intents/", limit: 100, cursor, token });
+      for (const blob of page.blobs) {
+        if (!blob.pathname.endsWith(".json")) continue;
+        try {
+          const res = await fetch(blob.url, { signal: AbortSignal.timeout(8000) });
+          if (!res.ok) continue;
+          out.push((await res.json()) as Intent);
+        } catch {
+          // skip unreadable blob
+        }
+        if (out.length >= max) break;
+      }
+      if (!page.hasMore || !page.cursor) break;
+      cursor = page.cursor;
+    }
+    return out;
   }
 
   async load(id: string): Promise<Intent | null> {

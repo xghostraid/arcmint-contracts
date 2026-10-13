@@ -74,6 +74,7 @@ export class IntentService {
   private readonly sponsorSigner: FeePayerSigner | null;
 
   private readonly remote: IntentRemoteStore;
+  private onLaunchConfirmed: ((intent: Intent) => void) | null = null;
 
   constructor(
     readonly config: Config,
@@ -90,6 +91,11 @@ export class IntentService {
     this.pictureHandoffs = new PictureHandoffStore(
       config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null,
     );
+  }
+
+  /** Called when a launch intent first reaches confirmed+success (poller, refresh, or submit path). */
+  setLaunchIndexHook(cb: (intent: Intent) => void): void {
+    this.onLaunchConfirmed = cb;
   }
 
   callerIdentity(): AuthenticatedUser | null {
@@ -565,6 +571,14 @@ export class IntentService {
     const at = now();
     const next: Intent = { ...intent, ...patch, updatedAt: at, events: [...intent.events, { at, type, detail }] };
     await this.persist(next);
+    if (
+      intent.status !== "confirmed"
+      && next.status === "confirmed"
+      && next.kind === "launch_token"
+      && next.receipt?.status === "success"
+    ) {
+      this.onLaunchConfirmed?.(next);
+    }
     return next;
   }
 

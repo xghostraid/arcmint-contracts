@@ -2,6 +2,7 @@ import type http from "node:http";
 import type { Config } from "../config.js";
 import { findChain } from "../chains/registry.js";
 import type { IntentStore } from "../intents/store.js";
+import type { IntentRemoteStore } from "../intents/catalog.js";
 import type { CoinDetail, CoinSummary, CoinsListResponse, StatsResponse } from "../api/types.js";
 import { CHAIN_IMPORTS, importKnownCoin } from "./imports.js";
 import { coinId, toDetail, toSummary, type CoinRecord } from "./record.js";
@@ -36,6 +37,7 @@ export class CoinIndexService {
     readonly config: Config,
     private intents: IntentStore,
     readonly store: CoinIndexStore,
+    private readonly remote: IntentRemoteStore | null = null,
   ) {}
 
   start(): void {
@@ -52,9 +54,7 @@ export class CoinIndexService {
 
   private async bootstrap(): Promise<void> {
     if (this.stopped) return;
-    for (const coin of syncCoinsFromIntents(this.config, this.intents)) {
-      if (shouldIndexCoin(this.config, coin.chainKey)) this.store.upsert(coin);
-    }
+    await this.prepareForPublicRead();
     for (const spec of CHAIN_IMPORTS) {
       if (!this.config.indexTestnetDemos) continue;
       try {
@@ -236,6 +236,38 @@ export class CoinIndexService {
     }
   }
 
+  private mainnetCoinCount(): number {
+    return this.store.all().filter((r) => {
+      const chain = findChain(this.config, r.chainKey);
+      return chain && !chain.testnet;
+    }).length;
+  }
+
+  /** Re-import confirmed mainnet launches from Blob when local SQLite was wiped (Vercel). */
+  async rehydrateConfirmedLaunchesFromRemote(): Promise<number> {
+    if (!this.remote?.enabled() || !this.remote.listMirrored) return 0;
+    const mirrored = await this.remote.listMirrored();
+    let imported = 0;
+    for (const intent of mirrored) {
+      if (intent.kind !== "launch_token" || intent.status !== "confirmed") continue;
+      if (!intent.receipt || intent.receipt.status !== "success") continue;
+      const chain = findChain(this.config, intent.chain);
+      if (!chain || chain.testnet) continue;
+      if (this.intents.get(intent.id)) continue;
+      this.intents.save(intent);
+      imported++;
+    }
+    return imported;
+  }
+
+  /** Sync SQLite intents → coin index; rehydrate from Blob when mainnet index is empty. */
+  async prepareForPublicRead(): Promise<void> {
+    this.syncIntents();
+    if (this.mainnetCoinCount() > 0) return;
+    const imported = await this.rehydrateConfirmedLaunchesFromRemote();
+    if (imported > 0) this.syncIntents();
+  }
+
   private summaryFor(record: CoinRecord): CoinSummary | null {
     const chain = findChain(this.config, record.chainKey);
     if (!chain) return null;
@@ -277,14 +309,14 @@ export function applyCoinsCors(res: http.ServerResponse): void {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
-export function handleCoinsApi(
+export async function handleCoinsApi(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   pathname: string,
   url: URL,
   indexer: CoinIndexService,
   sendJson: (status: number, body: unknown) => void,
-): boolean {
+): Promise<boolean> {
   if (!pathname.startsWith("/api/coins") && pathname !== "/api/stats") return false;
   applyCoinsCors(res);
   res.setHeader("Cache-Control", "public, max-age=15");
@@ -303,6 +335,7 @@ export function handleCoinsApi(
       res.end();
       return true;
     }
+    await indexer.prepareForPublicRead();
     sendJson(200, indexer.stats());
     return true;
   }
@@ -317,6 +350,7 @@ export function handleCoinsApi(
       res.end();
       return true;
     }
+    await indexer.prepareForPublicRead();
     sendJson(200, indexer.list(parsed.query));
     return true;
   }

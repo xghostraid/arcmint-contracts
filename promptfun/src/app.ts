@@ -16,6 +16,7 @@ import { handlePictureApi } from "./pictures/http-api.js";
 import { buildServer } from "./mcp/server.js";
 import { CoinIndexStore } from "./indexer/store.js";
 import { CoinIndexService, handleCoinsApi } from "./indexer/service.js";
+import { IntentCatalog } from "./intents/catalog.js";
 import { intentView } from "./mcp/view.js";
 import { approvePage, homePage, notFoundPage, type EvmWalletChain } from "./web/page.js";
 import { OAuthServer } from "./auth/oauth-server.js";
@@ -95,8 +96,10 @@ export function createApp(config: Config): App {
   const claimWallets = platform && config.privyAppId && config.privyAppSecret
     ? new ClaimLaterWalletProvider(config, platform)
     : null;
-  const service = new IntentService(config, store, pictures, platform, claimWallets);
-  const coins = new CoinIndexService(config, store, coinStore);
+  const intentRemote = new IntentCatalog(config.env.BLOB_READ_WRITE_TOKEN ?? config.env.PROMPTFUN_BLOB_READ_WRITE_TOKEN ?? null);
+  const service = new IntentService(config, store, pictures, platform, claimWallets, intentRemote);
+  const coins = new CoinIndexService(config, store, coinStore, intentRemote);
+  service.setLaunchIndexHook(() => coins.syncIntents());
   const payoutCron = new PayoutCron(config, coinStore);
   const mcp = createMcpHandler(() => buildServer(service, coins), { legacy: "stateless" });
   const mcpNode = toNodeHandler(mcp);
@@ -144,7 +147,7 @@ export function createApp(config: Config): App {
       if (await handleOpsRoutes(req, pathname, (status, body) => json(res, status, body), config, () => readJson(req))) return;
       if (await handleClaimRoutes(req, res, pathname, url, config, platform, claimWallets, (status, body) => json(res, status, body), (status, type, body) => send(res, status, type, body))) return;
 
-      if (handleCoinsApi(req, res, pathname, url, coins, (status, body) => json(res, status, body))) return;
+      if (await handleCoinsApi(req, res, pathname, url, coins, (status, body) => json(res, status, body))) return;
 
       const apiMatch = /^\/api\/intents\/(int_[a-f0-9]{32})(\/build|\/submit|\/reject)?$/.exec(pathname);
       if (apiMatch) {

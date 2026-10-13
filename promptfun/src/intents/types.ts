@@ -14,7 +14,13 @@ export interface LaunchParams {
   x?: string;
   /** Revoke the mint authority after minting, so supply can never grow. */
   fixedSupply: boolean;
-  venue: "spl" | "pumpfun" | "erc20";
+  venue: "spl" | "pumpfun" | "erc20" | "pons";
+  /** HTTPS or ipfs:// logo stored on chain for pons launches. */
+  logoUrl?: string;
+  /** Optional wei sent as the creator's first buy on the pons bonding curve (EVM string). */
+  initialBuyWei?: string;
+  /** CREATE2 salt for pons (hex); generated at preview time when omitted. */
+  ponsSalt?: string;
   /** Sponsored pump.fun: primary on-chain fee recipient (treasury pre-mint; creator post-tier). */
   feeRecipient?: string;
   /** Recorded creator Solana wallet for manual payout / post-$PROMPT tier checks. */

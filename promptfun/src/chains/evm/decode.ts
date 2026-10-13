@@ -14,6 +14,7 @@ export interface EvmCall {
 
 export type DecodedCall =
   | { kind: "deploy_token"; name: string; symbol: string; decimals: number; supply: bigint; steps: Step[] }
+  | { kind: "pons_launch"; name: string; symbol: string; steps: Step[] }
   | { kind: "native_transfer"; to: Hex; amount: bigint; steps: Step[] }
   | { kind: "token_transfer"; token: Hex; to: Hex; amount: bigint; steps: Step[] };
 

@@ -6,6 +6,7 @@ import { findChain, recommendedLaunchChainKey, type ActionKind, type Chain } fro
 import { impersonatesBrand, isMajorSymbol } from "../brand.js";
 import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
 import { buildPumpfunLaunchSponsored, generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
+import { PONS_DECIMALS, PONS_LAUNCHPAD_URL, PONS_SUPPLY } from "../chains/evm/pons.js";
 import { connectionFor } from "../chains/solana/adapter.js";
 import { Keypair, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { IntentCatalog, type IntentRemoteStore } from "./catalog.js";
@@ -48,7 +49,9 @@ export interface LaunchInput {
   /** Solana wallet that receives locked pump.fun creator fees on sponsored launches. */
   creatorWallet?: string;
   fixedSupply?: boolean;
-  venue?: "spl" | "pumpfun" | "erc20";
+  venue?: "spl" | "pumpfun" | "erc20" | "pons";
+  /** ETH amount for the creator's optional first buy on pons (e.g. "0.01"). */
+  initialBuyEth?: string;
   /** From open_picture_panel plain text / structuredContent; resolves last panel save server-side. */
   handoffSessionId?: string;
   idempotencyKey?: string;
@@ -354,8 +357,18 @@ export class IntentService {
       throw new IntentError("No launch chain is enabled on this server. Call get_capabilities.", "unknown_chain");
     }
     const chain = this.chainOrThrow(chainKey, "launch_token");
-    const defaultVenue = chain.family === "evm" ? "erc20" : chain.cluster === "mainnet-beta" ? "pumpfun" : "spl";
+    const defaultVenue =
+      chain.key === "robinhood" && !chain.testnet
+        ? "pons"
+        : chain.family === "evm"
+          ? "erc20"
+          : chain.cluster === "mainnet-beta"
+            ? "pumpfun"
+            : "spl";
     const venue = input.venue ?? defaultVenue;
+    if (venue === "pons" && chain.key !== "robinhood") {
+      throw new IntentError('pons launchpad launches use chain robinhood (Robinhood Chain mainnet).', "unsupported");
+    }
     const name = input.name.trim();
     const symbol = input.symbol.trim().toUpperCase();
     if (!name || name.length > 32) throw new IntentError("The token name must be 1–32 characters.");
@@ -409,7 +422,8 @@ export class IntentService {
       }
       if (last?.pictureId) pictureId = last.pictureId;
     }
-    if (pictureId && !metadataUri) {
+    let logoUrl = "";
+    if (pictureId) {
       try {
         const built = await this.buildMetadataUri({
           pictureId,
@@ -419,7 +433,11 @@ export class IntentService {
           website: website || undefined,
           x: x || undefined,
         });
-        metadataUri = built.metadataUri;
+        if (venue === "pons") {
+          logoUrl = this.pictures.imageUrlForMetadata(pictureId, built.imageCid);
+        } else if (!metadataUri) {
+          metadataUri = built.metadataUri;
+        }
       } catch (err) {
         throw err instanceof IntentError ? err : new IntentError((err as Error).message);
       }
@@ -435,6 +453,19 @@ export class IntentService {
       if (!metadataUri) {
         throw new IntentError(
           "pump.fun needs a coin image. Import the user's chat attachment (import_picture_from_url or prepare_launch imageUrl) or open_picture_panel — do not ask them to paste URLs or name tools.",
+        );
+      }
+    }
+    if (venue === "pons") {
+      if (input.supply && input.supply.replace(/[_,\s]/g, "") !== PONS_SUPPLY) {
+        throw new IntentError(`pons launchpad tokens always have a supply of ${PONS_SUPPLY}. Drop the custom supply or use venue erc20 on testnet.`);
+      }
+      supply = PONS_SUPPLY;
+      decimals = PONS_DECIMALS;
+      metadataUri = "";
+      if (!logoUrl) {
+        throw new IntentError(
+          "pons needs a coin image. Import the user's chat attachment (import_picture_from_url or prepare_launch imageUrl) or open_picture_panel — do not ask them to paste URLs or name tools.",
         );
       }
     }
@@ -482,6 +513,15 @@ export class IntentService {
     } else if (recordedCreatorWallet) {
       feeRecipient = recordedCreatorWallet;
     }
+    let initialBuyWei: string | undefined;
+    if (input.initialBuyEth?.trim()) {
+      if (venue !== "pons") throw new IntentError("initialBuyEth is only for pons launches on Robinhood Chain.", "bad_request");
+      try {
+        initialBuyWei = parseUnits(input.initialBuyEth.trim(), 18).toString();
+      } catch {
+        throw new IntentError("initialBuyEth must be a decimal ETH amount (e.g. 0.01).", "bad_request");
+      }
+    }
     const params: LaunchParams = {
       name,
       symbol,
@@ -489,18 +529,22 @@ export class IntentService {
       decimals,
       description: (input.description ?? "").slice(0, 400),
       metadataUri,
+      ...(logoUrl ? { logoUrl } : {}),
+      ...(initialBuyWei ? { initialBuyWei } : {}),
       ...(website ? { website } : {}),
       ...(x ? { x } : {}),
       ...(recordedCreatorWallet ? { creatorWallet: recordedCreatorWallet } : {}),
       ...(feeRecipient ? { feeRecipient } : {}),
       ...(feeShareholders ? { feeShareholders } : {}),
       ...(preMintTreasuryRouting != null ? { preMintTreasuryRouting } : {}),
-      fixedSupply: venue === "pumpfun" ? true : input.fixedSupply ?? true,
+      fixedSupply: venue === "pumpfun" || venue === "pons" ? true : input.fixedSupply ?? true,
       venue,
     };
     const summary = venue === "pumpfun"
       ? `Launch "${name}" (${symbol}) on pump.fun, ${chain.name}. Real SOL.`
-      : `Launch ${formatUnits(base, 0)} ${symbol} ("${name}") on ${chain.name}, ${params.fixedSupply ? "fixed supply" : "mint authority kept"}.`;
+      : venue === "pons"
+        ? `Launch "${name}" (${symbol}) on pons launchpad (${PONS_LAUNCHPAD_URL}), ${chain.name}. Real ETH.`
+        : `Launch ${formatUnits(base, 0)} ${symbol} ("${name}") on ${chain.name}, ${params.fixedSupply ? "fixed supply" : "mint authority kept"}.`;
     return this.finishPrepare({
       kind: "launch_token",
       chain: chain.key,

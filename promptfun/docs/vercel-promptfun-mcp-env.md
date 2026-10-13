@@ -38,7 +38,7 @@ Without **`BLOB_READ_WRITE_TOKEN`**, serverless instances cannot share intents (
 | **`PROMPTFUN_DB`** | Default `./data/promptfun.sqlite` — **ephemeral on Vercel** unless you attach external DB (Turso, etc.) |
 | **`PROMPTFUN_ENABLE_PUMPFUN_DEVNET`** | Devnet pump.fun |
 | **`PROMPTFUN_ENABLE_EVM_MAINNETS`** | All EVM mainnets (off by default; real ETH/BNB/POL) |
-| **`PROMPTFUN_ENABLE_ROBINHOOD_MAINNET`** | **`1`** — Robinhood Chain mainnet only (chainId **4663**); wallet approval on `/approve`; does **not** enable Ethereum/Base/BNB mainnet |
+| **`PROMPTFUN_ENABLE_ROBINHOOD_MAINNET`** | **`1`** — Robinhood Chain mainnet only (chainId **4663**); **pons launchpad** launches via wallet approval on `/approve`; does **not** enable Ethereum/Base/BNB mainnet |
 | **`PROMPTFUN_RPC_ROBINHOOD`** | Optional RPC override (default `https://rpc.mainnet.chain.robinhood.com`) |
 | **`PROMPTFUN_INDEX_TESTNET_DEMOS`** | Index devnet demos in coin API (off in prod explore) |
 | **`PROMPTFUN_OAUTH_ENABLED`** / **`PROMPTFUN_OAUTH_REQUIRED`** | OAuth on MCP |

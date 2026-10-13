@@ -61,7 +61,7 @@ function evmMainnetEnabled(spec: Spec, config: Config): boolean {
   return spec.key === "robinhood" && config.enableRobinhoodMainnet;
 }
 
-const ROBINHOOD_MAINNET_LIVE_EVIDENCE = `Live on Robinhood Chain mainnet (chainId 4663): fixed-supply ERC-20 launch and native/ERC-20 transfers through prepare_launch / prepare_transfer and the /approve page. Real ETH; the user approves in an EIP-6963 wallet (MetaMask, Rabby, Coinbase Wallet). Same adapter proven on Robinhood Chain Testnet (2026-10-09). ${EVM_WALLET_FEE_NOTE}`;
+const ROBINHOOD_MAINNET_LIVE_EVIDENCE = `Live on Robinhood Chain mainnet (chainId 4663): token launches go through the pons launchpad (https://www.ponsfamily.com/launchpad/) — prepare_launch builds Pons V2 launchAndBuy on chain; native/ERC-20 transfers use prepare_transfer and /approve. Real ETH; the user approves in an EIP-6963 wallet (MetaMask, Rabby, Coinbase Wallet). Robinhood Chain Testnet still uses plain ERC-20 deploy (2026-10-09). ${EVM_WALLET_FEE_NOTE}`;
 
 export function evmChains(config: Config): EvmChain[] {
   return SPECS.map((spec): EvmChain => {

@@ -1,5 +1,6 @@
 import { findChain } from "../chains/registry.js";
 import type { Config } from "../config.js";
+import { ponsTokenUrl } from "../chains/evm/pons.js";
 import type { Intent, LaunchParams } from "../intents/types.js";
 
 export interface IntentView {
@@ -155,7 +156,14 @@ export function intentText(view: IntentView): string {
   if (view.transaction) lines.push(`Transaction: ${view.transaction.id}${view.transaction.explorerUrl ? ` (${view.transaction.explorerUrl})` : ""}`);
   if (view.receipt) {
     lines.push(`Receipt (read from chain, slot/block ${view.receipt.slotOrBlock}, fee ${view.receipt.fee} ${view.receipt.feeSymbol}):`, ...view.receipt.verified.map((v) => `- ${v}`));
-    if (view.receipt.tokenAddress) lines.push(`Token: ${view.receipt.tokenAddress}${view.receipt.tokenExplorerUrl ? ` (${view.receipt.tokenExplorerUrl})` : ""}`);
+    if (view.receipt.tokenAddress) {
+      lines.push(`Token: ${view.receipt.tokenAddress}${view.receipt.tokenExplorerUrl ? ` (${view.receipt.tokenExplorerUrl})` : ""}`);
+      if (view.kind === "launch_token" && (view.params as LaunchParams).venue === "pons") {
+        lines.push(`pons launchpad: ${ponsTokenUrl(view.receipt.tokenAddress)}`);
+      }
+    } else if (view.kind === "launch_token" && (view.params as LaunchParams).venue === "pons" && view.preview?.tokenAddress) {
+      lines.push(`pons launchpad (predicted): ${ponsTokenUrl(view.preview.tokenAddress)}`);
+    }
   }
   if (view.error) lines.push(`Error: ${view.error}`);
   if ((view.status === "awaiting_wallet" || view.status === "built") && view.executionMode !== "sponsor") {

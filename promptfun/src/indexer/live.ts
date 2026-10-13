@@ -89,7 +89,7 @@ export function defaultLiveSnapshot(chain: Chain, venue: Venue): LiveSnapshot {
     reason: "Live holder count has not been read yet.",
     readAt,
   };
-  const fees = venue === "erc20" ? plainErc20Fees(chain, readAt) : plainSplFees(chain, readAt);
+  const fees = venue === "erc20" || venue === "pons" ? plainErc20Fees(chain, readAt) : plainSplFees(chain, readAt);
   return { market, holders, creatorFees: fees.creatorFees, feeSplit: fees.feeSplit };
 }
 

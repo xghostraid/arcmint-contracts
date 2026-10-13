@@ -37,7 +37,7 @@
     }
     const rhNote = panel.querySelector("[data-robinhood-mainnet-note]");
     if (rhNote && rh?.walletFeeNote) {
-      rhNote.textContent = `Robinhood Chain mainnet: ERC-20 launch and transfers via Claude — wallet approval on chainId 4663 (real ETH). ${rh.walletFeeNote.replace("promptfun does", "promptfun.fun does")}`;
+      rhNote.textContent = `Robinhood Chain mainnet: token launches on pons (https://www.ponsfamily.com/launchpad/) via Claude — wallet approval on chainId 4663 (real ETH + pons launch fee). ${rh.walletFeeNote.replace("promptfun does", "promptfun.fun does")}`;
     }
     panel.dataset.state = "live";
   };

@@ -1,5 +1,6 @@
 import type { Config } from "../config.js";
 import { recommendedLaunchChainKey } from "../chains/registry.js";
+import { PONS_LAUNCHPAD_URL } from "../chains/evm/pons.js";
 import { BRAND, EVM_WALLET_FEE_NOTE, SHORT } from "../brand.js";
 import { sponsorBudgetSnapshot } from "../sponsor/budget.js";
 
@@ -14,7 +15,7 @@ export function exampleUserPrompts(config: Config): readonly string[] {
   if (!config.enableRobinhoodMainnet) return EXAMPLE_USER_PROMPTS;
   return [
     ...EXAMPLE_USER_PROMPTS,
-    `Launch Acme ACME as an ERC-20 on Robinhood Chain (chain robinhood) — I'll approve in MetaMask. ${EVM_WALLET_FEE_NOTE}`,
+    `Launch Acme ACME on Robinhood Chain (chain robinhood) through pons — I'll approve in MetaMask. ${EVM_WALLET_FEE_NOTE}`,
   ];
 }
 
@@ -37,7 +38,7 @@ export function launchPlaybook(config: Config): string[] {
         ? "Sponsored testnets: Launch it on the card. Wallet mode: approveUrl for EVM or when sponsored is paused."
         : "Wallet mode: they open approveUrl and sign. Do not claim success until get_action_status is confirmed.",
     config.enableRobinhoodMainnet
-      ? `Robinhood Chain mainnet: prepare_launch or prepare_transfer with chain robinhood; user opens approveUrl and signs (real ETH). ${EVM_WALLET_FEE_NOTE} Never use confirm_launch for EVM.`
+      ? `Robinhood Chain mainnet: prepare_launch with chain robinhood launches on pons (${PONS_LAUNCHPAD_URL}) — venue pons by default; user opens approveUrl and signs launchAndBuy (real ETH + 0.0005 ETH launch fee). Optional initialBuyEth for a creator first buy. ${EVM_WALLET_FEE_NOTE} Never use confirm_launch for EVM. After confirm, share the pons token URL from get_action_status.`
       : null,
     "Call get_capabilities when they ask what is supported or which chain to use — not on every launch.",
     "Creator fees: $PROMPT is live on Solana. Holders (≥ 1 whole $PROMPT in creatorWallet at prepare_launch) keep 100% on chain; otherwise 50% creator / 50% promptfun treasury. Tier gate uses PROMPTFUN_PROMPT_MINT (defaults to live mint when unset).",

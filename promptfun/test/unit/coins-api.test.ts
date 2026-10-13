@@ -14,7 +14,13 @@ test("resolveQuery rejects bad params", () => {
   assert.equal(indexer.resolveQuery(new URLSearchParams("network=devnet")).ok, false);
   const ok = indexer.resolveQuery(new URLSearchParams("sort=top&limit=10&offset=0"));
   assert.equal(ok.ok, true);
-  if (ok.ok) assert.equal(ok.query.sort, "top");
+  if (ok.ok) {
+    assert.equal(ok.query.sort, "top");
+    assert.equal(ok.query.network, "mainnet");
+  }
+  const testnet = indexer.resolveQuery(new URLSearchParams("network=testnet"));
+  assert.equal(testnet.ok, true);
+  if (testnet.ok) assert.equal(testnet.query.network, "testnet");
 });
 
 test("stats returns zero when empty", () => {

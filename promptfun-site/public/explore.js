@@ -85,7 +85,7 @@
     setStatus("Loading coins from the public API…");
     emptyEl.hidden = true;
     try {
-      const params = new URLSearchParams({ sort, limit: "50" });
+      const params = new URLSearchParams({ sort, limit: "50", network: "mainnet" });
       if (query) params.set("q", query);
       const res = await fetch(`${origin}/api/coins?${params}`, { headers: { Accept: "application/json" } });
       if (!res.ok) {

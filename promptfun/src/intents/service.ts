@@ -22,7 +22,6 @@ import { assertGlobalSponsoredLaunchQuota } from "../platform/global-quota.js";
 import { assertMonthlyBudget, monthKeyUtc, recordSponsorSpendUsd } from "../platform/budget-ledger.js";
 import type { ClaimWalletView, WalletProvider } from "../wallets/types.js";
 import type { ClaimLaterWalletProvider } from "../wallets/claim-later.js";
-import { connectionFor } from "../chains/solana/adapter.js";
 import { resolvePumpfunCreatorFeeLock } from "../chains/solana/prompt-tier.js";
 import type { SolanaChain } from "../chains/registry.js";
 

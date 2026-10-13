@@ -20,6 +20,13 @@ export interface CoinQuery {
   offset: number;
 }
 
+function shouldIndexCoin(config: Config, chainKey: string): boolean {
+  const chain = findChain(config, chainKey);
+  if (!chain) return false;
+  if (!chain.testnet) return true;
+  return config.indexTestnetDemos;
+}
+
 export class CoinIndexService {
   private timer: NodeJS.Timeout | null = null;
   private refreshing = false;
@@ -46,9 +53,10 @@ export class CoinIndexService {
   private async bootstrap(): Promise<void> {
     if (this.stopped) return;
     for (const coin of syncCoinsFromIntents(this.config, this.intents)) {
-      this.store.upsert(coin);
+      if (shouldIndexCoin(this.config, coin.chainKey)) this.store.upsert(coin);
     }
     for (const spec of CHAIN_IMPORTS) {
+      if (!this.config.indexTestnetDemos) continue;
       try {
         const imported = await importKnownCoin(this.config, spec);
         if (imported) this.store.upsert(imported);
@@ -88,17 +96,18 @@ export class CoinIndexService {
     const offset = offsetRaw === null ? 0 : Number(offsetRaw);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) return { ok: false, error: "limit must be an integer from 1 to 100." };
     if (!Number.isInteger(offset) || offset < 0) return { ok: false, error: "offset must be a non-negative integer." };
-    const network = params.get("network");
-    if (network && network !== "mainnet" && network !== "testnet") {
+    const networkRaw = params.get("network");
+    if (networkRaw && networkRaw !== "mainnet" && networkRaw !== "testnet") {
       return { ok: false, error: 'network must be "mainnet" or "testnet".' };
     }
+    const network = (networkRaw ?? "mainnet") as CoinQuery["network"];
     return {
       ok: true,
       query: {
         sort: sortRaw as CoinSort,
         q: params.get("q"),
         chain: params.get("chain"),
-        network: network as CoinQuery["network"],
+        network,
         limit,
         offset,
       },
@@ -126,11 +135,12 @@ export class CoinIndexService {
   stats(): StatsResponse {
     const generatedAt = new Date().toISOString();
     const summaries = this.store.all().map((r) => this.summaryFor(r)).filter((s): s is CoinSummary => !!s);
+    const mainnetSummaries = summaries.filter((c) => !c.chain.testnet);
     const byChain: Record<string, number> = {};
-    for (const c of summaries) byChain[c.chain.key] = (byChain[c.chain.key] ?? 0) + 1;
-    const mainnetCoins = summaries.filter((c) => !c.chain.testnet).length;
+    for (const c of mainnetSummaries) byChain[c.chain.key] = (byChain[c.chain.key] ?? 0) + 1;
+    const mainnetCoins = mainnetSummaries.length;
     const paidBySymbol = new Map<string, { amount: bigint; coins: number; complete: boolean; decimals: number }>();
-    for (const c of summaries) {
+    for (const c of mainnetSummaries) {
       const paid = c.creatorFees.paid;
       if (paid === null) continue;
       const parts = paid.split(".");
@@ -150,7 +160,7 @@ export class CoinIndexService {
       complete: v.complete,
     }));
     if (!creatorFeesPaid.length) creatorFeesPaid.push({ symbol: "SOL", amount: "0", coins: 0, complete: true });
-    return { coins: summaries.length, byChain, mainnetCoins, creatorFeesPaid, generatedAt };
+    return { coins: mainnetCoins, byChain, mainnetCoins, creatorFeesPaid, generatedAt };
   }
 
   async detail(idOrAddress: string, chainHint?: string): Promise<
@@ -218,6 +228,7 @@ export class CoinIndexService {
 
   syncIntents(): void {
     for (const coin of syncCoinsFromIntents(this.config, this.intents)) {
+      if (!shouldIndexCoin(this.config, coin.chainKey)) continue;
       const existing = this.store.get(coin.id);
       this.store.upsert(existing ? { ...coin, live: existing.live } : coin);
     }

@@ -281,8 +281,14 @@ test("Terms, Privacy, Docs and Explore pages exist and stay Claude-only", async 
   const exploreJs = await readPublic("explore.js");
   assert.match(exploreJs, /coin\.imageUrl/, "explore board shows coin thumbnails when API returns imageUrl");
   assert.match(exploreJs, /coin-thumb/);
+  assert.match(exploreJs, /coin\.address/, "explore rows expose contract/mint address from API");
+  assert.match(exploreJs, /Copy CA/);
+  assert.match(exploreJs, /navigator\.clipboard\.writeText/);
+  assert.match(explore, /<th scope="col">CA<\/th>/);
   const css = await readPublic("site.css");
   assert.match(css, /\.coin-thumb/);
+  assert.match(css, /\.coin-ca/);
+  assert.match(css, /\.copy-ca-btn/);
   const terms = await readFile(new URL("../public/terms/index.html", import.meta.url), "utf8");
   assert.match(terms, /Draft · not legal advice/);
   const docs = await readFile(new URL("../public/docs/index.html", import.meta.url), "utf8");

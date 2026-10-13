@@ -37,7 +37,7 @@ import type { Built, Cost, Intent, LaunchParams, Receipt, Simulation, TransferPa
 import { IntentError } from "../../intents/types.js";
 import { decodeInstructions, isWalletAddress, type DecodedTx, type MintFacts } from "./decode.js";
 import { buildPumpfunLaunch, buildPumpfunLaunchSponsored } from "./pumpfun.js";
-import { SOLANA_TX_BASE64_MAX, SOLANA_TX_RAW_MAX } from "./tx-size.js";
+import { SOLANA_TX_BASE64_MAX, SOLANA_TX_RAW_MAX, versionedTxWireSize } from "./tx-size.js";
 
 const connections = new Map<string, Connection>();
 
@@ -355,8 +355,28 @@ export const solanaAdapter: ChainAdapter = {
     const decoded = decodeInstructions(TransactionMessage.decompile(message).instructions, compiled.mints);
     compiled.check(decoded);
 
-    const [simulation, feeResult, balanceLamports] = await Promise.all([
-      simulate(conn, tx),
+    const compiledFollow = compiled as {
+      followUpInstructions?: TransactionInstruction[];
+    };
+    let simulation: Simulation;
+    if (compiledFollow.followUpInstructions?.length) {
+      const pipeline = [...compiled.instructions, ...compiledFollow.followUpInstructions];
+      const { raw } = versionedTxWireSize(pipeline, signer);
+      if (raw <= SOLANA_TX_RAW_MAX) {
+        const pipelineMsg = new TransactionMessage({
+          payerKey: signer,
+          recentBlockhash: blockhash,
+          instructions: pipeline,
+        }).compileToLegacyMessage();
+        simulation = await simulate(conn, new VersionedTransaction(pipelineMsg));
+      } else {
+        simulation = await simulate(conn, tx);
+      }
+    } else {
+      simulation = await simulate(conn, tx);
+    }
+
+    const [feeResult, balanceLamports] = await Promise.all([
       conn.getFeeForMessage(message, "confirmed"),
       conn.getBalance(signer, "confirmed"),
     ]);

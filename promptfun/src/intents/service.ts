@@ -214,7 +214,7 @@ export class IntentService {
     const simulationOrProgram =
       /simulation failed/i.test(detail) ||
       /custom program error/i.test(detail) ||
-      /0x177d/i.test(detail) ||
+      /0x177d|6013|notenoughremainingaccounts/i.test(detail) ||
       code === "simulation_failed" ||
       code === "tx_too_large";
     const suffix = simulationOrProgram

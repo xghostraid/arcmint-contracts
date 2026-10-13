@@ -12,8 +12,10 @@
 
 | Phase | On-chain creator fee behavior | `creatorWallet` at prepare_launch |
 |-------|--------------------------------|-----------------------------------|
-| **Pre-mint (now)** | **100%** locks to **promptfun official wallet** (treasury). | **Required for ops:** stored on intent for manual payout records; not used for on-chain split until $PROMPT tier is active. |
-| **Post-mint** | **≥ 1 whole $PROMPT** in `creatorWallet` at prepare_launch → **100%** to creator wallet. Else → **50%** creator / **50%** treasury. | Same wallet; RPC balance check when `PROMPTFUN_PROMPT_MINT` is set **and** mint exists on chain. |
+| **Pre-mint (legacy)** | **100%** locks to **promptfun official wallet** (treasury). | Used only when tier gate is inactive (mint env disabled or mint missing on chain). |
+| **Post-mint (live)** | **≥ 1 whole $PROMPT** in `creatorWallet` at prepare_launch → **100%** to creator wallet. Else → **50%** creator / **50%** treasury. | Same wallet; RPC balance check when `PROMPTFUN_PROMPT_MINT` resolves to a mint **and** that mint exists on chain. |
+
+**Live $PROMPT mint (Solana mainnet):** `385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump` · [pump.fun](https://pump.fun/coin/385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump)
 
 ## Official wallet (ops)
 
@@ -21,13 +23,13 @@
 
 ### Ops model (confirmed)
 
-This single wallet is treasury, sponsored-launch fee payer, and (later) **$PROMPT** launch authority.
+This single wallet is treasury, sponsored-launch fee payer, and **$PROMPT** launch authority.
 
 | Direction | What happens |
 |-----------|----------------|
 | **In (on chain)** | Pump.fun **creator / trading fees** from launched coins **accumulate in this wallet**. Pre-$PROMPT: **100%** of the configured fee share is routed here on chain. Post-$PROMPT (tier active): non-holder launches still send **50%** of the fee share here; holder launches send **0%** here (100% to `creatorWallet`). |
 | **Out (manual)** | Ops **manually distribute SOL** from this wallet to creators using each intent’s recorded `creatorWallet` (and payout records). Required for **pre-$PROMPT** (all trading fees land here first) and for any **manual payout workflow** even after tiers go live. Not described on the public website — backend, MCP, and this spec only. |
-| **Launch** | **$PROMPT** will be launched from this wallet when ready. Do **not** set `PROMPTFUN_PROMPT_MINT` until that mint exists on chain. |
+| **Launch** | **$PROMPT** mint `385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump` is live on pump.fun. Production defaults `PROMPTFUN_PROMPT_MINT` to this address when unset. |
 
 Same wallet is the **sponsor fee payer** when `PROMPTFUN_SPONSOR_SECRET_KEY` is set (network fees for sponsored launches are paid from here, separate from creator-fee accumulation).
 
@@ -50,7 +52,7 @@ Same wallet is the **sponsor fee payer** when `PROMPTFUN_SPONSOR_SECRET_KEY` is 
 
 | Env | Purpose |
 |-----|---------|
-| `PROMPTFUN_PROMPT_MINT` | SPL mint pubkey; unset until live. |
+| `PROMPTFUN_PROMPT_MINT` | SPL mint pubkey. Defaults to `385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump` when unset; set empty or `0` to disable tier gate (pre-mint routing). |
 | `PROMPTFUN_PROMPT_MIN_BALANCE` | Optional raw minimum for 100% tier. |
 
 ## Code

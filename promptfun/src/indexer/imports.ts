@@ -8,6 +8,7 @@ import { deployData } from "../chains/evm/token.js";
 import { createPublicClient, http } from "viem";
 import { coinId, type CoinRecord } from "./record.js";
 import { defaultLiveSnapshot, readEvmTokenMeta, readSolanaMintMeta } from "./live.js";
+import { syncImageUrlFromMetadataUri } from "./metadata-image.js";
 
 export interface ChainImportSpec {
   chainKey: string;
@@ -73,6 +74,7 @@ async function importSolanaLaunch(config: Config, chain: ReturnType<typeof findC
       `Creator field in instruction: ${pc.creator}.`,
       meta ? `On-chain metadata read: ${meta.name} (${meta.symbol}), supply ${meta.supply}.` : "Token metadata account read skipped or pending.",
     ];
+    const metadataUri = meta?.uri ?? pc.uri;
     const record: CoinRecord = {
       id: coinId(chain.key, pc.mint),
       chainKey: chain.key,
@@ -82,12 +84,12 @@ async function importSolanaLaunch(config: Config, chain: ReturnType<typeof findC
       symbol: meta?.symbol ?? pc.symbol,
       decimals: meta?.decimals ?? PUMPFUN_DECIMALS,
       supply: meta?.supply ?? PUMPFUN_SUPPLY,
-      imageUrl: null,
+      imageUrl: syncImageUrlFromMetadataUri(config, metadataUri),
       creator: pc.creator,
       launchedAt,
       launchTx,
       description: "Mainnet pump.fun launch via promptfun.fun sponsored Claude flow.",
-      metadataUri: meta?.uri ?? pc.uri,
+      metadataUri,
       recordedFrom: "chain-import",
       verified,
       intentId: null,
@@ -115,7 +117,7 @@ async function importSolanaLaunch(config: Config, chain: ReturnType<typeof findC
     symbol: meta.symbol,
     decimals: meta.decimals,
     supply: meta.supply,
-    imageUrl: null,
+    imageUrl: syncImageUrlFromMetadataUri(config, meta.uri),
     creator: signer,
     launchedAt,
     launchTx,

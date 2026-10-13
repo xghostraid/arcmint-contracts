@@ -384,6 +384,28 @@ export const solanaAdapter: ChainAdapter = {
       promptfunFee: "0",
     };
 
+    let followUpPayload: string | undefined;
+    let followUpDigest: string | undefined;
+    const followUp = "followUpInstructions" in compiled
+      ? (compiled as { followUpInstructions?: import("@solana/web3.js").TransactionInstruction[] }).followUpInstructions
+      : undefined;
+    if (followUp?.length) {
+      const followMsg = new TransactionMessage({
+        payerKey: signer,
+        recentBlockhash: blockhash,
+        instructions: followUp,
+      }).compileToLegacyMessage();
+      const followRaw = Buffer.from(new VersionedTransaction(followMsg).serialize());
+      if (followRaw.length > SOLANA_TX_RAW_MAX || followRaw.toString("base64").length > SOLANA_TX_BASE64_MAX) {
+        throw new IntentError(
+          `Solana follow-up transaction too large (${followRaw.length} raw). Shorten the metadata link or reduce fee shareholders.`,
+          "tx_too_large",
+        );
+      }
+      followUpPayload = followRaw.toString("base64");
+      followUpDigest = Buffer.from(followMsg.serialize()).toString("base64");
+    }
+
     const mintKp = "mintKeypair" in compiled ? (compiled as { mintKeypair: Keypair }).mintKeypair : null;
     const built: Built = {
       signer: signer.toBase58(),
@@ -399,6 +421,7 @@ export const solanaAdapter: ChainAdapter = {
       ...(mintKp
         ? { coSignerSecrets: { [mintKp.publicKey.toBase58()]: Buffer.from(mintKp.secretKey).toString("base64") } }
         : {}),
+      ...(followUpPayload ? { followUpPayload, followUpDigest } : {}),
     };
     return built;
   },

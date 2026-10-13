@@ -115,7 +115,7 @@ Copy `.env.example` into your host’s environment UI (never commit secrets). Se
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | Listen address |
 | `PROMPTFUN_PUBLIC_URL` | `http://127.0.0.1:$PORT` | Public origin for approval links. Also the allowed `Host` for `/mcp`. |
-| `PROMPTFUN_DB` | `./data/promptfun.sqlite` | Intent store (`node:sqlite`). It holds no keys. |
+| `PROMPTFUN_DB` | `./data/promptfun.sqlite` | Intent + coin index SQLite (no keys). **Vercel containers wipe this on redeploy** unless you attach persistent storage; set `BLOB_READ_WRITE_TOKEN` so confirmed launches rehydrate into `/api/coins` from Blob, or use Render/Fly/Railway volume / Turso for durable SQLite. |
 | `PROMPTFUN_ENABLE_LOCALNET` | off | Enable `solana-localnet` (`solana-test-validator`) and `evm-localnet` (`anvil`) |
 | `PROMPTFUN_ENABLE_PUMPFUN_MAINNET` | off | Enable pump.fun launches on Solana mainnet. **Spends real SOL.** Single-user local runs only. |
 | `PROMPTFUN_ENABLE_EVM_MAINNETS` | off | Enable EVM mainnets. **Spends real ETH, BNB, or POL.** Single-user local runs only. |

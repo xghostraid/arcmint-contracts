@@ -5,8 +5,9 @@ import type { BuildOptions } from "../chains/adapter.js";
 import { findChain, recommendedLaunchChainKey, type ActionKind, type Chain } from "../chains/registry.js";
 import { impersonatesBrand, isMajorSymbol } from "../brand.js";
 import { AmountError, formatUnits, parseUnits } from "../util/amount.js";
-import { generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
+import { buildPumpfunLaunchSponsored, generatePumpMintKeypair, PUMPFUN_DECIMALS, PUMPFUN_SUPPLY } from "../chains/solana/pumpfun.js";
 import { connectionFor } from "../chains/solana/adapter.js";
+import { Keypair, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
 import { IntentCatalog, type IntentRemoteStore } from "./catalog.js";
 import { IntentStore } from "./store.js";
 import { IntentError, type Built, type Intent, type LaunchParams, type TransferParams } from "./types.js";
@@ -616,7 +617,10 @@ export class IntentService {
     if (!built.simulation.ok) throw new IntentError(`Simulation failed: ${built.simulation.error ?? "unknown"}`, "simulation_failed");
     const signed = await this.sponsorSigner.signSolanaTransaction(chain.key, intent, built, built.payload);
     const withBuilt = await this.update(intent, { status: "built", built, error: null }, "confirmed_in_chat", "User confirmed launch in chat.");
-    const submitted = await this.submit(withBuilt.id, signed);
+    let submitted = await this.submit(withBuilt.id, signed);
+    if (built.followUpPayload && chain.family === "solana") {
+      submitted = await this.submitSponsoredPumpFeeShareFollowUp(chain as SolanaChain, submitted, built);
+    }
     if (this.platform) {
       const sub = this.caller?.sub ?? "anonymous";
       if (this.caller) this.platform.recordLaunchQuota(this.caller.sub);
@@ -624,6 +628,46 @@ export class IntentService {
       recordSponsorSpendUsd(this.platform, sub, Number.isFinite(usd) ? usd : 0.05, monthKeyUtc());
     }
     return submitted;
+  }
+
+  private async submitSponsoredPumpFeeShareFollowUp(chain: SolanaChain, intent: Intent, primaryBuilt: Built): Promise<Intent> {
+    const submissionId = intent.submission?.id;
+    if (!submissionId) throw new IntentError("Launch transaction was not submitted.", "wrong_state");
+    const conn = connectionFor(chain);
+    const sponsor = new PublicKey(this.sponsorSigner!.publicKey);
+    const deadline = Date.now() + 90_000;
+    while (Date.now() < deadline) {
+      const status = await conn.getSignatureStatuses([submissionId]);
+      const st = status.value[0];
+      if (st?.err) throw new IntentError("Launch transaction failed on chain before fee shares could be set.", "simulation_failed");
+      if (st?.confirmationStatus === "confirmed" || st?.confirmationStatus === "finalized") break;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    const mintEntry = Object.entries(primaryBuilt.coSignerSecrets ?? {})[0];
+    if (!mintEntry) throw new IntentError("Missing mint co-signer for fee-share follow-up.", "sponsor_unconfigured");
+    const mintKp = Keypair.fromSecretKey(Buffer.from(mintEntry[1], "base64"));
+    const compiled = await buildPumpfunLaunchSponsored(conn, intent, sponsor, mintKp);
+    if (!compiled.followUpInstructions?.length) {
+      throw new IntentError("Fee-share follow-up is missing from the compiled launch.", "mismatch");
+    }
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash("confirmed");
+    const followMsg = new TransactionMessage({
+      payerKey: sponsor,
+      recentBlockhash: blockhash,
+      instructions: compiled.followUpInstructions,
+    }).compileToLegacyMessage();
+    const followPayload = Buffer.from(new VersionedTransaction(followMsg).serialize()).toString("base64");
+    const followBuilt: Built = {
+      ...primaryBuilt,
+      payload: followPayload,
+      digest: Buffer.from(followMsg.serialize()).toString("base64"),
+      coSignerSecrets: undefined,
+    };
+    const followSigned = await this.sponsorSigner!.signSolanaTransaction(chain.key, intent, followBuilt, followPayload);
+    const followTx = VersionedTransaction.deserialize(Buffer.from(followSigned, "base64"));
+    const followSig = await conn.sendRawTransaction(followTx.serialize(), { skipPreflight: false, maxRetries: 2 });
+    await conn.confirmTransaction({ signature: followSig, blockhash, lastValidBlockHeight }, "confirmed");
+    return this.update(intent, {}, "fee_shares_set", `Creator fee shares finalized (${followSig.slice(0, 12)}…).`);
   }
 
   async submit(id: string, walletPayload: string): Promise<Intent> {

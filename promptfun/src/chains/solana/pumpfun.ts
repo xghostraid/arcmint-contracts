@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { Keypair, PublicKey, type Connection } from "@solana/web3.js";
+import { Keypair, PublicKey, type Connection, type TransactionInstruction } from "@solana/web3.js";
 
 type PumpSdkModule = typeof import("@pump-fun/pump-sdk");
 let pumpSdk: PumpSdkModule | null = null;
@@ -11,7 +11,7 @@ function sdk(): PumpSdkModule {
 import type { Intent, LaunchParams } from "../../intents/types.js";
 import { IntentError } from "../../intents/types.js";
 import type { DecodedTx, MintFacts } from "./decode.js";
-import { assertVersionedTxFits } from "./tx-size.js";
+import { assertVersionedTxFits, SOLANA_TX_RAW_MAX, versionedTxWireSize } from "./tx-size.js";
 
 /** pump.fun mints a fixed 1,000,000,000 supply with 6 decimals on its bonding curve; requests cannot change that. */
 export const PUMPFUN_SUPPLY = "1000000000";
@@ -111,15 +111,56 @@ export async function buildPumpfunLaunchSponsored(
     bondingCurveComplete: false,
   });
 
-  const instructions = [createIx, feeConfigIx, feeShareIx];
-  try {
-    assertVersionedTxFits(instructions, sponsor);
-  } catch (err) {
-    throw new IntentError((err as Error).message, "tx_too_large");
+  let instructions = [createIx, feeConfigIx, feeShareIx];
+  let followUpInstructions: TransactionInstruction[] | undefined;
+  let stagedInterimShareholder: (typeof shareholders)[number] | undefined;
+  if (versionedTxWireSize(instructions, sponsor).raw > SOLANA_TX_RAW_MAX) {
+    if (shareholders.length <= 1) {
+      throw new IntentError(
+        "Solana transaction too large for this launch. Shorten the metadata link or use a shorter coin name/symbol.",
+        "tx_too_large",
+      );
+    }
+    stagedInterimShareholder = shareholders[0];
+    const interimShareIx = await pump.updateFeeShares({
+      authority: sponsor,
+      mint,
+      currentShareholders: [],
+      newShareholders: [{ address: stagedInterimShareholder.address, shareBps: 10_000 }],
+      bondingCurveComplete: false,
+    });
+    instructions = [createIx, feeConfigIx, interimShareIx];
+    try {
+      assertVersionedTxFits(instructions, sponsor);
+    } catch (err) {
+      throw new IntentError((err as Error).message, "tx_too_large");
+    }
+    followUpInstructions = [
+      await pump.updateFeeShares({
+        authority: sponsor,
+        mint,
+        currentShareholders: [stagedInterimShareholder.address],
+        newShareholders: shareholders,
+        bondingCurveComplete: false,
+      }),
+    ];
+    try {
+      assertVersionedTxFits(followUpInstructions, sponsor);
+    } catch (err) {
+      throw new IntentError((err as Error).message, "tx_too_large");
+    }
+  } else {
+    try {
+      assertVersionedTxFits(instructions, sponsor);
+    } catch (err) {
+      throw new IntentError((err as Error).message, "tx_too_large");
+    }
   }
 
   return {
     instructions,
+    followUpInstructions,
+    stagedInterimShareholder,
     mints: new Map<string, MintFacts>([[mint.toBase58(), { decimals: PUMPFUN_DECIMALS, symbol: params.symbol }]]),
     deposits: 0n,
     sendsLamports: 0n,
@@ -133,9 +174,16 @@ export async function buildPumpfunLaunchSponsored(
       if (!ok) throw new Error("Compiled pump.fun launch does not decode back to the request. Refusing to show it.");
       const fs = decoded.pumpFeeSharing;
       if (!fs?.created || !fs.updated) throw new Error("Fee-sharing instructions missing from decoded transaction.");
-      for (const row of shareholderRows) {
-        const share = fs.recipients.find((r) => r.address === row.address && r.shareBps === row.shareBps);
-        if (!share) throw new Error(`Creator fee share missing for ${row.address} (${row.shareBps} bps).`);
+      if (stagedInterimShareholder) {
+        const interim = fs.recipients.find(
+          (r) => r.address === stagedInterimShareholder!.address.toBase58() && r.shareBps === 10_000,
+        );
+        if (!interim) throw new Error("Interim creator fee share missing from staged launch transaction.");
+      } else {
+        for (const row of shareholderRows) {
+          const share = fs.recipients.find((r) => r.address === row.address && r.shareBps === row.shareBps);
+          if (!share) throw new Error(`Creator fee share missing for ${row.address} (${row.shareBps} bps).`);
+        }
       }
     },
   };

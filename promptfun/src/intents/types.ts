@@ -98,6 +98,9 @@ export interface Built {
   extraSigners: string[];
   /** Server-held Ed25519 secrets (base64) for sponsored pump.fun mint co-signers; never exposed to clients. */
   coSignerSecrets?: Record<string, string>;
+  /** Second sponsored Solana tx (base64 wire) when fee shares are staged off the launch tx for size limits. */
+  followUpPayload?: string;
+  followUpDigest?: string;
 }
 
 export interface Receipt {

@@ -467,6 +467,11 @@
         <p class="stat-label">Creator fees paid</p>
         <p class="stat-value" data-stat-value="paid">…</p>
       </div>
+      <div class="stat stat-chart" data-top-chart hidden>
+        <p class="stat-label">Top coin trend</p>
+        <div class="stat-chart-slot" data-top-chart-slot aria-hidden="true"></div>
+        <p class="stat-value stat-chart-name" data-top-chart-name></p>
+      </div>
       <p class="stat-note">From the public coins API when it is reachable. Shows n/a instead of guessing.</p>
     </div>
   </section>
@@ -503,6 +508,7 @@
 </footer>
 
 <script src="/site.js" defer></script>
+<script src="/sparkline.js" defer></script>
 <script src="/networks.js" defer></script>
 <script src="/stats.js" defer></script>
 </body>

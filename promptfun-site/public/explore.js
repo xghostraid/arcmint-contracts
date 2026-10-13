@@ -66,15 +66,40 @@
         : coin.chain?.key === "solana-mainnet"
           ? `<span class="status status-live">Mainnet</span>`
           : "";
-      tr.innerHTML = `
-        <th scope="row">
+      const chartCell = document.createElement("td");
+      chartCell.dataset.label = "Chart";
+      const pts = coin.market?.chartPoints;
+      if (window.promptfunSparkline) {
+        chartCell.appendChild(
+          window.promptfunSparkline.sparklineSvg(pts, {
+            label: pts ? `${coin.symbol} bonding-curve trend` : "Chart unavailable",
+          }),
+        );
+      } else {
+        chartCell.textContent = "—";
+      }
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.innerHTML = `
           <span class="coin-name">${coin.name}</span>
           <span class="coin-meta">$${coin.symbol}${badge ? ` ${badge}` : ""}</span>
-        </th>
-        <td data-label="Market cap" title="${cap.title.replace(/"/g, "&quot;")}">${cap.text}</td>
-        <td data-label="Age">${age(coin.launchedAt)}</td>
-        <td data-label="Paid to creator" title="${paid.title.replace(/"/g, "&quot;")}">${paid.text}</td>
-      `;
+        `;
+      tr.appendChild(th);
+      tr.appendChild(chartCell);
+      const capTd = document.createElement("td");
+      capTd.dataset.label = "Market cap";
+      capTd.title = cap.title;
+      capTd.textContent = cap.text;
+      tr.appendChild(capTd);
+      const ageTd = document.createElement("td");
+      ageTd.dataset.label = "Age";
+      ageTd.textContent = age(coin.launchedAt);
+      tr.appendChild(ageTd);
+      const paidTd = document.createElement("td");
+      paidTd.dataset.label = "Paid to creator";
+      paidTd.title = paid.title;
+      paidTd.textContent = paid.text;
+      tr.appendChild(paidTd);
       tbody.appendChild(tr);
     }
   };

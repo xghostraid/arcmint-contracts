@@ -18,6 +18,8 @@ export interface Market {
   priceUsd: string | null;
   marketCapUsd: string | null;
   graduated: boolean | null;
+  /** Normalized 0–100 bar heights for explore/home sparklines (from on-chain bonding curve). */
+  chartPoints: number[] | null;
   source: string | null;
   reason: string | null;
   readAt: string | null;

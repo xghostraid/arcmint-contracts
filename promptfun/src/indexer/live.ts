@@ -7,6 +7,7 @@ import { connectionFor } from "../chains/solana/adapter.js";
 import { formatUnits } from "../util/amount.js";
 import type { CoinRecord, LiveSnapshot, Venue } from "./record.js";
 import { readPumpfunLive } from "../chains/solana/pump-live.js";
+import { readPumpfunMarket } from "../chains/solana/pump-market.js";
 import { sponsorPubkeyFromConfig } from "../sponsor/budget.js";
 
 const ERC20_ABI = [
@@ -23,6 +24,7 @@ function testnetMarket(chain: Chain, readAt: string) {
     priceUsd: null,
     marketCapUsd: null,
     graduated: null,
+    chartPoints: null,
     source: null,
     reason: chain.testnet
       ? `${chain.name} coin: testnet has no markets, so there is no price.`
@@ -123,11 +125,20 @@ export async function refreshLive(config: Config, chain: Chain, record: CoinReco
     }
     return base;
   }
-  // Mainnet live reads (pump.fun / Jupiter) are not enabled in v1 indexer; honest nulls.
   const snap = defaultLiveSnapshot(chain, record.venue);
-  snap.market.reason = record.venue === "pumpfun"
-    ? "Mainnet pump.fun pricing is not refreshed on this server yet."
-    : "Market data is not refreshed on this server yet.";
+  if (record.venue === "pumpfun" && chain.family === "solana") {
+    snap.market = await readPumpfunMarket(chain, record.address);
+    try {
+      const fees = await readPumpfunLive(config, chain, record, sponsorPubkeyFromConfig(config));
+      snap.creatorFees = fees.creatorFees;
+      snap.feeSplit = fees.feeSplit;
+    } catch (err) {
+      snap.creatorFees.reason = `Could not read pump.fun fees: ${(err as Error).message}`;
+      snap.feeSplit.reason = snap.creatorFees.reason;
+    }
+    return snap;
+  }
+  snap.market.reason = "Market data is not refreshed on this server yet.";
   return snap;
 }
 

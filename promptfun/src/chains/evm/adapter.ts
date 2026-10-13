@@ -11,6 +11,7 @@ import {
   isAddress,
   keccak256,
   numberToHex,
+  getEventSelector,
   zeroAddress,
   type Hex,
   type PublicClient,
@@ -20,10 +21,21 @@ import type { ChainAdapter, SubmitResult } from "../adapter.js";
 import { explorerLink, type Chain, type EvmChain } from "../registry.js";
 import { formatUnits, parseUnits } from "../../util/amount.js";
 import { usdValue } from "../../util/price.js";
-import type { Built, Cost, Intent, LaunchParams, Receipt, Simulation, TransferParams } from "../../intents/types.js";
+import type { Built, Cost, Intent, LaunchParams, Receipt, Simulation, Step, TransferParams } from "../../intents/types.js";
 import { IntentError } from "../../intents/types.js";
 import { decodeCall, UnknownCallError, type DecodedCall, type EvmCall } from "./decode.js";
 import { deployData, tokenArtifact } from "./token.js";
+import {
+  buildPonsLaunchCall,
+  ponsAddresses,
+  ponsDigestPayload,
+  ponsLaunchFee,
+  ponsLaunchSteps,
+  PONS_DECIMALS,
+  PONS_SUPPLY,
+  readPonsTokenFacts,
+  ponsTokenUrl,
+} from "./pons.js";
 
 const UINT256_MAX = 2n ** 256n - 1n;
 const OP_GAS_PRICE_ORACLE = "0x420000000000000000000000000000000000000F";
@@ -108,12 +120,49 @@ interface Compiled {
   call: EvmCall;
   tokens: Map<string, { symbol: string; decimals: number }>;
   check(decoded: DecodedCall): void;
+  predictedToken?: Hex | null;
+  ponsDigest?: string;
+  stepsOverride?: Step[];
 }
 
 function compile(chain: EvmChain, intent: Intent, signer: Hex, client: PublicClient): Promise<Compiled> | Compiled {
   const chainId = numberToHex(chain.chainId);
   if (intent.kind === "launch_token") {
     const p = intent.params as LaunchParams;
+    if (p.venue === "pons") {
+      const logoUrl = p.logoUrl?.trim();
+      if (!logoUrl) throw new IntentError("pons launches need logoUrl (set from the coin image at prepare_launch).");
+      const initialBuyWei = p.initialBuyWei ? BigInt(p.initialBuyWei) : 0n;
+      return buildPonsLaunchCall(client, p, signer, logoUrl, initialBuyWei).then(async (built) => {
+        const addrs = ponsAddresses();
+        const launchFee = await ponsLaunchFee(client, addrs.factory);
+        const steps = ponsLaunchSteps(p, addrs.router, launchFee, initialBuyWei).map((text) => ({
+          program: "pons",
+          text,
+        }));
+        return {
+          call: {
+            from: signer,
+            to: built.to,
+            data: built.data,
+            value: numberToHex(built.value),
+            chainId,
+          },
+          tokens: new Map(),
+          predictedToken: built.predictedToken,
+          ponsDigest: ponsDigestPayload(built),
+          check(d) {
+            if (d.kind !== "pons_launch") throw new Error("Compiled pons launch does not decode back to the request.");
+            if (d.name !== p.name || d.symbol !== p.symbol) throw new Error("Compiled pons launch does not match the request.");
+          },
+          stepsOverride: steps,
+        } satisfies Compiled & {
+          predictedToken: Hex | null;
+          ponsDigest: string;
+          stepsOverride: Step[];
+        };
+      });
+    }
     const supply = parseUnits(p.supply, p.decimals);
     return {
       call: { from: signer, to: null, data: deployData(p.name, p.symbol, p.decimals, supply), value: "0x0", chainId },
@@ -152,8 +201,10 @@ function compile(chain: EvmChain, intent: Intent, signer: Hex, client: PublicCli
 
 interface Digest {
   call: EvmCall;
-  /** keccak256 of the runtime code the deployment must leave behind (launches only). */
+  /** keccak256 of the runtime code the deployment must leave behind (ERC-20 deploy launches only). */
   codeHash: Hex | null;
+  /** Canonical pons launch payload when venue is pons. */
+  pons: string | null;
 }
 
 export const evmAdapter: ChainAdapter = {
@@ -164,6 +215,17 @@ export const evmAdapter: ChainAdapter = {
     const issues: string[] = [];
     if (intent.kind === "launch_token") {
       const p = intent.params as LaunchParams;
+      if (p.venue === "pons") {
+        if (chain.key !== "robinhood" || chain.testnet) {
+          issues.push("pons launchpad launches are only on Robinhood Chain mainnet (chain robinhood).");
+        }
+        if (!p.logoUrl?.trim()) issues.push("pons launches need a coin image (logo URL is set at prepare_launch).");
+        if (p.supply !== PONS_SUPPLY || p.decimals !== PONS_DECIMALS) {
+          issues.push(`pons tokens have a fixed supply of ${PONS_SUPPLY} with ${PONS_DECIMALS} decimals.`);
+        }
+        if (p.metadataUri) issues.push("pons stores logo and text on chain; omit metadataUri.");
+        return issues;
+      }
       if (p.venue !== "erc20") issues.push(`${chain.name} launches are ERC-20 tokens; ${p.venue} is not available here.`);
       if (!p.fixedSupply) issues.push("EVM launches are always fixed supply: the contract has no mint function.");
       if (p.metadataUri) issues.push("ERC-20 tokens have no on-chain metadata link. Leave metadataUri out.");
@@ -195,11 +257,20 @@ export const evmAdapter: ChainAdapter = {
     const compiled = await compile(chain, intent, signer, client);
     const { call } = compiled;
     let decoded: DecodedCall;
-    try {
-      decoded = decodeCall(call, chain.nativeSymbol, compiled.tokens);
-    } catch (err) {
-      if (err instanceof UnknownCallError) throw new IntentError(err.message, "refused");
-      throw err;
+    if (compiled.stepsOverride) {
+      decoded = {
+        kind: "pons_launch",
+        name: (intent.params as LaunchParams).name,
+        symbol: (intent.params as LaunchParams).symbol,
+        steps: compiled.stepsOverride,
+      };
+    } else {
+      try {
+        decoded = decodeCall(call, chain.nativeSymbol, compiled.tokens);
+      } catch (err) {
+        if (err instanceof UnknownCallError) throw new IntentError(err.message, "refused");
+        throw err;
+      }
     }
     compiled.check(decoded);
 
@@ -270,7 +341,7 @@ export const evmAdapter: ChainAdapter = {
       promptfunFee: "0",
     };
 
-    const digest: Digest = { call, codeHash };
+    const digest: Digest = { call, codeHash, pons: compiled.ponsDigest ?? null };
     return {
       signer,
       payload: JSON.stringify(call),
@@ -280,7 +351,7 @@ export const evmAdapter: ChainAdapter = {
       cost,
       builtAt: at,
       validUntil: null,
-      tokenAddress: null,
+      tokenAddress: compiled.predictedToken ?? null,
       extraSigners: [],
     } satisfies Built;
   },
@@ -352,33 +423,63 @@ export const evmAdapter: ChainAdapter = {
     let tokenAddress: Hex | null = null;
     if (status === "success" && intent.kind === "launch_token") {
       const p = intent.params as LaunchParams;
-      tokenAddress = receipt.contractAddress ? getAddress(receipt.contractAddress) : null;
-      if (!tokenAddress) {
-        status = "failed";
-        verified.push("MISMATCH: no contract was created.");
+      if (p.venue === "pons") {
+        tokenAddress = built.tokenAddress ? getAddress(built.tokenAddress) : null;
+        if (!tokenAddress) {
+          const addrs = ponsAddresses();
+          const launchedTopic = getEventSelector(
+            "TokenLaunched(address,address,address,address,uint256,uint256)",
+          );
+          const hit = receipt.logs.find(
+            (log) => log.address.toLowerCase() === addrs.factory.toLowerCase() && log.topics[0] === launchedTopic,
+          );
+          if (hit?.topics[1]) tokenAddress = getAddress(`0x${hit.topics[1].slice(-40)}`);
+        }
+        if (!tokenAddress) {
+          status = "failed";
+          verified.push("MISMATCH: no pons token address in the launch receipt.");
+        } else {
+          const facts = await readPonsTokenFacts(client, tokenAddress);
+          const supply = parseUnits(p.supply, p.decimals);
+          const checks: Array<[boolean, string]> = [
+            [facts.name === p.name && facts.symbol === p.symbol, `Name and symbol on chain: ${facts.name} (${facts.symbol}).`],
+            [facts.decimals === p.decimals, `Decimals on chain: ${facts.decimals}.`],
+            [facts.totalSupply === supply, `Supply on chain is ${formatUnits(facts.totalSupply, facts.decimals)} ${facts.symbol}.`],
+            [facts.pool !== zeroAddress, `Bonding curve / pool registered at ${facts.pool}.`],
+          ];
+          for (const [ok, text] of checks) verified.push(ok ? text : `MISMATCH: ${text}`);
+          verified.push(`Trade on pons: ${ponsTokenUrl(tokenAddress)}`);
+          if (checks.some(([ok]) => !ok)) status = "failed";
+        }
       } else {
-        const blockNumber = receipt.blockNumber;
-        const { abi } = tokenArtifact();
-        const read = <T>(functionName: string, args: unknown[] = []) =>
-          client.readContract({ address: tokenAddress!, abi, functionName, args, blockNumber } as never) as Promise<T>;
-        const [code, name, symbol, decimals, totalSupply, held] = await Promise.all([
-          client.getCode({ address: tokenAddress, blockNumber }),
-          read<string>("name"),
-          read<string>("symbol"),
-          read<number>("decimals"),
-          read<bigint>("totalSupply"),
-          read<bigint>("balanceOf", [want.from]),
-        ]);
-        const supply = parseUnits(p.supply, p.decimals);
-        const checks: Array<[boolean, string]> = [
-          [!!code && keccak256(code) === digest.codeHash, "Deployed code is byte-identical to promptfun's fixed-supply token (no owner, no mint function)."],
-          [totalSupply === supply, `Supply on chain is ${formatUnits(totalSupply, Number(decimals))} ${symbol}.`],
-          [Number(decimals) === p.decimals, `Decimals on chain: ${decimals}.`],
-          [held === supply, "Your wallet holds the full supply."],
-          [name === p.name && symbol === p.symbol, `Name and symbol on chain: ${name} (${symbol}).`],
-        ];
-        for (const [ok, text] of checks) verified.push(ok ? text : `MISMATCH: ${text}`);
-        if (checks.some(([ok]) => !ok)) status = "failed";
+        tokenAddress = receipt.contractAddress ? getAddress(receipt.contractAddress) : null;
+        if (!tokenAddress) {
+          status = "failed";
+          verified.push("MISMATCH: no contract was created.");
+        } else {
+          const blockNumber = receipt.blockNumber;
+          const { abi } = tokenArtifact();
+          const read = <T>(functionName: string, args: unknown[] = []) =>
+            client.readContract({ address: tokenAddress!, abi, functionName, args, blockNumber } as never) as Promise<T>;
+          const [code, name, symbol, decimals, totalSupply, held] = await Promise.all([
+            client.getCode({ address: tokenAddress, blockNumber }),
+            read<string>("name"),
+            read<string>("symbol"),
+            read<number>("decimals"),
+            read<bigint>("totalSupply"),
+            read<bigint>("balanceOf", [want.from]),
+          ]);
+          const supply = parseUnits(p.supply, p.decimals);
+          const checks: Array<[boolean, string]> = [
+            [!!code && keccak256(code) === digest.codeHash, "Deployed code is byte-identical to promptfun's fixed-supply token (no owner, no mint function)."],
+            [totalSupply === supply, `Supply on chain is ${formatUnits(totalSupply, Number(decimals))} ${symbol}.`],
+            [Number(decimals) === p.decimals, `Decimals on chain: ${decimals}.`],
+            [held === supply, "Your wallet holds the full supply."],
+            [name === p.name && symbol === p.symbol, `Name and symbol on chain: ${name} (${symbol}).`],
+          ];
+          for (const [ok, text] of checks) verified.push(ok ? text : `MISMATCH: ${text}`);
+          if (checks.some(([ok]) => !ok)) status = "failed";
+        }
       }
     } else if (status === "success" && intent.kind === "transfer") {
       const p = intent.params as TransferParams;

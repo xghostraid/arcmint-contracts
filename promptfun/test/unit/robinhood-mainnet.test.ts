@@ -24,6 +24,7 @@ test("Robinhood mainnet flag enables chain 4663 without other EVM mainnets", () 
   assert.equal(rh.disabledReason, undefined);
   assert.equal(rh.status, "verified");
   assert.match(rh.evidence, /real ETH/i);
+  assert.match(rh.evidence, /pons/i);
   assert.match(rh.evidence, /does not sponsor EVM gas/);
   assert.match(findChain(config, "ethereum")!.disabledReason!, /EVM_MAINNETS/);
   assert.match(findChain(config, "base")!.disabledReason!, /EVM_MAINNETS/);

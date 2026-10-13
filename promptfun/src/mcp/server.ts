@@ -44,7 +44,7 @@ function limitations(config: Config): string[] {
         : "No OAuth yet: the connector is no-sign-in on this host.",
     "Solana mainnet supports pump.fun launches only (1B supply, 6 decimals). Transfers on mainnet are not supported.",
     config.enableRobinhoodMainnet
-      ? `Robinhood Chain mainnet (chainId 4663) is live: ERC-20 launch and transfers via prepare_launch / prepare_transfer with wallet approval on /approve (real ETH). ${EVM_WALLET_FEE_NOTE} Ethereum, Base, and other EVM mainnets stay off unless PROMPTFUN_ENABLE_EVM_MAINNETS=1.`
+      ? `Robinhood Chain mainnet (chainId 4663) is live: token launches on pons (https://www.ponsfamily.com/launchpad/) via prepare_launch (Pons V2 launchAndBuy); transfers via prepare_transfer. Wallet approval on /approve (real ETH). ${EVM_WALLET_FEE_NOTE} Ethereum, Base, and other EVM mainnets stay off unless PROMPTFUN_ENABLE_EVM_MAINNETS=1.`
       : "EVM: Robinhood Chain Testnet is verified on its public network; Ethereum Sepolia, Base Sepolia and the other EVM testnets are configured but not yet run there. Robinhood Chain mainnet is off until PROMPTFUN_ENABLE_ROBINHOOD_MAINNET=1.",
     EVM_WALLET_FEE_NOTE,
     "Coin images: when the user attaches a photo in chat, import it automatically (import_picture_from_url or open_picture_panel with imageUrl). Never ask them to paste URLs or name tools. Never paste base64. upload_picture_bytes / save_picture are picture-panel-only (MCP bridge). After the panel shows Saved, call get_last_picture or prepare_launch with handoffSessionId from open_picture_panel plain text (hs_…). FORBIDDEN: ask the user to copy pic_.",
@@ -465,7 +465,8 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
         website: z.string().max(200).optional().describe("https:// site for metadata JSON"),
         x: z.string().max(200).optional().describe("https:// X link for metadata JSON (twitter field)"),
         fixedSupply: z.boolean().optional().describe("Revoke mint authority after minting. Default true."),
-        venue: z.enum(["spl", "pumpfun", "erc20"]).optional(),
+        venue: z.enum(["spl", "pumpfun", "erc20", "pons"]).optional(),
+        initialBuyEth: z.string().max(32).optional().describe("Optional creator first buy in ETH for pons launches on chain robinhood (e.g. 0.01)."),
         creatorWallet: z.string().max(64).optional().describe("Solana wallet to record for creator fee payouts. Until $PROMPT is live, on-chain pump.fun creator fees lock to the promptfun treasury; pass this for manual payout ops. When signed in, omit to use the claim-later Privy wallet as the recorded address. After $PROMPT is live, this wallet receives on-chain shares per the holder tier."),
         idempotencyKey: z.string().max(64).optional(),
       }),
@@ -570,6 +571,8 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
               intentText(v),
               detail.links.explorer ? `Explorer: ${detail.links.explorer}` : null,
               detail.links.launchTx ? `Launch tx: ${detail.links.launchTx}` : null,
+              detail.links.pons ? `pons: ${detail.links.pons}` : null,
+              detail.links.pumpfun ? `pump.fun: ${detail.links.pumpfun}` : null,
               `Share on X: ${detail.share.intentUrl}`,
             ].filter(Boolean);
             return { content: [{ type: "text", text: lines.join("\n") }], structuredContent: structured };
@@ -611,6 +614,7 @@ export function buildServer(service: IntentService, coins?: CoinIndexService): M
           `${detail.name} ($${detail.symbol}) on ${detail.chain.name}`,
           detail.links.explorer ? `Explorer: ${detail.links.explorer}` : null,
           detail.links.pumpfun ? `pump.fun: ${detail.links.pumpfun}` : null,
+          detail.links.pons ? `pons: ${detail.links.pons}` : null,
           splitLine,
           feesLine,
           detail.market.reason && !detail.market.priceNative ? detail.market.reason : null,

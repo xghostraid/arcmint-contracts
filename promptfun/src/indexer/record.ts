@@ -1,9 +1,10 @@
 import type { Chain as RegistryChain } from "../chains/registry.js";
 import { explorerLink } from "../chains/registry.js";
+import { ponsTokenUrl } from "../chains/evm/pons.js";
 import { buildShareText } from "../api/share.js";
 import type { CoinDetail, CoinSummary, CreatorFees, FeeSplit, Holders, Market } from "../api/types.js";
 
-export type Venue = "spl" | "pumpfun" | "erc20";
+export type Venue = "spl" | "pumpfun" | "erc20" | "pons";
 
 export interface LiveSnapshot {
   market: Market;
@@ -56,6 +57,10 @@ function links(chain: RegistryChain, record: CoinRecord) {
     pumpfun:
       record.venue === "pumpfun" && !chain.testnet
         ? `https://pump.fun/coin/${record.address}`
+        : null,
+    pons:
+      record.venue === "pons" && !chain.testnet
+        ? ponsTokenUrl(record.address)
         : null,
   };
 }

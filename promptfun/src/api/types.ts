@@ -10,6 +10,7 @@ export interface Links {
   explorer: string | null;
   launchTx: string | null;
   pumpfun: string | null;
+  pons: string | null;
 }
 
 export interface Market {
@@ -48,7 +49,7 @@ export interface CreatorFees {
 export interface CoinSummary {
   id: string;
   chain: Chain;
-  venue: "spl" | "pumpfun" | "erc20";
+  venue: "spl" | "pumpfun" | "erc20" | "pons";
   address: string;
   name: string;
   symbol: string;

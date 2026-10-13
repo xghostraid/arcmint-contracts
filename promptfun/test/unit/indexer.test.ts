@@ -109,7 +109,22 @@ test("CoinIndexService lists and sorts seeded coins", () => {
     intentId: null,
     live: defaultLiveSnapshot(chain, "spl"),
   });
-  const list = indexer.list({ sort: "new", q: null, chain: null, network: null, limit: 50, offset: 0 });
-  assert.equal(list.total, 2);
-  assert.equal(list.coins[0]!.symbol, "NEW");
+  const testnetList = indexer.list({ sort: "new", q: null, chain: null, network: "testnet", limit: 50, offset: 0 });
+  assert.equal(testnetList.total, 2);
+  assert.equal(testnetList.coins[0]!.symbol, "NEW");
+  const mainnetList = indexer.list({ sort: "new", q: null, chain: null, network: "mainnet", limit: 50, offset: 0 });
+  assert.equal(mainnetList.total, 0);
+});
+
+test("CoinIndexService skips testnet intents unless PROMPTFUN_INDEX_TESTNET_DEMOS", () => {
+  const config = loadConfig({ PROMPTFUN_DB: ":memory:" });
+  const intents = new IntentStore(":memory:");
+  intents.save(baseIntent());
+  const store = new CoinIndexStore(":memory:");
+  const indexer = new CoinIndexService(config, intents, store);
+  indexer.syncIntents();
+  assert.equal(store.count(), 0);
+  const withDemos = new CoinIndexService(loadConfig({ PROMPTFUN_DB: ":memory:", PROMPTFUN_INDEX_TESTNET_DEMOS: "1" }), intents, store);
+  withDemos.syncIntents();
+  assert.equal(store.count(), 1);
 });

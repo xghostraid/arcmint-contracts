@@ -36,6 +36,8 @@ export interface Config {
   enablePumpfunDevnet: boolean;
   /** Sponsored pump.fun launches on Solana mainnet (real SOL from sponsor; keep off without OAuth). */
   enableSponsoredMainnet: boolean;
+  /** Index devnet/testnet demo launches in the coin store (off in production; explore is mainnet-only). */
+  indexTestnetDemos: boolean;
   /** Permissionless pump.fun creator-fee payouts (sponsor pays tx fee). */
   enablePayoutCron: boolean;
   /** Privy app credentials for claim-later embedded Solana wallets (env only; never commit secrets). */
@@ -84,6 +86,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sponsorFeeRecipient: env.PROMPTFUN_SPONSOR_FEE_RECIPIENT?.trim() || null,
     enablePumpfunDevnet: flag(env.PROMPTFUN_ENABLE_PUMPFUN_DEVNET),
     enableSponsoredMainnet: flag(env.PROMPTFUN_ENABLE_SPONSORED_MAINNET),
+    indexTestnetDemos: flag(env.PROMPTFUN_INDEX_TESTNET_DEMOS),
     enablePayoutCron: env.PROMPTFUN_ENABLE_PAYOUT_CRON === "0" ? false : flag(env.PROMPTFUN_ENABLE_PAYOUT_CRON) || flag(env.PROMPTFUN_ENABLE_SPONSORED_LAUNCHES),
     privyAppId: env.PROMPTFUN_PRIVY_APP_ID?.trim() || null,
     privyAppSecret: env.PROMPTFUN_PRIVY_APP_SECRET?.trim() || null,

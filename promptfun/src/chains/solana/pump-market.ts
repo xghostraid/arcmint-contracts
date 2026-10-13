@@ -75,7 +75,8 @@ export async function readPumpfunMarket(chain: Chain, mintAddress: string): Prom
     const priceLamports =
       bondingCurve.virtualTokenReserves.isZero()
         ? 0n
-        : (bondingCurve.virtualQuoteReserves * 10n ** 6n) / bondingCurve.virtualTokenReserves;
+        : (BigInt(bondingCurve.virtualQuoteReserves.toString()) * 10n ** 6n) /
+          BigInt(bondingCurve.virtualTokenReserves.toString());
     const priceNative = priceLamports > 0n ? lamportsToSol(priceLamports) : null;
     const usd = await usdValue(chain.nativeSymbol, marketCapNative, false);
     const chartPoints = chartPointsFromBondingCurve({

@@ -1,4 +1,5 @@
 import type { Config } from "../../config.js";
+import { EVM_WALLET_FEE_NOTE } from "../../brand.js";
 import type { EvmChain } from "../registry.js";
 
 interface Spec {
@@ -54,28 +55,47 @@ function rpc(env: NodeJS.ProcessEnv, key: string, fallback: string): string {
   return env[`PROMPTFUN_RPC_${key.toUpperCase().replace(/-/g, "_")}`] || fallback;
 }
 
+function evmMainnetEnabled(spec: Spec, config: Config): boolean {
+  if (spec.testnet) return true;
+  if (config.enableEvmMainnets) return true;
+  return spec.key === "robinhood" && config.enableRobinhoodMainnet;
+}
+
+const ROBINHOOD_MAINNET_LIVE_EVIDENCE = `Live on Robinhood Chain mainnet (chainId 4663): fixed-supply ERC-20 launch and native/ERC-20 transfers through prepare_launch / prepare_transfer and the /approve page. Real ETH; the user approves in an EIP-6963 wallet (MetaMask, Rabby, Coinbase Wallet). Same adapter proven on Robinhood Chain Testnet (2026-10-09). ${EVM_WALLET_FEE_NOTE}`;
+
 export function evmChains(config: Config): EvmChain[] {
   return SPECS.map((spec): EvmChain => {
+    const mainnetOn = evmMainnetEnabled(spec, config);
     const disabledReason = !adapterReady
       ? "The EVM adapter is not installed."
       : spec.local && !config.enableLocalnet
         ? "Set PROMPTFUN_ENABLE_LOCALNET=1 and run anvil."
-        : !spec.testnet && !config.enableEvmMainnets
-        ? "Mainnet is off. Set PROMPTFUN_ENABLE_EVM_MAINNETS=1 (real funds; single-user local runs only until OAuth lands)."
-        : undefined;
+        : !spec.testnet && !mainnetOn
+          ? spec.key === "robinhood"
+            ? "Mainnet is off. Set PROMPTFUN_ENABLE_ROBINHOOD_MAINNET=1 (real ETH on Robinhood Chain; wallet approval required)."
+            : "Mainnet is off. Set PROMPTFUN_ENABLE_EVM_MAINNETS=1 (real funds; single-user local runs only until OAuth lands)."
+          : undefined;
+    const robinhoodMainnetLive = spec.key === "robinhood" && !spec.testnet && mainnetOn;
     return {
       key: spec.key,
       name: spec.name,
       family: "evm",
       testnet: spec.testnet,
-      status: spec.local || PUBLIC_RUNS[spec.key] ? "verified" : spec.testnet ? "configured" : "gated",
+      status:
+        spec.local || PUBLIC_RUNS[spec.key] || robinhoodMainnetLive
+          ? "verified"
+          : spec.testnet
+            ? "configured"
+            : "gated",
       evidence: spec.local
         ? "Automated end-to-end tests (test/e2e/evm-anvil.e2e.ts) deploy an ERC-20 and send ETH and tokens through the MCP server, approval API, and chain-read receipts against anvil. Local only: these transactions do not exist on any public network."
         : PUBLIC_RUNS[spec.key]
           ? PUBLIC_RUNS[spec.key]
-        : spec.testnet
-          ? `Network values from ${spec.source}. Same EVM adapter as the Anvil tests, but not yet run end to end on this network.`
-          : `Real-money network, values from ${spec.source}. Never broadcast by promptfun; off unless explicitly enabled.`,
+          : robinhoodMainnetLive
+            ? ROBINHOOD_MAINNET_LIVE_EVIDENCE
+            : spec.testnet
+              ? `Network values from ${spec.source}. Same EVM adapter as the Anvil tests, but not yet run end to end on this network.`
+              : `Real-money network, values from ${spec.source}. Off unless explicitly enabled (Robinhood: PROMPTFUN_ENABLE_ROBINHOOD_MAINNET=1; all EVM mainnets: PROMPTFUN_ENABLE_EVM_MAINNETS=1).`,
       rpcUrl: rpc(config.env, spec.key, spec.rpc),
       nativeSymbol: spec.native,
       nativeDecimals: 18,

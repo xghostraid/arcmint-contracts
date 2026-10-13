@@ -18,7 +18,8 @@ Say what you want in chat ("launch a token called Moon with a million supply", "
 | Local EVM (Anvil) | fixed-supply ERC-20 | ETH, ERC-20 | **verified**: `npm run test:e2e` and a browser run with an EIP-6963 test wallet (`npm run demo:evm`) |
 | Robinhood Chain Testnet (46630) | fixed-supply ERC-20 | ETH, ERC-20 | **verified**: public testnet run on 2026-10-09 (below), signed by an EIP-6963 test wallet. Not yet signed with MetaMask itself. |
 | Ethereum Sepolia, Base Sepolia, then Arbitrum Sepolia, OP Sepolia, Polygon Amoy, BNB Testnet | fixed-supply ERC-20 | native, ERC-20 | **configured**: same adapter as Anvil and Robinhood Chain Testnet, but not run on these networks yet, because the demo key has no testnet ETH there |
-| The matching EVM mainnets | fixed-supply ERC-20 | native, ERC-20 | **gated** behind `PROMPTFUN_ENABLE_EVM_MAINNETS=1`. Never broadcast. |
+| Robinhood Chain mainnet (4663) | fixed-supply ERC-20 | ETH, ERC-20 | **gated** behind `PROMPTFUN_ENABLE_ROBINHOOD_MAINNET=1` (wallet approval; real ETH). |
+| Other EVM mainnets | fixed-supply ERC-20 | native, ERC-20 | **gated** behind `PROMPTFUN_ENABLE_EVM_MAINNETS=1`. Never broadcast unless enabled. |
 
 ### Devnet evidence (2026-10-09)
 
@@ -125,7 +126,8 @@ Copy `.env.example` into your host’s environment UI (never commit secrets). Se
 | `BLOB_READ_WRITE_TOKEN` | — | Fallback: mirror confirmed intents to Blob; `/api/coins` rehydrates when the local index is empty (not a substitute for durable DB on hot paths). |
 | `PROMPTFUN_ENABLE_LOCALNET` | off | Enable `solana-localnet` (`solana-test-validator`) and `evm-localnet` (`anvil`) |
 | `PROMPTFUN_ENABLE_PUMPFUN_MAINNET` | off | Enable pump.fun launches on Solana mainnet. **Spends real SOL.** Single-user local runs only. |
-| `PROMPTFUN_ENABLE_EVM_MAINNETS` | off | Enable EVM mainnets. **Spends real ETH, BNB, or POL.** Single-user local runs only. |
+| `PROMPTFUN_ENABLE_EVM_MAINNETS` | off | Enable all EVM mainnets. **Spends real ETH, BNB, or POL.** Single-user local runs only. |
+| `PROMPTFUN_ENABLE_ROBINHOOD_MAINNET` | off | Enable Robinhood Chain mainnet only (4663). **Spends real ETH** via wallet approval. |
 | `PROMPTFUN_RPC_<CHAIN_KEY>` | public RPCs | Override an RPC, for example `PROMPTFUN_RPC_SOLANA_DEVNET` |
 | `PROMPTFUN_INTENT_TTL_MS` | 900000 | Intent lifetime |
 | `PROMPTFUN_MAX_INTENTS_PER_HOUR` | 120 | Global creation rate limit |

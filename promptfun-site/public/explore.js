@@ -80,10 +80,33 @@
       }
       const th = document.createElement("th");
       th.scope = "row";
-      th.innerHTML = `
+      const head = document.createElement("div");
+      head.className = "coin-row-head";
+      if (coin.imageUrl && /^https:\/\//i.test(coin.imageUrl)) {
+        const img = document.createElement("img");
+        img.className = "coin-thumb";
+        img.src = coin.imageUrl;
+        img.alt = "";
+        img.width = 40;
+        img.height = 40;
+        img.loading = "lazy";
+        img.decoding = "async";
+        head.appendChild(img);
+      } else {
+        const ph = document.createElement("span");
+        ph.className = "coin-thumb coin-thumb--placeholder";
+        ph.setAttribute("aria-hidden", "true");
+        ph.textContent = (coin.symbol || "?").slice(0, 2).toUpperCase();
+        head.appendChild(ph);
+      }
+      const textWrap = document.createElement("div");
+      textWrap.className = "coin-row-text";
+      textWrap.innerHTML = `
           <span class="coin-name">${coin.name}</span>
           <span class="coin-meta">$${coin.symbol}${badge ? ` ${badge}` : ""}</span>
         `;
+      head.appendChild(textWrap);
+      th.appendChild(head);
       tr.appendChild(th);
       tr.appendChild(chartCell);
       const capTd = document.createElement("td");

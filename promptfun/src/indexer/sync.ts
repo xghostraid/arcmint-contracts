@@ -4,6 +4,7 @@ import type { IntentStore } from "../intents/store.js";
 import type { Intent, LaunchParams } from "../intents/types.js";
 import { coinId, type CoinRecord } from "./record.js";
 import { defaultLiveSnapshot } from "./live.js";
+import { syncImageUrlFromMetadataUri } from "./metadata-image.js";
 
 export function coinFromIntent(config: Config, intent: Intent): CoinRecord | null {
   if (intent.kind !== "launch_token" || intent.status !== "confirmed" || !intent.receipt || intent.receipt.status !== "success") {
@@ -25,7 +26,7 @@ export function coinFromIntent(config: Config, intent: Intent): CoinRecord | nul
     symbol: params.symbol,
     decimals: params.decimals,
     supply: params.supply,
-    imageUrl: null,
+    imageUrl: syncImageUrlFromMetadataUri(config, params.metadataUri || null),
     creator: params.feeRecipient ?? intent.built?.signer ?? "unknown",
     launchedAt: intent.receipt.confirmedAt,
     launchTx,

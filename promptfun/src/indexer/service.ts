@@ -9,6 +9,7 @@ import { coinId, toDetail, toSummary, type CoinRecord } from "./record.js";
 import { refreshLive } from "./live.js";
 import { syncCoinsFromIntents } from "./sync.js";
 import { CoinIndexStore } from "./store.js";
+import { enrichRecordImageUrl } from "./metadata-image.js";
 
 export type CoinSort = "new" | "top" | "paid";
 
@@ -80,10 +81,15 @@ export class CoinIndexService {
     if (this.refreshing) return;
     this.refreshing = true;
     try {
+      this.syncIntents();
       for (const record of this.store.all()) {
         const chain = findChain(this.config, record.chainKey);
         if (!chain) continue;
         try {
+          if (!record.imageUrl && record.metadataUri) {
+            const imageUrl = await enrichRecordImageUrl(this.config, record);
+            if (imageUrl) record.imageUrl = imageUrl;
+          }
           record.live = await refreshLive(this.config, chain, record);
           this.store.upsert(record);
         } catch {
@@ -240,7 +246,8 @@ export class CoinIndexService {
     for (const coin of syncCoinsFromIntents(this.config, this.intents)) {
       if (!shouldIndexCoin(this.config, coin.chainKey)) continue;
       const existing = this.store.get(coin.id);
-      this.store.upsert(existing ? { ...coin, live: existing.live } : coin);
+      const imageUrl = coin.imageUrl ?? existing?.imageUrl ?? null;
+      this.store.upsert(existing ? { ...coin, live: existing.live, imageUrl } : { ...coin, imageUrl });
     }
   }
 

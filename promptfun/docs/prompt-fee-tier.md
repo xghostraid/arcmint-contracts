@@ -1,8 +1,8 @@
 # Creator fees
 
-**Until $PROMPT is live:** pump.fun creator fees lock **on chain** to the promptfun official treasury wallet (`5YPhpDDtYtKaKnUgSskb4tXKZL9a7rj8siCuMS7qESpv`; same wallet will launch $PROMPT). We still collect `creatorWallet` at `prepare_launch` for manual payout ops. **promptfun takes 0% platform cut.**
+**$PROMPT is live** (`385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump` on pump.fun). At `prepare_launch`, ≥1 whole $PROMPT in `creatorWallet` → **100%** creator on chain; else **50%** creator / **50%** promptfun treasury (`5YPhpDDtYtKaKnUgSskb4tXKZL9a7rj8siCuMS7qESpv`). **promptfun takes 0% platform cut.**
 
-**After $PROMPT is live:** ≥1 whole $PROMPT in `creatorWallet` at prepare_launch → 100% creator on chain; else 50% creator / 50% treasury.
+If the mint env is disabled or the mint is missing on chain, fees still lock **100%** to treasury (legacy pre-mint behavior).
 
 Full spec: **`docs/prompt-fee-tier-spec.md`** (mirrors project Context).
 

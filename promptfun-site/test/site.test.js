@@ -113,6 +113,9 @@ test("fee tiers and wallet guide on home, doc page, footer, and FAQ", async () =
   assert.match(html, /Get your trading fees in Claude/);
   assert.match(html, /promptfun\.fun\/claim/);
   assert.match(html, /\/docs\/creator-fees\.html/);
+  assert.match(html, /385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump/);
+  assert.match(html, /pump\.fun\/coin\/385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump/);
+  assert.match(html, /data-copy-mcp/);
   assert.doesNotMatch(html, /pre-mint|post-mint|treasury|manual payout|Unlocks with/i);
   assert.doesNotMatch(html, /status-soon[^>]*>Hold \$PROMPT/i);
   const creatorDoc = await readPublic("docs/creator-fees.html");
@@ -162,9 +165,12 @@ test("every local asset exists", async () => {
   }
 });
 
+const PROMPT_MINT = "385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump";
+
 test("no fake transaction hashes, signatures, or addresses", () => {
-  assert.doesNotMatch(text, /\b0x[0-9a-fA-F]{8,}\b/, "EVM-looking hash or address");
-  assert.doesNotMatch(text, /\b[1-9A-HJ-NP-Za-km-z]{32,}\b/, "base58-looking signature or address");
+  const scrubbed = text.replaceAll(PROMPT_MINT, "");
+  assert.doesNotMatch(scrubbed, /\b0x[0-9a-fA-F]{8,}\b/, "EVM-looking hash or address");
+  assert.doesNotMatch(scrubbed, /\b[1-9A-HJ-NP-Za-km-z]{32,}\b/, "base58-looking signature or address");
   assert.doesNotMatch(text, /solscan\.io|etherscan\.io|basescan\.org/i, "explorer link to a made-up transaction");
 });
 

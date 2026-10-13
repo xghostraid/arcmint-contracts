@@ -1,4 +1,5 @@
 import path from "node:path";
+import { PROMPTFUN_PROMPT_MINT_LIVE } from "./chains/solana/prompt-tier.js";
 
 export interface Config {
   host: string;
@@ -27,7 +28,7 @@ export interface Config {
   opsToken: string | null;
   /** Solana pubkey that receives 100% creator fees on sponsored pump.fun launches (defaults to sponsor). */
   sponsorFeeRecipient: string | null;
-  /** $PROMPT SPL mint; unset until token is live. */
+  /** $PROMPT SPL mint for holder tier balance checks (defaults to live mainnet mint; env overrides). */
   promptMint: string | null;
   /** Optional raw minimum $PROMPT balance for 100% tier (default: one whole token). */
   promptMinBalanceRaw: bigint | null;
@@ -48,6 +49,16 @@ export interface Config {
 
 function flag(value: string | undefined): boolean {
   return value === "1" || value === "true";
+}
+
+/** `PROMPTFUN_PROMPT_MINT` when set (empty/`0` disables); otherwise the live mainnet mint. */
+export function resolvePromptMintFromEnv(env: NodeJS.ProcessEnv): string | null {
+  if (!Object.hasOwn(env, "PROMPTFUN_PROMPT_MINT")) {
+    return PROMPTFUN_PROMPT_MINT_LIVE;
+  }
+  const raw = env.PROMPTFUN_PROMPT_MINT?.trim() ?? "";
+  if (raw === "" || raw === "0") return null;
+  return raw;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -84,7 +95,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     enablePayoutCron: env.PROMPTFUN_ENABLE_PAYOUT_CRON === "0" ? false : flag(env.PROMPTFUN_ENABLE_PAYOUT_CRON) || flag(env.PROMPTFUN_ENABLE_SPONSORED_LAUNCHES),
     privyAppId: env.PROMPTFUN_PRIVY_APP_ID?.trim() || null,
     privyAppSecret: env.PROMPTFUN_PRIVY_APP_SECRET?.trim() || null,
-    promptMint: env.PROMPTFUN_PROMPT_MINT?.trim() || null,
+    promptMint: resolvePromptMintFromEnv(env),
     promptMinBalanceRaw: env.PROMPTFUN_PROMPT_MIN_BALANCE?.trim()
       ? BigInt(env.PROMPTFUN_PROMPT_MIN_BALANCE.trim())
       : null,

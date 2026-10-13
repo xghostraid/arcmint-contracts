@@ -535,6 +535,8 @@ h1 em, h2 em {
 .host-alt p { margin: 6px 0 0; color: var(--ink-2); }
 .host-alt .fine { margin-top: 10px; color: var(--ink-2); }
 .link-box { display: flex; align-items: center; gap: 10px; max-width: 520px; margin-top: 12px; padding: 6px 6px 6px 16px; border: 2px solid var(--edge); border-radius: 14px; background: var(--paper); box-shadow: var(--sh-sm); }
+.prompt-mint-lede { margin-top: 20px; }
+.prompt-mint-box { max-width: 100%; }
 .link-slot { flex: 1; min-width: 0; color: var(--ink); font-family: var(--mono); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .connect-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
 .connect-steps .connect-actions + p { margin-top: 10px; }

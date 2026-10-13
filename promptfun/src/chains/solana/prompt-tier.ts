@@ -5,8 +5,11 @@ export type FeeShareholder = { address: string; shareBps: number };
 
 const BPS_TOTAL = 10_000;
 
-/** Production treasury, sponsor fee recipient, and future $PROMPT launch wallet (same pubkey). */
+/** Production treasury, sponsor fee recipient, and $PROMPT launch wallet (same pubkey). */
 export const PROMPTFUN_OFFICIAL_WALLET_PUBKEY = "5YPhpDDtYtKaKnUgSskb4tXKZL9a7rj8siCuMS7qESpv";
+
+/** Live $PROMPT SPL mint on Solana mainnet (pump.fun). Override with `PROMPTFUN_PROMPT_MINT`; set empty to disable tier gate. */
+export const PROMPTFUN_PROMPT_MINT_LIVE = "385pCEMj4T1rTp2vgCVxmuUR2zTTmqkV6Yu3U96Fpump";
 
 /** promptfun official wallet for pre-mint creator fees and post-mint non-holder half. */
 export function officialTreasuryPubkey(config: Config, sponsorFallback?: string): string {

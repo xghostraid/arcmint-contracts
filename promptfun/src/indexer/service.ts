@@ -4,7 +4,7 @@ import { findChain } from "../chains/registry.js";
 import type { IntentStore } from "../intents/store.js";
 import type { IntentRemoteStore } from "../intents/catalog.js";
 import type { CoinDetail, CoinSummary, CoinsListResponse, StatsResponse } from "../api/types.js";
-import { CHAIN_IMPORTS, importKnownCoin } from "./imports.js";
+import { CHAIN_IMPORTS, MAINNET_CHAIN_IMPORTS, importKnownCoin } from "./imports.js";
 import { coinId, toDetail, toSummary, type CoinRecord } from "./record.js";
 import { refreshLive } from "./live.js";
 import { syncCoinsFromIntents } from "./sync.js";
@@ -55,6 +55,14 @@ export class CoinIndexService {
   private async bootstrap(): Promise<void> {
     if (this.stopped) return;
     await this.prepareForPublicRead();
+    for (const spec of MAINNET_CHAIN_IMPORTS) {
+      try {
+        const imported = await importKnownCoin(this.config, spec);
+        if (imported) this.store.upsert(imported);
+      } catch {
+        // No fake coins when RPC is down.
+      }
+    }
     for (const spec of CHAIN_IMPORTS) {
       if (!this.config.indexTestnetDemos) continue;
       try {

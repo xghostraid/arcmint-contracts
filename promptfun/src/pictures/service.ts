@@ -25,8 +25,10 @@ export class PictureService {
     return this.pinner instanceof MemoryIpfsPinner ? this.pinner.blobs : null;
   }
 
-  getTokenMetadata(pictureId: string): Buffer | null {
-    return this.store.getTokenMetadata(pictureId);
+  async getTokenMetadata(pictureId: string): Promise<Buffer | null> {
+    const local = this.store.getTokenMetadata(pictureId);
+    if (local) return local;
+    return this.catalog.loadMetadata(pictureId);
   }
 
   async saveFromBase64(dataUrlOrB64: string): Promise<SavedPicture> {
@@ -66,6 +68,9 @@ export class PictureService {
 
   imageUrlForMetadata(pictureId: string, imageCid: string): string {
     if (this.pinner instanceof MemoryIpfsPinner) {
+      return `${this.config.publicUrl}/api/pictures/${pictureId}`;
+    }
+    if (imageCid === pictureId || /^pic_[a-f0-9]{24}$/.test(imageCid)) {
       return `${this.config.publicUrl}/api/pictures/${pictureId}`;
     }
     return `${this.config.ipfsGateway}/${imageCid}`;

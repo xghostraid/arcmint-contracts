@@ -633,6 +633,11 @@ h1 em, h2 em {
 .explore-table tbody tr:nth-child(even) { background: var(--bg); }
 .coin-name { display: block; font-weight: 700; color: var(--ink); }
 .coin-meta { display: block; margin-top: 2px; color: var(--ink-3); font-size: 13px; font-weight: 600; }
+.sparkline { display: block; }
+.sparkline rect { fill: var(--cta); opacity: 0.85; }
+.sparkline-empty { opacity: 0.35; }
+.stat-chart-slot { margin: 6px 0 4px; min-height: 36px; }
+.stat-chart-name { font-size: 14px; font-weight: 700; color: var(--ink-2); }
 .explore-empty { margin: 20px 0 0; padding: 16px; border: 2px dashed var(--edge); border-radius: 14px; background: var(--bg); color: var(--ink-2); font-size: 15px; }
 
 @media (max-width: 1020px) {

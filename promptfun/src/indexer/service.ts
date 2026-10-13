@@ -115,6 +115,7 @@ export class CoinIndexService {
   }
 
   list(query: CoinQuery): CoinsListResponse {
+    this.syncIntents();
     const generatedAt = new Date().toISOString();
     let rows = this.store.all().map((r) => this.summaryFor(r)).filter((s): s is CoinSummary => !!s);
     if (query.chain) rows = rows.filter((c) => c.chain.key === query.chain);
@@ -133,6 +134,7 @@ export class CoinIndexService {
   }
 
   stats(): StatsResponse {
+    this.syncIntents();
     const generatedAt = new Date().toISOString();
     const summaries = this.store.all().map((r) => this.summaryFor(r)).filter((s): s is CoinSummary => !!s);
     const mainnetSummaries = summaries.filter((c) => !c.chain.testnet);

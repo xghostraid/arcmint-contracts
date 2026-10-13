@@ -11,7 +11,7 @@ import {
   isAddress,
   keccak256,
   numberToHex,
-  parseAbiItem,
+  getEventSelector,
   zeroAddress,
   type Hex,
   type PublicClient,
@@ -427,11 +427,11 @@ export const evmAdapter: ChainAdapter = {
         tokenAddress = built.tokenAddress ? getAddress(built.tokenAddress) : null;
         if (!tokenAddress) {
           const addrs = ponsAddresses();
-          const launched = parseAbiItem(
-            "event TokenLaunched(address indexed token, address indexed curve, address indexed deployer, address pairToken, uint256 launchConfigId, uint256 graduationThreshold)",
+          const launchedTopic = getEventSelector(
+            "TokenLaunched(address,address,address,address,uint256,uint256)",
           );
           const hit = receipt.logs.find(
-            (log) => log.address.toLowerCase() === addrs.factory.toLowerCase() && log.topics[0] === launched.hash,
+            (log) => log.address.toLowerCase() === addrs.factory.toLowerCase() && log.topics[0] === launchedTopic,
           );
           if (hit?.topics[1]) tokenAddress = getAddress(`0x${hit.topics[1].slice(-40)}`);
         }

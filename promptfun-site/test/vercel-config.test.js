@@ -16,6 +16,10 @@ test("vercel.json proxies MCP/API via PROMPTFUN_BACKEND_URL (no hardcoded host)"
   assert.ok(mcp, "missing /mcp route");
   assert.match(mcp.dest, /\$\{PROMPTFUN_BACKEND_URL\}/);
   assert.deepEqual(mcp.env, ["PROMPTFUN_BACKEND_URL"]);
+  const metadata = routes.find((r) => r.src === "/m/(.*)");
+  assert.ok(metadata, "missing /m metadata proxy route (pump.fun token URI)");
+  assert.match(metadata.dest, /\$\{PROMPTFUN_BACKEND_URL\}\/m\/\$1/);
+  assert.deepEqual(metadata.env, ["PROMPTFUN_BACKEND_URL"]);
   const pictures = routes.find((r) => r.src === "/api/pictures/(.*)");
   assert.ok(pictures, "missing /api/pictures proxy route (OPTIONS preflight + POST upload)");
   assert.match(pictures.dest, /\$\{PROMPTFUN_BACKEND_URL\}\/api\/pictures\/\$1/);

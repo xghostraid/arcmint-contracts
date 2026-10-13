@@ -67,7 +67,7 @@ export async function handlePictureApi(
   }
 
   if (metaMatch && req.method === "GET") {
-    const json = pictures.getTokenMetadata(metaMatch[1]);
+    const json = await pictures.getTokenMetadata(metaMatch[1]);
     if (!json) {
       sendJson(404, { error: "Metadata not found or expired." });
       return true;

@@ -73,6 +73,18 @@ export class PictureCatalog {
     }
   }
 
+  async loadMetadata(pictureId: string): Promise<Buffer | null> {
+    const token = this.token?.trim();
+    if (!token) return null;
+    const prefix = `metadata/${pictureId}.json`;
+    const found = await list({ prefix, token });
+    const blob = found.blobs.find((b) => b.pathname === prefix);
+    if (!blob) return null;
+    const res = await fetch(blob.url);
+    if (!res.ok) return null;
+    return Buffer.from(await res.arrayBuffer());
+  }
+
   async publishMetadata(pictureId: string, jsonBytes: Buffer): Promise<string> {
     const token = this.token?.trim();
     if (!token) throw new Error("Blob store not configured");

@@ -1,10 +1,30 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { Keypair, PublicKey, TransactionMessage, VersionedTransaction } from "@solana/web3.js";
-import { buildPumpfunLaunchSponsored } from "../../src/chains/solana/pumpfun.js";
+import { buildPumpfunLaunchSponsored, patchLaunchUpdateFeeSharesAccounts } from "../../src/chains/solana/pumpfun.js";
 import { SOLANA_TX_BASE64_MAX, SOLANA_TX_RAW_MAX } from "../../src/chains/solana/tx-size.js";
 import { decodeInstructions } from "../../src/chains/solana/decode.js";
 import type { Intent, LaunchParams } from "../../src/intents/types.js";
+
+test("patchLaunchUpdateFeeSharesAccounts adds remaining account when shareholder is authority", async () => {
+  const sponsor = Keypair.generate().publicKey;
+  const { createRequire } = await import("node:module");
+  const { PUMP_SDK } = createRequire(import.meta.url)("@pump-fun/pump-sdk") as typeof import("@pump-fun/pump-sdk");
+  const mint = Keypair.generate().publicKey;
+  const ix = await PUMP_SDK.updateFeeShares({
+    authority: sponsor,
+    mint,
+    currentShareholders: [],
+    newShareholders: [{ address: sponsor, shareBps: 10_000 }],
+    bondingCurveComplete: false,
+  });
+  assert.equal(
+    ix.keys.some((k) => k.pubkey.equals(sponsor) && k.isWritable && !k.isSigner),
+    false,
+  );
+  patchLaunchUpdateFeeSharesAccounts(ix, [{ address: sponsor }]);
+  assert.ok(ix.keys.some((k) => k.pubkey.equals(sponsor) && k.isWritable && !k.isSigner));
+});
 
 test("sponsored pump.fun build compiles primary + follow-up fee shares", async () => {
   const sponsor = Keypair.generate().publicKey;

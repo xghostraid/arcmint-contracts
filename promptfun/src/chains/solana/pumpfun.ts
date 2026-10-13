@@ -22,16 +22,17 @@ export function generatePumpMintKeypair(): Keypair {
 }
 
 /** pump-fees `updateFeeShares` with bondingCurveComplete=false expects each new shareholder as a remaining account; SDK omits them when currentShareholders is empty (6013 / 0x177d). */
-function patchLaunchUpdateFeeSharesAccounts(
+export function patchLaunchUpdateFeeSharesAccounts(
   ix: TransactionInstruction,
   newShareholders: { address: PublicKey }[],
 ): TransactionInstruction {
-  const seen = new Set(ix.keys.map((k) => k.pubkey.toBase58()));
   for (const sh of newShareholders) {
     const id = sh.address.toBase58();
-    if (seen.has(id)) continue;
+    const alreadyRemaining = ix.keys.some(
+      (k) => k.pubkey.toBase58() === id && k.isWritable && !k.isSigner,
+    );
+    if (alreadyRemaining) continue;
     ix.keys.push({ pubkey: sh.address, isWritable: true, isSigner: false });
-    seen.add(id);
   }
   return ix;
 }

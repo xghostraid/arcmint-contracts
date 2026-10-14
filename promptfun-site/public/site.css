@@ -664,6 +664,51 @@ h1 em, h2 em {
 .stat-chart-slot { margin: 6px 0 4px; min-height: 36px; }
 .stat-chart-name { font-size: 14px; font-weight: 700; color: var(--ink-2); }
 .explore-empty { margin: 20px 0 0; padding: 16px; border: 2px dashed var(--edge); border-radius: 14px; background: var(--bg); color: var(--ink-2); font-size: 15px; }
+.explore-table tbody tr.coin-row-clickable { cursor: pointer; }
+.explore-table tbody tr.coin-row-clickable:hover { background: var(--lilac-soft, var(--blue-soft)); }
+.explore-table tbody tr.coin-row-clickable:focus-visible { outline: 3px solid var(--cta); outline-offset: -2px; }
+.coin-mcap-live { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
+.coin-detail { margin-top: 28px; padding: 24px; border: var(--bw) solid var(--edge); border-radius: var(--radius); background: var(--paper); box-shadow: var(--sh); }
+.coin-detail-head { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.coin-detail-intro { flex: 1 1 240px; min-width: 0; }
+.coin-detail-meta { margin: 8px 0 0; color: var(--ink-3); font-weight: 600; }
+.coin-detail-mcap { margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; }
+.coin-detail-mcap-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); }
+.coin-detail-mcap strong { font-size: clamp(22px, 4vw, 32px); }
+.coin-detail-thumb {
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  object-fit: cover;
+  border: 2px solid var(--edge);
+  background: var(--bg);
+}
+.coin-detail-thumb--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink-2);
+  background: var(--blue-soft);
+}
+.coin-chart-figure { margin: 24px 0 0; }
+.coin-chart-panel {
+  padding: 16px;
+  border: 2px solid var(--edge);
+  border-radius: 16px;
+  background: var(--bg);
+  min-height: 200px;
+}
+.coin-chart-figure figcaption { margin-top: 10px; color: var(--ink-3); font-size: 14px; line-height: 1.45; }
+.bond-chart-line { stroke: var(--cta); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.bond-chart-area { fill: var(--lilac); opacity: 0.35; }
+.bond-chart-grid line { stroke: var(--edge); stroke-width: 1; opacity: 0.7; }
+.bond-chart-axis { fill: var(--ink-3); font-size: 11px; font-weight: 600; font-family: inherit; }
+.bond-chart-empty { fill: var(--ink-3); font-size: 14px; font-weight: 600; font-family: inherit; }
+.coin-detail-actions { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+.coin-ca--detail { flex: 1 1 280px; }
+.coin-detail-links { display: flex; flex-wrap: wrap; gap: 8px; }
 
 @media (max-width: 1020px) {
   .hero-grid, .connect-grid, .faq-wrap, .docs-grid { grid-template-columns: 1fr; gap: 56px; }

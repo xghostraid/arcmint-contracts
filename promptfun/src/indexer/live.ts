@@ -25,6 +25,7 @@ function testnetMarket(chain: Chain, readAt: string) {
     marketCapUsd: null,
     graduated: null,
     chartPoints: null,
+    chartSeries: null,
     source: null,
     reason: chain.testnet
       ? `${chain.name} coin: testnet has no markets, so there is no price.`

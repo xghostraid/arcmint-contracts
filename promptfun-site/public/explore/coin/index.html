@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" data-api-origin="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#ebe6ff">
+<title>Coin · Explore · promptfun.fun</title>
+<meta name="description" content="Bonding curve market cap and launch details for a promptfun coin, read from the chain.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" data-nav>
+  <div class="wrap nav-inner">
+    <a class="brand" href="/" aria-label="promptfun.fun home">
+      <img src="/favicon.svg" alt="" width="32" height="32">
+      <span>promptfun<span class="brand-tld">.fun</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Site">
+      <a href="/docs">Docs</a>
+      <a href="/explore" aria-current="page">Explore</a>
+      <a href="/#how">How it works</a>
+      <a href="/#chains">Chains</a>
+    </nav>
+    <a class="btn btn-small" href="/#connect">Add to Claude</a>
+  </div>
+</header>
+
+<main id="main" class="subpage">
+  <section class="section section-tight" aria-labelledby="coin-title">
+    <div class="wrap">
+      <p class="eyebrow"><a href="/explore">Explore</a> / Coin</p>
+      <div class="coin-detail" data-explore-coin>
+        <div class="coin-detail-head">
+          <div data-coin-thumb></div>
+          <div class="coin-detail-intro">
+            <h1 id="coin-title" data-coin-title>Loading…</h1>
+            <p class="coin-detail-meta" data-coin-meta></p>
+            <p class="coin-detail-mcap">
+              <span class="coin-detail-mcap-label">Bonding curve mcap</span>
+              <strong class="coin-mcap-live" data-coin-mcap>…</strong>
+            </p>
+          </div>
+        </div>
+
+        <p class="explore-status" data-coin-status>Loading…</p>
+
+        <figure class="coin-chart-figure">
+          <div class="coin-chart-panel" data-coin-chart aria-hidden="false"></div>
+          <figcaption>Synthetic bonding curve market cap from on-chain pump.fun reserves (launch → now). Not historical trades or OHLC.</figcaption>
+        </figure>
+
+        <div class="coin-detail-actions">
+          <div class="coin-ca coin-ca--detail">
+            <code class="coin-ca-text" data-coin-ca title="">…</code>
+            <button type="button" class="btn btn-small copy-ca-btn" data-copy-ca>Copy CA</button>
+          </div>
+          <div class="coin-detail-links" data-coin-links></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span>promptfun<span class="brand-tld">.fun</span></span></a>
+    <nav class="footer-nav" aria-label="Footer links">
+      <a href="/docs">Docs</a>
+      <a href="/explore">Explore</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+      <a href="https://x.com/promptfunfun" rel="noopener noreferrer" target="_blank">Follow on X</a>
+    </nav>
+    <p>Solana mainnet pump.fun launches are live via Claude. Real SOL; you are responsible for what you launch.</p>
+    <p>Launching or buying a token is risky. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script src="/site.js" defer></script>
+<script src="/explore-format.js" defer></script>
+<script src="/bond-chart.js" defer></script>
+<script src="/explore-coin.js" defer></script>
+</body>
+</html>

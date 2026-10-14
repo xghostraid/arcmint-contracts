@@ -3,6 +3,7 @@
   if (!root) return;
 
   const origin = document.documentElement.dataset.apiOrigin || window.location.origin;
+  const fmt = window.promptfunExploreFormat;
   const statusEl = root.querySelector("[data-explore-status]");
   const tbody = root.querySelector("[data-explore-rows]");
   const emptyEl = root.querySelector("[data-explore-empty]");
@@ -12,25 +13,12 @@
   let sort = "new";
   let query = "";
   let loading = false;
-
-  const fmtAmount = (value, symbol) => {
-    if (value == null || value === "") return { text: "n/a", title: "Not available from the chain yet." };
-    return { text: `${value} ${symbol || ""}`.trim(), title: "" };
-  };
-
-  const fmtCap = (coin) => {
-    const m = coin.market || {};
-    if (m.marketCapUsd != null) return { text: `$${m.marketCapUsd}`, title: m.source || "" };
-    if (m.marketCapNative != null) {
-      const sym = coin.chain?.nativeSymbol || "";
-      return { text: `${m.marketCapNative} ${sym}`.trim(), title: m.reason || m.source || "" };
-    }
-    return { text: "n/a", title: m.reason || "No market data for this coin." };
-  };
+  let pollTimer = null;
+  let lastCoins = [];
 
   const fmtPaid = (coin) => {
     const f = coin.creatorFees || {};
-    const row = fmtAmount(f.paid, f.symbol);
+    const row = fmt.fmtAmount(f.paid, f.symbol);
     if (row.text === "n/a" && f.reason) row.title = f.reason;
     return row;
   };
@@ -61,6 +49,8 @@
     return `Copy mint address for ${who}`;
   };
 
+  const coinDetailUrl = (coin) => `/explore/coin/${encodeURIComponent(coin.id)}`;
+
   const copyText = async (text, fallbackEl) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -84,7 +74,8 @@
 
   const attachCopyCa = (btn, fullAddress, codeEl) => {
     const defaultLabel = btn.textContent;
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
       if (!fullAddress) return;
       const ok = await copyText(fullAddress, codeEl);
       if (!ok) return;
@@ -98,7 +89,19 @@
     });
   };
 
+  const updateLiveMcapCells = (coins) => {
+    for (const coin of coins) {
+      const cell = tbody.querySelector(`[data-coin-mcap="${CSS.escape(coin.id)}"]`);
+      if (!cell || !fmt) continue;
+      const cap = fmt.fmtCap(coin);
+      cell.textContent = cap.text;
+      cell.title = cap.title;
+      cell.dataset.updated = coin.market?.readAt || "";
+    }
+  };
+
   const renderRows = (coins) => {
+    lastCoins = coins;
     tbody.replaceChildren();
     if (!coins.length) {
       emptyEl.hidden = false;
@@ -107,25 +110,29 @@
     emptyEl.hidden = true;
     for (const coin of coins) {
       const tr = document.createElement("tr");
-      const cap = fmtCap(coin);
+      tr.className = "coin-row-clickable";
+      tr.tabIndex = 0;
+      tr.setAttribute("role", "link");
+      tr.setAttribute("aria-label", `Open ${coin.name} chart and details`);
+      const goDetail = () => {
+        window.location.href = coinDetailUrl(coin);
+      };
+      tr.addEventListener("click", goDetail);
+      tr.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          goDetail();
+        }
+      });
+
+      const cap = fmt.fmtCap(coin);
       const paid = fmtPaid(coin);
       const badge = coin.chain?.testnet
         ? `<span class="status status-testing">${coin.chain.key.replace("solana-", "Solana ").replace("-", " ")}</span>`
         : coin.chain?.key === "solana-mainnet"
           ? `<span class="status status-live">Mainnet</span>`
           : "";
-      const chartCell = document.createElement("td");
-      chartCell.dataset.label = "Chart";
-      const pts = coin.market?.chartPoints;
-      if (window.promptfunSparkline) {
-        chartCell.appendChild(
-          window.promptfunSparkline.sparklineSvg(pts, {
-            label: pts ? `${coin.symbol} bonding-curve trend` : "Chart unavailable",
-          }),
-        );
-      } else {
-        chartCell.textContent = "—";
-      }
+
       const th = document.createElement("th");
       th.scope = "row";
       const head = document.createElement("div");
@@ -181,12 +188,14 @@
       caTd.appendChild(caWrap);
       tr.appendChild(caTd);
 
-      tr.appendChild(chartCell);
-      const capTd = document.createElement("td");
-      capTd.dataset.label = "Market cap";
-      capTd.title = cap.title;
-      capTd.textContent = cap.text;
-      tr.appendChild(capTd);
+      const mcapTd = document.createElement("td");
+      mcapTd.dataset.label = "Market cap";
+      mcapTd.className = "coin-mcap-live";
+      mcapTd.dataset.coinMcap = coin.id;
+      mcapTd.title = cap.title;
+      mcapTd.textContent = cap.text;
+      tr.appendChild(mcapTd);
+
       const ageTd = document.createElement("td");
       ageTd.dataset.label = "Age";
       ageTd.textContent = age(coin.launchedAt);
@@ -200,10 +209,10 @@
     }
   };
 
-  const load = async () => {
+  const load = async (quiet) => {
     if (loading) return;
     loading = true;
-    setStatus("Loading coins from the public API…");
+    if (!quiet) setStatus("Loading coins from the public API…");
     emptyEl.hidden = true;
     try {
       const params = new URLSearchParams({ sort, limit: "50", network: "mainnet" });
@@ -214,20 +223,27 @@
         throw new Error(body.error || `The coins API returned ${res.status}.`);
       }
       const data = await res.json();
-      renderRows(data.coins || []);
+      const coins = data.coins || [];
+      if (quiet && coins.length === lastCoins.length && coins.every((c, i) => c.id === lastCoins[i]?.id)) {
+        updateLiveMcapCells(coins);
+      } else {
+        renderRows(coins);
+      }
       setStatus(
         data.total
-          ? `${data.total} coin${data.total === 1 ? "" : "s"} from promptfun launches. Numbers are read from the chain; n/a means we could not read that value.`
+          ? `${data.total} coin${data.total === 1 ? "" : "s"} from promptfun launches. Market cap refreshes while this page is open. n/a means we could not read that value.`
           : "The API is up, but no promptfun launches are listed yet.",
       );
     } catch (err) {
-      tbody.replaceChildren();
-      emptyEl.hidden = false;
-      emptyEl.textContent =
-        err.message === "Failed to fetch"
-          ? "No public coins API is reachable from this site yet. When the MCP server is live on the same host, this board fills automatically. Until then, nothing is shown here on purpose."
-          : err.message;
-      setStatus("Could not load live coins.");
+      if (!quiet) {
+        tbody.replaceChildren();
+        emptyEl.hidden = false;
+        emptyEl.textContent =
+          err.message === "Failed to fetch"
+            ? "No public coins API is reachable from this site yet. When the MCP server is live on the same host, this board fills automatically. Until then, nothing is shown here on purpose."
+            : err.message;
+        setStatus("Could not load live coins.");
+      }
     } finally {
       loading = false;
     }
@@ -252,5 +268,9 @@
     });
   }
 
-  load();
+  load(false);
+  pollTimer = window.setInterval(() => load(true), 20_000);
+  window.addEventListener("pagehide", () => {
+    if (pollTimer) window.clearInterval(pollTimer);
+  });
 })();

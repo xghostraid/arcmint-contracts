@@ -7,6 +7,7 @@ import type { CoinDetail, CoinSummary, CoinsListResponse, StatsResponse } from "
 import { CHAIN_IMPORTS, MAINNET_CHAIN_IMPORTS, importKnownCoin } from "./imports.js";
 import { coinId, toDetail, toSummary, type CoinRecord } from "./record.js";
 import { refreshLive } from "./live.js";
+import { readPumpfunMarket } from "../chains/solana/pump-market.js";
 import { syncCoinsFromIntents } from "./sync.js";
 import { CoinIndexStore } from "./store.js";
 import { enrichRecordImageUrl } from "./metadata-image.js";
@@ -216,7 +217,19 @@ export class CoinIndexService {
         // serve stale
       }
     }
-    return { ok: true, detail: toDetail(chain, record) };
+    let detailRecord = record;
+    if (record.venue === "pumpfun" && chain.family === "solana" && !chain.testnet) {
+      try {
+        const market = await readPumpfunMarket(chain, record.address, { chartSamples: 80 });
+        detailRecord = {
+          ...record,
+          live: { ...record.live, market: { ...record.live.market, ...market } },
+        };
+      } catch {
+        // serve list-resolution chart
+      }
+    }
+    return { ok: true, detail: toDetail(chain, detailRecord) };
   }
 
   async findByIntentOrAddress(coin: string, chain?: string): Promise<CoinDetail | null> {

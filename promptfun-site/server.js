@@ -28,6 +28,10 @@ export const HEADERS = {
 
 export function resolvePath(urlPath) {
   const clean = decodeURIComponent(urlPath.split("?")[0]);
+  if (/^\/explore\/coin(?:\/[^/]+)?\/?$/.test(clean)) {
+    const full = normalize(join(ROOT, "explore/coin/index.html"));
+    return full.startsWith(ROOT) ? full : null;
+  }
   let rel = clean.replace(/^\/+/, "");
   if (!rel || rel.endsWith("/")) {
     rel = `${rel}index.html`;

@@ -21,6 +21,8 @@ export interface Market {
   graduated: boolean | null;
   /** Normalized 0–100 bar heights for explore/home sparklines (from on-chain bonding curve). */
   chartPoints: number[] | null;
+  /** Higher-resolution synthetic mcap along the curve (detail API only). */
+  chartSeries?: Array<{ progressPct: number; marketCapNative: string }> | null;
   source: string | null;
   reason: string | null;
   readAt: string | null;

@@ -284,6 +284,8 @@ test("Terms, Privacy, Docs and Explore pages exist and stay Claude-only", async 
   assert.match(exploreJs, /coin\.address/, "explore rows expose contract/mint address from API");
   assert.match(exploreJs, /Copy CA/);
   assert.match(exploreJs, /navigator\.clipboard\.writeText/);
+  assert.match(exploreJs, /formatCompactUsd/, "explore market cap uses compact USD formatting");
+  assert.match(exploreJs, /bonding-curve progress/, "chart label is not misleading USD price");
   assert.match(explore, /<th scope="col">CA<\/th>/);
   const css = await readPublic("site.css");
   assert.match(css, /\.coin-thumb/);

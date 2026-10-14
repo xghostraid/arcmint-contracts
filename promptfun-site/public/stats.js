@@ -39,7 +39,7 @@
               window.promptfunSparkline.sparklineSvg(top.market?.chartPoints, {
                 width: 120,
                 height: 36,
-                label: `${top.symbol} bonding-curve trend`,
+                label: `${top.symbol} bonding-curve progress (not USD price)`,
               }),
             );
             chartName.textContent = `${top.name} ($${top.symbol})`;

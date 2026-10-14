@@ -18,9 +18,32 @@
     return { text: `${value} ${symbol || ""}`.trim(), title: "" };
   };
 
+  const formatCompactUsd = (raw) => {
+    if (raw == null || raw === "") return null;
+    const s = String(raw).trim();
+    if (s.startsWith("<")) return s.startsWith("$") ? s : `$${s}`;
+    const n = Number(s.replace(/,/g, ""));
+    if (!Number.isFinite(n)) return `$${s}`;
+    if (n < 0.01) return "<$0.01";
+    const fmt = (val, suffix) => {
+      const t = val >= 100 ? val.toFixed(0) : val >= 10 ? val.toFixed(1) : val.toFixed(2);
+      return `$${t.replace(/\.0+$/, "").replace(/(\.[1-9])0$/, "$1")}${suffix}`;
+    };
+    if (n >= 1e9) return fmt(n / 1e9, "B");
+    if (n >= 1e6) return fmt(n / 1e6, "M");
+    if (n >= 1e3) return fmt(n / 1e3, "K");
+    return n >= 100 ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`;
+  };
+
   const fmtCap = (coin) => {
     const m = coin.market || {};
-    if (m.marketCapUsd != null) return { text: `$${m.marketCapUsd}`, title: m.source || "" };
+    if (m.marketCapUsd != null) {
+      const compact = formatCompactUsd(m.marketCapUsd);
+      return {
+        text: compact ?? `$${m.marketCapUsd}`,
+        title: [m.source, m.marketCapUsd !== compact ? `Exact: $${m.marketCapUsd}` : ""].filter(Boolean).join(" · "),
+      };
+    }
     if (m.marketCapNative != null) {
       const sym = coin.chain?.nativeSymbol || "";
       return { text: `${m.marketCapNative} ${sym}`.trim(), title: m.reason || m.source || "" };
@@ -120,7 +143,9 @@
       if (window.promptfunSparkline) {
         chartCell.appendChild(
           window.promptfunSparkline.sparklineSvg(pts, {
-            label: pts ? `${coin.symbol} bonding-curve trend` : "Chart unavailable",
+            label: pts
+              ? `${coin.symbol} bonding-curve progress (not USD price; headline market cap is separate)`
+              : "Chart unavailable",
           }),
         );
       } else {

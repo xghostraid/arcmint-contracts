@@ -1,7 +1,7 @@
 (() => {
   const NS = "http://www.w3.org/2000/svg";
 
-  function sparklineSvg(points, { width = 88, height = 28, label = "Price trend from bonding curve" } = {}) {
+  function sparklineSvg(points, { width = 88, height = 28, label = "Bonding-curve progress (not USD price)" } = {}) {
     if (!points || !points.length) {
       const g = document.createElementNS(NS, "svg");
       g.setAttribute("width", String(width));

@@ -70,7 +70,7 @@
       })) ?? null;
     const svg = window.promptfunBondChart.lineChartSvg(series || fallback, {
       nativeSymbol: coin.chain?.nativeSymbol || "SOL",
-      label: `${coin.symbol} bonding curve market cap`,
+      label: `${coin.symbol} bonding-curve progress (not USD price)`,
     });
     chartSlot.appendChild(svg);
   };

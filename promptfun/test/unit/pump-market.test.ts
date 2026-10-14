@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { bondingCurveChart, chartPointsFromBondingCurve } from "../../src/chains/solana/pump-market.js";
+import {
+  bondingCurveChart,
+  chartPointsFromBondingCurve,
+  marketFromPumpfunApiRow,
+} from "../../src/chains/solana/pump-market.js";
 
 const curveInput = {
   mintSupply: 1_000_000_000_000_000n,
@@ -14,6 +18,18 @@ test("chartPointsFromBondingCurve returns 12 ascending bars along the curve", ()
   assert.equal(points.length, 12);
   assert.ok(points[0] <= points[11], "later bars should be at least as tall as early bars");
   assert.ok(points.every((p) => p >= 4 && p <= 100));
+});
+
+test("marketFromPumpfunApiRow maps pump.fun usd_market_cap headline", () => {
+  const m = marketFromPumpfunApiRow({
+    mint: "Mint11111111111111111111111111111111111112",
+    usd_market_cap: 3310.78,
+    market_cap_quote: 30.89,
+    complete: false,
+  });
+  assert.equal(m.marketCapUsd, "3310.78");
+  assert.equal(m.marketCapNative, "30.89");
+  assert.match(m.source, /frontend API/i);
 });
 
 test("bondingCurveChart returns higher-resolution series for detail charts", () => {

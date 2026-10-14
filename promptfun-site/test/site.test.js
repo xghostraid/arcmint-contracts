@@ -294,7 +294,10 @@ test("Terms, Privacy, Docs and Explore pages exist and stay Claude-only", async 
   assert.match(explore, /<th scope="col">CA<\/th>/);
   const coinDetail = await readFile(new URL("../public/explore/coin/index.html", import.meta.url), "utf8");
   assert.match(coinDetail, /data-explore-coin/);
-  assert.match(coinDetail, /bonding curve/i);
+  assert.match(coinDetail, /Market cap/);
+  assert.match(coinDetail, /bonding-curve progress/i);
+  const exploreFormat = await readPublic("explore-format.js");
+  assert.match(exploreFormat, /formatCompactUsd/);
   assert.match(coinDetail, /\/explore-coin\.js/);
   assert.match(coinDetail, /\/bond-chart\.js/);
   const bondChart = await readPublic("bond-chart.js");

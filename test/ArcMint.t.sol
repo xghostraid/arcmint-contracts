@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {ArcMintFactory} from "../src/ArcMintFactory.sol";
 import {BondingCurvePool} from "../src/BondingCurvePool.sol";
 import {FeeRouter} from "../src/FeeRouter.sol";
@@ -80,6 +80,58 @@ contract ArcMintTest is Test {
     function _skipAntiSnipe(address pool) internal {
         uint256 t = BondingCurvePool(pool).launchedAt() + BondingCurvePool(pool).antiSnipeSeconds() + 1;
         vm.warp(t);
+    }
+
+    function test_createLaunch_indexes_catalog_and_emits_launched() public {
+        vm.prank(creator);
+        vm.recordLogs();
+        (address token, address pool) = factory.createLaunch(_baseParams());
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bool foundLaunched;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter != address(factory) || logs[i].topics.length != 4) continue;
+            foundLaunched = true;
+            assertEq(address(uint160(uint256(logs[i].topics[1]))), token);
+            assertEq(address(uint160(uint256(logs[i].topics[2]))), pool);
+            assertEq(address(uint160(uint256(logs[i].topics[3]))), creator);
+        }
+        assertTrue(foundLaunched);
+
+        assertEq(factory.getLaunchCount(), 1);
+        ArcMintFactory.LaunchInfo memory info = factory.getLaunch(0);
+        assertEq(info.token, token);
+        assertEq(info.pool, pool);
+        assertEq(info.creator, creator);
+        assertEq(info.name, "Test Token");
+        assertEq(info.symbol, "TEST");
+        assertEq(info.metadataURI, "ipfs://test");
+
+        ArcMintFactory.LaunchInfo[] memory page = factory.getLaunches(0, 10);
+        assertEq(page.length, 1);
+        assertEq(page[0].token, token);
+        assertEq(factory.getLaunches(1, 10).length, 0);
+        assertEq(factory.getLaunches(0, 0).length, 0);
+
+        assertEq(factory.getCreatorLaunchCount(creator), 1);
+        ArcMintFactory.LaunchInfo[] memory mine = factory.getLaunchesByCreator(creator);
+        assertEq(mine.length, 1);
+        assertEq(mine[0].token, token);
+        assertEq(factory.getLaunchesByCreator(buyer).length, 0);
+
+        vm.expectRevert(ArcMintFactory.LaunchNotFound.selector);
+        factory.getLaunch(1);
+
+        ArcMintFactory.LaunchParams memory second = _baseParams();
+        second.name = "Second";
+        second.symbol = "SEC";
+        vm.prank(buyer);
+        (address token2,) = factory.createLaunch(second);
+        assertEq(factory.getLaunchCount(), 2);
+        assertEq(factory.getLaunch(1).token, token2);
+        assertEq(factory.getLaunches(1, 1)[0].token, token2);
+        assertEq(factory.getCreatorLaunchCount(buyer), 1);
+        assertEq(factory.getLaunchesByCreator(buyer)[0].token, token2);
     }
 
     function test_createLaunch_and_buy() public {

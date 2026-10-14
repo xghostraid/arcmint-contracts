@@ -50,11 +50,13 @@ contract ArcMintFactory is Ownable {
     uint16 public constant CREATOR_MAX_BUY_BPS = 500;
 
     uint256 public launchCount;
+    uint256 public constant MAX_LAUNCH_PAGE = 100;
 
     mapping(address => address) public tokenToPool;
     mapping(address => address) public poolToToken;
     mapping(uint256 => address) public launchByIndex;
     mapping(address => LaunchInfo) public launches;
+    mapping(address => uint256[]) private _creatorLaunchIndexes;
 
     struct LaunchInfo {
         address token;
@@ -78,6 +80,7 @@ contract ArcMintFactory is Ownable {
     error InvalidFee();
     error InvalidTeamAllocation();
     error InvalidTeamWallet();
+    error LaunchNotFound();
 
     constructor(
         address usdc_,
@@ -148,6 +151,7 @@ contract ArcMintFactory is Ownable {
         tokenToPool[token] = pool;
         poolToToken[pool] = token;
         launchByIndex[launchCount] = token;
+        _creatorLaunchIndexes[msg.sender].push(launchCount);
         launches[token] = LaunchInfo({
             token: token,
             pool: pool,
@@ -165,5 +169,41 @@ contract ArcMintFactory is Ownable {
 
     function getLaunchCount() external view returns (uint256) {
         return launchCount;
+    }
+
+    /// @notice Launch at catalog index. Indexers should use this + getLaunches
+    /// instead of unbounded eth_getLogs (Arc RPC caps log queries at 10_000 blocks).
+    function getLaunch(uint256 index) external view returns (LaunchInfo memory info) {
+        if (index >= launchCount) revert LaunchNotFound();
+        return launches[launchByIndex[index]];
+    }
+
+    /// @notice Newest-last page of launches. `limit` is capped at MAX_LAUNCH_PAGE.
+    function getLaunches(uint256 offset, uint256 limit) external view returns (LaunchInfo[] memory infos) {
+        uint256 n = launchCount;
+        if (offset >= n || limit == 0) {
+            return new LaunchInfo[](0);
+        }
+        if (limit > MAX_LAUNCH_PAGE) limit = MAX_LAUNCH_PAGE;
+        uint256 end = offset + limit;
+        if (end > n) end = n;
+        infos = new LaunchInfo[](end - offset);
+        for (uint256 i = 0; i < infos.length; ++i) {
+            infos[i] = launches[launchByIndex[offset + i]];
+        }
+    }
+
+    function getCreatorLaunchCount(address creator_) external view returns (uint256) {
+        return _creatorLaunchIndexes[creator_].length;
+    }
+
+    function getLaunchesByCreator(address creator_) external view returns (LaunchInfo[] memory infos) {
+        uint256[] storage idx = _creatorLaunchIndexes[creator_];
+        uint256 len = idx.length;
+        uint256 start = len > MAX_LAUNCH_PAGE ? len - MAX_LAUNCH_PAGE : 0;
+        infos = new LaunchInfo[](len - start);
+        for (uint256 i = 0; i < infos.length; ++i) {
+            infos[i] = launches[launchByIndex[idx[start + i]]];
+        }
     }
 }

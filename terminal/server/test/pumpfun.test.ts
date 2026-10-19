@@ -99,8 +99,10 @@ test("launch packing: one Jito bundle (≤5 txs) fits create + dev buy + 8 bundl
     }
     return appendTip([...packGroups([head]), ...packGroups(groups)], tipGroup(dev, 10_000)).length;
   };
-  assert.equal(await count(8), 5);
-  assert.equal(await count(9), 6);
+  // The SDK picks a random fee recipient per buy; two buys sharing one save 32 bytes and sometimes fit a
+  // third buy in a transaction, so only the worst case (all distinct) is a guarantee.
+  for (let i = 0; i < 10; i++) assert.ok((await count(8)) <= 5);
+  assert.ok((await count(12)) > 5);
 });
 
 test("launch packing with a lookup table: one Jito bundle fits create + dev buy + 18 bundle wallets + tip (trace-limited)", async () => {

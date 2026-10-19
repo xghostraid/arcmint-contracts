@@ -60,6 +60,74 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  `
+  ALTER TABLE launches ADD COLUMN lookup_table TEXT;
+  ALTER TABLE launches ADD COLUMN lookup_table_status TEXT;
+  CREATE TABLE tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    network TEXT NOT NULL,
+    mint TEXT NOT NULL,
+    symbol TEXT,
+    name TEXT,
+    decimals INTEGER NOT NULL DEFAULT 6,
+    supply TEXT NOT NULL DEFAULT '0',
+    venue TEXT,
+    pool TEXT,
+    tracked INTEGER NOT NULL DEFAULT 1,
+    newest_signature TEXT,
+    added_at TEXT NOT NULL,
+    UNIQUE (network, mint)
+  );
+  CREATE TABLE trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    network TEXT NOT NULL,
+    mint TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    slot INTEGER NOT NULL,
+    block_time INTEGER NOT NULL,
+    venue TEXT NOT NULL,
+    side TEXT NOT NULL,
+    trader TEXT NOT NULL,
+    sol_lamports TEXT NOT NULL,
+    tokens TEXT NOT NULL,
+    price REAL NOT NULL,
+    UNIQUE (network, signature, seq)
+  );
+  CREATE INDEX trades_mint_time ON trades(network, mint, block_time);
+  CREATE INDEX trades_trader ON trades(network, trader);
+  CREATE TABLE strategies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    network TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    name TEXT NOT NULL,
+    mint TEXT NOT NULL,
+    config TEXT NOT NULL,
+    status TEXT NOT NULL,
+    budget_lamports TEXT NOT NULL,
+    spent_lamports TEXT NOT NULL DEFAULT '0',
+    received_lamports TEXT NOT NULL DEFAULT '0',
+    runs INTEGER NOT NULL DEFAULT 0,
+    next_run_at INTEGER,
+    last_run_at INTEGER,
+    state TEXT NOT NULL DEFAULT '{}',
+    note TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE strategy_intents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    strategy_id INTEGER NOT NULL REFERENCES strategies(id) ON DELETE CASCADE,
+    intent_key TEXT NOT NULL UNIQUE,
+    side TEXT NOT NULL,
+    status TEXT NOT NULL,
+    detail TEXT,
+    result TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX strategy_intents_strategy ON strategy_intents(strategy_id, id DESC);
+  `,
 ];
 
 export type Db = DatabaseSync;

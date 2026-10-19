@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import type { Db } from "./db.js";
 import { now } from "./db.js";
 
-export type ActivityKind = "vault" | "wallet" | "export" | "buy" | "sell" | "distribute" | "sweep" | "launch" | "airdrop";
+export type ActivityKind = "vault" | "wallet" | "export" | "buy" | "sell" | "distribute" | "sweep" | "launch" | "airdrop" | "bot" | "token";
 export type ActivityStatus = "ok" | "failed" | "info" | "simulated";
 
 export interface ActivityEntry {

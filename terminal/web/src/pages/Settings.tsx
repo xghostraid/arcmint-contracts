@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, type AlertCategory, type AlertStatus } from "../api";
 import { Card, ErrorBox, Field, useAction } from "../components/ui";
 import { useApp } from "../state";
 
@@ -53,6 +53,12 @@ export function Settings() {
                 <tr>
                   <td>Spend cap</td>
                   <td>{status.maxSolPerAction} SOL per action</td>
+                </tr>
+                <tr>
+                  <td>Bots</td>
+                  <td>
+                    {status.botsRunning} running{status.killSwitch && <span className="bad-text"> · kill switch on</span>}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -123,8 +129,73 @@ export function Settings() {
             {reveal.result && <div className="phrase small">{reveal.result}</div>}
             <ErrorBox error={reveal.error} />
           </Card>
+          <AlertsCard />
         </div>
       </div>
     </div>
+  );
+}
+
+const ALERT_LABELS: Record<AlertCategory, string> = {
+  fills: "Bot fills",
+  failures: "Failed transactions",
+  lowBalance: "Low wallet balance",
+  botStatus: "Bot started / paused / finished",
+  launches: "Launches",
+};
+
+function AlertsCard() {
+  const [alerts, setAlerts] = useState<AlertStatus | null>(null);
+  const save = useAction<unknown>();
+  const test = useAction<string>();
+  const load = () => void api<AlertStatus>("GET", "/alerts").then(setAlerts);
+  useEffect(load, []);
+  if (!alerts) return null;
+  return (
+    <Card title="Telegram alerts" actions={<span className={`pill ${alerts.enabled ? "ok" : ""}`}>{alerts.enabled ? `chat ${alerts.chatId}` : "off"}</span>}>
+      {!alerts.enabled && (
+        <p className="small muted">
+          Set <span className="mono">TELEGRAM_BOT_TOKEN</span> and <span className="mono">TELEGRAM_CHAT_ID</span> and restart to enable. Alerts are outbound only; the bot never accepts commands.
+        </p>
+      )}
+      {(Object.keys(ALERT_LABELS) as AlertCategory[]).map((k) => (
+        <label key={k} className="check">
+          <input
+            type="checkbox"
+            checked={alerts.prefs[k]}
+            onChange={(e) =>
+              void save.run(async () => {
+                const prefs = await api<AlertStatus["prefs"]>("PATCH", "/alerts", { [k]: e.target.checked });
+                setAlerts({ ...alerts, prefs });
+              })
+            }
+          />
+          {ALERT_LABELS[k]}
+        </label>
+      ))}
+      <div className="row" style={{ marginTop: 10 }}>
+        <button
+          disabled={!alerts.enabled || test.busy}
+          onClick={() =>
+            void test.run(async () => {
+              const r = await api<{ ok: boolean; error?: string }>("POST", "/alerts/test");
+              load();
+              if (!r.ok) throw new Error(r.error ?? "Test failed");
+              return "Test message sent.";
+            })
+          }
+        >
+          Send test
+        </button>
+        {test.result && <span className="small ok-text">{test.result}</span>}
+        {(alerts.queued > 0 || alerts.dropped > 0) && (
+          <span className="small muted">
+            {alerts.queued} queued · {alerts.dropped} dropped
+          </span>
+        )}
+      </div>
+      {alerts.lastError && <p className="small bad-text">Last error: {alerts.lastError}</p>}
+      <ErrorBox error={save.error ?? test.error} />
+    </Card>
   );
 }

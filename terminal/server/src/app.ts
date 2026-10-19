@@ -15,7 +15,13 @@ import { InputError, SolanaAdapter, parsePubkey } from "./chains/solana/adapter.
 import { ActivityLog } from "./activity.js";
 import { TradeService } from "./services/trade.js";
 import { TreasuryService } from "./services/treasury.js";
-import { LaunchService } from "./services/launch.js";
+import { LaunchService, MAX_BUNDLE_WALLETS } from "./services/launch.js";
+import { DashboardService } from "./services/dashboard.js";
+import { TokenRegistry } from "./market/tokens.js";
+import { TradeStore, type TradeRow } from "./market/trades.js";
+import { Ingestor } from "./market/ingest.js";
+import { StrategyEngine, type StrategyEvent } from "./strategies/engine.js";
+import { TelegramNotifier } from "./notify/telegram.js";
 import { toLamports } from "./util/amount.js";
 import type { KdfParams } from "./crypto/envelope.js";
 
@@ -25,6 +31,7 @@ export interface AppDeps {
   connection?: Connection;
   /** Tests use cheap scrypt parameters. */
   kdf?: Omit<KdfParams, "salt">;
+  fetch?: import("./chains/solana/jito.js").FetchLike;
 }
 
 export interface Terminal {
@@ -33,6 +40,12 @@ export interface Terminal {
   wallets: WalletStore;
   activity: ActivityLog;
   solana: SolanaAdapter;
+  tokens: TokenRegistry;
+  ingestor: Ingestor;
+  engine: StrategyEngine;
+  notifier: TelegramNotifier;
+  /** Starts trade ingestion and the bot scheduler (not started by tests unless asked). */
+  startBackground(opts?: { tickMs?: number }): void;
   close(): Promise<void>;
 }
 
@@ -66,6 +79,30 @@ export async function buildTerminal(deps: AppDeps): Promise<Terminal> {
   const trade = new TradeService(config, solana, wallets, activity);
   const treasury = new TreasuryService(config, solana, wallets, activity);
   const launch = new LaunchService(config, db, solana, wallets, vault, activity);
+  const tokens = new TokenRegistry(db, config.network, solana);
+  const tradeStore = new TradeStore(db, config.network);
+  const ingestor = new Ingestor(solana.conn, tokens, tradeStore, { pollMs: config.ingestPollSeconds * 1_000, backfill: config.ingestBackfill, websocket: config.ingestWebsocket });
+  const dashboard = new DashboardService(solana, wallets, tokens, tradeStore);
+  const watch = async (mint: string) => {
+    if (!tokens.get(mint)?.tracked) await tokens.track(mint);
+    ingestor.watch(mint);
+  };
+  const engine = new StrategyEngine({
+    db,
+    config,
+    network: config.network,
+    wallets,
+    vault,
+    activity,
+    trade,
+    market: solana,
+    feed: ingestor,
+    watch,
+    ownLaunches: () => launch.ownMints(),
+  });
+  const notifier = new TelegramNotifier(db, { botToken: config.telegramBotToken, chatId: config.telegramChatId, network: config.network, explorerTx: (sig) => solana.chain.explorerTx(sig) }, deps.fetch);
+  notifier.attach(activity, engine);
+  engine.on("error", (err: Error) => app.log.error(err));
 
   const sessions = new Set<string>();
   vault.on("locked", () => sessions.clear());
@@ -116,6 +153,9 @@ export async function buildTerminal(deps: AppDeps): Promise<Terminal> {
     vault: { initialized: vault.initialized, unlocked: vault.unlocked, keepUnlocked: vault.keepUnlocked },
     bundles: solana.executor.bundlesAvailable,
     maxSolPerAction: config.maxSolPerAction,
+    killSwitch: engine.killSwitch,
+    botsRunning: engine.list().filter((s) => s.status === "running").length,
+    alerts: notifier.enabled,
     defaults: { priorityMicroLamports: config.defaultPriorityMicroLamports, jitoTipLamports: config.defaultJitoTipLamports },
   }));
 
@@ -252,15 +292,77 @@ export async function buildTerminal(deps: AppDeps): Promise<Terminal> {
         uri: z.string(),
         devWalletId: id,
         devBuySol: solAmount.default(0n),
-        buyers: z.array(z.object({ walletId: id, sol: solAmount })).max(15).default([]),
+        buyers: z.array(z.object({ walletId: id, sol: solAmount })).max(MAX_BUNDLE_WALLETS).default([]),
+        lookupTable: z.enum(["auto", "on", "off"]).default("auto"),
         ...execFields,
         mode: z.enum(["sequential", "bundle"]).default("bundle"),
       })
       .parse(req.body);
-    return launch.run({ name: b.name, symbol: b.symbol, uri: b.uri, devWalletId: b.devWalletId, devBuyLamports: b.devBuySol, buyers: b.buyers.map((x) => ({ walletId: x.walletId, lamports: x.sol })), ...exec(b) });
+    const result = await launch.run({ name: b.name, symbol: b.symbol, uri: b.uri, devWalletId: b.devWalletId, devBuyLamports: b.devBuySol, buyers: b.buyers.map((x) => ({ walletId: x.walletId, lamports: x.sol })), lookupTable: b.lookupTable, ...exec(b) });
+    if (!b.dryRun && result.txs[0]?.status === "confirmed") await watch(result.plan.mint).catch((err: Error) => app.log.warn(err));
+    return result;
   });
 
   app.get("/api/launches", async () => launch.list());
+
+  app.post("/api/launches/:id/reclaim-table", async (req) => launch.reclaimTable(Number((req.params as { id: string }).id), config.defaultPriorityMicroLamports));
+
+  app.get("/api/tokens", async () => tokens.list().map((t) => ({ ...t, ingestError: ingestor.errors.get(t.mint) ?? null })));
+
+  app.post("/api/tokens/track", async (req) => {
+    const b = z.object({ address: z.string().min(32) }).parse(req.body);
+    const { profile, info } = await tokens.track(b.address);
+    ingestor.watch(profile.mint);
+    activity.record({ kind: "token", status: "info", summary: `Tracking ${info.symbol ?? profile.mint.slice(0, 6)} (${info.venueNote})`, token: profile.mint });
+    return profile;
+  });
+
+  app.delete("/api/tokens/:mint", async (req) => {
+    const mint = (req.params as { mint: string }).mint;
+    tokens.untrack(mint);
+    ingestor.unwatch(mint);
+    return { ok: true };
+  });
+
+  const mintParam = (req: FastifyRequest) => parsePubkey((req.params as { mint: string }).mint, "mint").toBase58();
+  app.get("/api/dashboard/:mint", async (req) => dashboard.overview(mintParam(req)));
+  app.get("/api/dashboard/:mint/trades", async (req) => {
+    const q = z.object({ limit: z.coerce.number().int().min(1).max(500).default(100), before: z.coerce.number().int().positive().optional() }).parse(req.query);
+    return dashboard.trades(mintParam(req), q.limit, q.before);
+  });
+  app.get("/api/dashboard/:mint/candles", async (req) => {
+    const q = z.object({ interval: z.coerce.number().int().min(1).max(86_400).default(60), from: z.coerce.number().int().min(0).default(0) }).parse(req.query);
+    return dashboard.candles(mintParam(req), q.interval, q.from);
+  });
+  app.get("/api/dashboard/:mint/holders", async (req) => dashboard.holders(mintParam(req)));
+  app.get("/api/dashboard/:mint/pnl", async (req) => dashboard.pnl(mintParam(req)));
+  app.post("/api/dashboard/:mint/sync", async (req) => {
+    const mint = mintParam(req);
+    if (!tokens.get(mint)) await tokens.track(mint);
+    return { added: await ingestor.sync(mint) };
+  });
+
+  app.get("/api/strategies", async () => ({ killSwitch: engine.killSwitch, maxActionsPerMinute: config.botMaxActionsPerMinute, strategies: engine.list() }));
+  app.post("/api/strategies", async (req) => {
+    const b = z.object({ kind: z.enum(["dca", "limit", "counter", "snipe"]), name: z.string().max(60).default(""), mint: z.string(), budgetSol: z.number().min(0).max(10_000).default(0), start: z.boolean().default(false), config: z.unknown() }).parse(req.body);
+    return engine.create(b);
+  });
+  app.get("/api/strategies/:id", async (req) => {
+    const sid = Number((req.params as { id: string }).id);
+    return { strategy: engine.get(sid), intents: engine.intents(sid) };
+  });
+  app.post("/api/strategies/:id/start", async (req) => engine.resume(Number((req.params as { id: string }).id)));
+  app.post("/api/strategies/:id/pause", async (req) => engine.pause(Number((req.params as { id: string }).id)));
+  app.post("/api/strategies/:id/stop", async (req) => engine.stopStrategy(Number((req.params as { id: string }).id)));
+  app.delete("/api/strategies/:id", async (req) => {
+    engine.remove(Number((req.params as { id: string }).id));
+    return { ok: true };
+  });
+  app.post("/api/strategies/kill-switch", async (req) => engine.setKillSwitch(z.object({ on: z.boolean() }).parse(req.body).on));
+
+  app.get("/api/alerts", async () => notifier.status());
+  app.patch("/api/alerts", async (req) => notifier.setPrefs(z.object({ fills: z.boolean(), failures: z.boolean(), lowBalance: z.boolean(), botStatus: z.boolean(), launches: z.boolean() }).partial().parse(req.body)));
+  app.post("/api/alerts/test", async () => notifier.test());
 
   app.get("/api/activity", async (req) => {
     const q = req.query as { limit?: string; before?: string };
@@ -271,16 +373,22 @@ export async function buildTerminal(deps: AppDeps): Promise<Terminal> {
     reply.raw.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
     reply.raw.write(": connected\n\n");
     const send = (e: unknown) => reply.raw.write(`event: activity\ndata: ${JSON.stringify(e)}\n\n`);
+    const sendTrade = (t: TradeRow) => reply.raw.write(`event: trade\ndata: ${JSON.stringify(dashboard.labelTrade(t))}\n\n`);
+    const sendBot = (e: StrategyEvent) => reply.raw.write(`event: bot\ndata: ${JSON.stringify({ type: e.type, text: e.text, strategyId: e.strategy?.id ?? null, status: e.strategy?.status ?? null })}\n\n`);
     const onLock = () => {
       reply.raw.write("event: locked\ndata: {}\n\n");
       reply.raw.end();
     };
     const ping = setInterval(() => reply.raw.write(": ping\n\n"), 20_000);
     activity.on("entry", send);
+    ingestor.on("trade", sendTrade);
+    engine.on("event", sendBot);
     vault.once("locked", onLock);
     req.raw.on("close", () => {
       clearInterval(ping);
       activity.off("entry", send);
+      ingestor.off("trade", sendTrade);
+      engine.off("event", sendBot);
       vault.off("locked", onLock);
     });
   });
@@ -314,7 +422,17 @@ export async function buildTerminal(deps: AppDeps): Promise<Terminal> {
     wallets,
     activity,
     solana,
+    tokens,
+    ingestor,
+    engine,
+    notifier,
+    startBackground(opts = {}) {
+      ingestor.start();
+      engine.start(opts.tickMs);
+    },
     async close() {
+      engine.stop();
+      ingestor.stop();
       vault.close();
       await app.close();
       db.close();

@@ -6,13 +6,18 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const pump = require("@pump-fun/pump-sdk");
+const amm = require("@pump-fun/pump-swap-sdk");
 const { Connection, PublicKey } = require("@solana/web3.js");
+const { NATIVE_MINT, TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } = require("@solana/spl-token");
 
 const source = process.env.CLONE_FROM_RPC ?? "https://api.devnet.solana.com";
 const ledger = process.env.LEDGER_DIR ?? ".local-ledger";
 const conn = new Connection(source, "confirmed");
 
 const global = await new pump.OnlinePumpSdk(conn).fetchGlobal();
+const ammGlobal = await new amm.OnlinePumpAmmSdk(conn).fetchGlobalConfigAccount();
+const ammRecipients = [...ammGlobal.protocolFeeRecipients, ...ammGlobal.reservedFeeRecipients, ammGlobal.reservedFeeRecipient, ...ammGlobal.buybackFeeRecipients].filter((k) => !k.equals(PublicKey.default));
+const wsolAta = (owner) => getAssociatedTokenAddressSync(NATIVE_MINT, owner, true, TOKEN_PROGRAM_ID);
 const programs = [pump.PUMP_PROGRAM_ID, pump.PUMP_FEE_PROGRAM_ID, pump.MAYHEM_PROGRAM_ID, pump.PUMP_AMM_PROGRAM_ID];
 const candidates = [
   pump.GLOBAL_PDA,
@@ -29,6 +34,9 @@ const candidates = [
   global.reservedFeeRecipient,
   ...global.reservedFeeRecipients,
   ...global.buybackFeeRecipients,
+  amm.PUMP_AMM_FEE_CONFIG_PDA,
+  ...ammRecipients,
+  ...ammRecipients.map(wsolAta),
 ];
 const unique = [...new Set(candidates.map((k) => k.toBase58()))];
 const infos = await conn.getMultipleAccountsInfo(unique.map((a) => new PublicKey(a)));

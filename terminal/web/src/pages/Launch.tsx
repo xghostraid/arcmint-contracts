@@ -23,6 +23,7 @@ interface Plan {
   txCount: number;
   txLabels: string[];
   willBundle: boolean;
+  lookupTable?: { used: boolean; addresses: number; address: string | null; txCountWithout: number };
   warnings: string[];
 }
 type LaunchResult = ActionResult & { launchId: number | null; plan: Plan };
@@ -33,8 +34,12 @@ interface LaunchRecord {
   symbol: string;
   status: string;
   plan: Plan;
+  lookupTable: string | null;
+  lookupTableStatus: "active" | "deactivated" | "closed" | null;
   createdAt: string;
 }
+
+const MAX_BUNDLE_WALLETS = 18;
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -61,10 +66,13 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
   const [buyEach, setBuyEach] = useState(defaultBuy);
   const [overrides, setOverrides] = useState<Record<number, string>>({});
   const [exec, setExec] = useState<ExecSettings>({ slippagePct: "10", priorityMicroLamports: String(status.defaults.priorityMicroLamports), mode: "bundle", jitoTipSol: String(status.defaults.jitoTipLamports / 1e9), dryRun: true });
+  const [tableMode, setTableMode] = useState<"auto" | "on" | "off">("auto");
   const [history, setHistory] = useState<LaunchRecord[]>([]);
+  const [reclaimNote, setReclaimNote] = useState<Record<number, string>>({});
   const { balances, reload } = useBalances(null);
   const upload = useAction<string>();
   const run = useAction<LaunchResult>();
+  const reclaim = useAction<{ status: string; error?: string }>();
 
   const loadHistory = () => void api<LaunchRecord[]>("GET", "/launches").then(setHistory).catch(() => {});
   useEffect(loadHistory, []);
@@ -77,12 +85,13 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
     devWalletId: Number(devWallet),
     devBuySol: devBuy || "0",
     buyers: buyerRows.map((id) => ({ walletId: id, sol: overrides[id] || buyEach })),
+    lookupTable: tableMode,
     ...execBody({ ...exec, dryRun }),
     mode: exec.mode === "parallel" ? "bundle" : exec.mode,
   });
   const totalSol = Number(devBuy || 0) + buyerRows.reduce((n, id) => n + Number(overrides[id] || buyEach || 0), 0);
   const plan = run.result?.plan;
-  const ready = name && symbol && uri && devWallet;
+  const ready = name && symbol && uri && devWallet && buyerRows.length <= MAX_BUNDLE_WALLETS;
 
   return (
     <div className="page">
@@ -148,7 +157,8 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
             </div>
           </Card>
 
-          <Card title={`3 · Bundle wallets (${buyerRows.length}/15)`} actions={<button onClick={() => void reload()}>↻</button>}>
+          <Card title={`3 · Bundle wallets (${buyerRows.length}/${MAX_BUNDLE_WALLETS})`} actions={<button onClick={() => void reload()}>↻</button>}>
+            {buyerRows.length > MAX_BUNDLE_WALLETS && <div className="warn">At most {MAX_BUNDLE_WALLETS} bundle wallets: Solana caps a transaction at 64 instructions including inner calls, which limits a 5-transaction bundle to 18 buys even with a lookup table.</div>}
             <WalletPicker wallets={wallets} groups={groups} selected={buyers} onChange={setBuyers} balances={balances} exclude={devWallet ? [Number(devWallet)] : []} />
             <Field label="SOL per bundle wallet" hint="override per wallet below">
               <input value={buyEach} onChange={(e) => setBuyEach(e.target.value)} inputMode="decimal" />
@@ -170,6 +180,20 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
 
           <Card title="4 · Execution">
             <ExecControls value={exec} onChange={setExec} bundles={status.bundles} modes={["bundle", "sequential"]} />
+            <div className="grid2">
+              <Field label="Address lookup table" hint="needed for 9+ bundle wallets">
+                <select value={tableMode} onChange={(e) => setTableMode(e.target.value as typeof tableMode)}>
+                  <option value="auto">auto: only when it saves transactions</option>
+                  <option value="on">always</option>
+                  <option value="off">never</option>
+                </select>
+              </Field>
+            </div>
+            {tableMode !== "off" && (
+              <p className="small muted">
+                The table is created and finalized (~13 s on mainnet) before the launch, so it puts the mint and wallet addresses on-chain a few seconds early. It is deactivated after the launch; reclaim its rent from the history below once it has cooled down.
+              </p>
+            )}
             <p className="small muted">Total buys: {totalSol.toFixed(4)} SOL (cap {status.maxSolPerAction} SOL per action).</p>
             <div className="row">
               <button disabled={!ready || run.busy} onClick={() => void run.run(() => api<LaunchResult>("POST", "/launch", body(true)))}>
@@ -221,6 +245,17 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
                     </div>
                   </div>
                 </div>
+                {plan.lookupTable && (
+                  <p className="small muted">
+                    Lookup table: {plan.lookupTable.used ? <span className="ok-text">used</span> : "not used"} · {plan.lookupTable.addresses} addresses · {plan.lookupTable.txCountWithout} transactions without it
+                    {plan.lookupTable.address && (
+                      <>
+                        {" "}
+                        · <Addr address={plan.lookupTable.address} />
+                      </>
+                    )}
+                  </p>
+                )}
                 {plan.warnings.map((w) => (
                   <div key={w} className="warn">
                     {w}
@@ -254,7 +289,7 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
                 <ResultView result={run.result} />
                 {!run.result?.dryRun && run.result?.txs[0]?.status === "confirmed" && (
                   <button className="primary" onClick={() => onOpenToken(plan.mint)}>
-                    Open in Trade →
+                    Open dashboard →
                   </button>
                 )}
               </>
@@ -278,6 +313,30 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
                         {short(h.mint)}
                       </button>
                     </td>
+                    <td className="small">
+                      {h.lookupTable && (
+                        <span className="row">
+                          <span className="muted">table {h.lookupTableStatus}</span>
+                          {h.lookupTableStatus !== "closed" && (
+                            <button
+                              className="chip"
+                              disabled={reclaim.busy}
+                              onClick={() =>
+                                void reclaim.run(async () => {
+                                  const r = await api<{ status: string; error?: string }>("POST", `/launches/${h.id}/reclaim-table`);
+                                  setReclaimNote({ ...reclaimNote, [h.id]: r.error ?? "" });
+                                  loadHistory();
+                                  return r;
+                                })
+                              }
+                            >
+                              {h.lookupTableStatus === "active" ? "deactivate" : "reclaim rent"}
+                            </button>
+                          )}
+                          {reclaimNote[h.id] && <span className="muted">{reclaimNote[h.id]}</span>}
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {!history.length && (
@@ -287,6 +346,7 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
                 )}
               </tbody>
             </table>
+            <ErrorBox error={reclaim.error} />
           </Card>
         </div>
       </div>

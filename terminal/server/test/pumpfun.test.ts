@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { applyBuy, applySell, buyGroup, createAndBuyGroup, freshCurve, quoteBuy, quoteSell, pumpSdk } from "../src/chains/solana/pumpfun.js";
-import { MAX_TX_BYTES, appendTip, draftSize, packGroups } from "../src/chains/solana/pack.js";
+import { MAX_TX_BYTES, MAX_TX_TRACE, appendTip, draftSize, packGroups } from "../src/chains/solana/pack.js";
 import { tipGroup } from "../src/chains/solana/jito.js";
 import { transferGroup } from "../src/chains/solana/treasury.js";
+import { syntheticTable, tableAddresses } from "../src/chains/solana/alt.js";
 import { legStates } from "../src/services/trade.js";
 import { fakeGlobal } from "./helpers.js";
 
@@ -98,8 +99,46 @@ test("launch packing: one Jito bundle (≤5 txs) fits create + dev buy + 8 bundl
     }
     return appendTip([...packGroups([head]), ...packGroups(groups)], tipGroup(dev, 10_000)).length;
   };
-  assert.equal(await count(8), 5);
-  assert.equal(await count(9), 6);
+  // The SDK picks a random fee recipient per buy; two buys sharing one save 32 bytes and sometimes fit a
+  // third buy in a transaction, so only the worst case (all distinct) is a guarantee.
+  for (let i = 0; i < 10; i++) assert.ok((await count(8)) <= 5);
+  assert.ok((await count(12)) > 5);
+});
+
+test("launch packing with a lookup table: one Jito bundle fits create + dev buy + 18 bundle wallets + tip (trace-limited)", async () => {
+  const build = async (n: number) => {
+    const dev = Keypair.generate();
+    const mint = Keypair.generate();
+    const devTokens = quoteBuy(p, null, LAMPORTS);
+    const head = await createAndBuyGroup({ p, mint, name: "Test Token", symbol: "TEST", uri: "https://example.com/meta.json", dev, lamports: LAMPORTS, tokens: devTokens });
+    let curve = applyBuy(freshCurve(p, dev.publicKey), devTokens);
+    const groups = [];
+    for (let i = 0; i < n; i++) {
+      const tokens = quoteBuy(p, curve, LAMPORTS / 10n);
+      groups.push(await buyGroup({ p, mint: mint.publicKey, curve, curveInfo: null, tokenProgram: TOKEN_2022_PROGRAM_ID, user: Keypair.generate(), ataExists: false, lamports: LAMPORTS / 10n, tokens, slippageBps: 500, label: `b${i}` }));
+      curve = applyBuy(curve, tokens);
+    }
+    const tip = tipGroup(dev, 10_000, () => 0);
+    const lookupTables = [syntheticTable(tableAddresses([head, ...groups, tip]))];
+    return appendTip(packGroups(groups, { head, lookupTables }), tip);
+  };
+  const drafts = await build(18);
+  for (const d of drafts) {
+    assert.ok(draftSize(d) <= MAX_TX_BYTES);
+    assert.ok(d.trace! <= MAX_TX_TRACE, `${d.label}: trace ${d.trace}`);
+  }
+  assert.equal(drafts.length, 5, `18 wallets → ${drafts.length} txs`);
+  // Head: 2 priority + 31 create/dev buy + 2 × 15 buys = 63; then 4 buys (62) per tx, the tip riding in the last.
+  assert.deepEqual(drafts.map((d) => d.label.split(" + ").length), [2 + 2, 4, 4, 4, 4 + 1]);
+  assert.equal((await build(19)).length, 6, "the 64-instruction trace limit, not size, caps a table launch");
+});
+
+test("pack: the instruction trace limit splits transactions that would fit by size", () => {
+  const signer = Keypair.generate();
+  const heavy = (i: number) => ({ ...transferGroup(signer, Keypair.generate().publicKey, 1n, `h${i}`), trace: 20 });
+  const drafts = packGroups([heavy(0), heavy(1), heavy(2), heavy(3)]);
+  assert.deepEqual(drafts.map((d) => d.trace), [62, 22], "2 priority + 3 × 20, then the fourth");
+  assert.throws(() => packGroups([{ ...heavy(9), trace: 63 }]), /does not fit/);
 });
 
 test("pack: a group too large for one transaction is rejected", () => {

@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { applyBuy, applySell, buyGroup, createAndBuyGroup, freshCurve, quoteBuy, quoteSell, pumpSdk } from "../src/chains/solana/pumpfun.js";
-import { MAX_TX_BYTES, appendTip, draftSize, packGroups } from "../src/chains/solana/pack.js";
+import { MAX_TX_BYTES, MAX_TX_TRACE, appendTip, draftSize, packGroups } from "../src/chains/solana/pack.js";
 import { tipGroup } from "../src/chains/solana/jito.js";
 import { transferGroup } from "../src/chains/solana/treasury.js";
 import { syntheticTable, tableAddresses } from "../src/chains/solana/alt.js";
+import { legStates } from "../src/services/trade.js";
 import { fakeGlobal } from "./helpers.js";
 
 const p = { global: fakeGlobal(), feeConfig: null };
@@ -23,6 +24,22 @@ test("pumpfun: chained quotes give later buyers fewer tokens for the same SOL", 
   for (let i = 1; i < outs.length; i++) assert.ok(outs[i]! < outs[i - 1]!, "monotonic decreasing");
   // The first buy on a fresh curve matches the SDK's create-time quote.
   assert.equal(quoteBuy(p, null, LAMPORTS), outs[0]);
+});
+
+test("legStates: ordered sends chain; parallel sends quote each leg after all the others", () => {
+  const start = freshCurve(p, Keypair.generate().publicKey);
+  const amounts = [LAMPORTS, 2n * LAMPORTS, 3n * LAMPORTS];
+  const step = (c: typeof start, l: bigint) => applyBuy(c, quoteBuy(p, c, l));
+  const ordered = legStates(start, amounts, step, false);
+  assert.equal(ordered[0], start);
+  assert.deepEqual(ordered[2], step(step(start, amounts[0]!), amounts[1]!));
+  const parallel = legStates(start, amounts, step, true);
+  // Each leg's worst case is every other buy landing first; that is never better than its place in the chain.
+  for (const [i, l] of amounts.entries()) {
+    assert.ok(quoteBuy(p, parallel[i]!, l) <= quoteBuy(p, ordered[i]!, l), `leg ${i}`);
+  }
+  assert.equal(quoteBuy(p, parallel[2]!, amounts[2]!), quoteBuy(p, ordered[2]!, amounts[2]!), "the last leg's worst case is its chained state");
+  assert.deepEqual(legStates(start, [LAMPORTS], step, true), [start], "a single leg is quoted against the live state");
 });
 
 test("pumpfun: buy then sell of the same tokens returns to the same reserves", () => {
@@ -86,7 +103,7 @@ test("launch packing: one Jito bundle (≤5 txs) fits create + dev buy + 8 bundl
   assert.equal(await count(9), 6);
 });
 
-test("launch packing with a lookup table: one Jito bundle fits create + dev buy + 20 bundle wallets + tip", async () => {
+test("launch packing with a lookup table: one Jito bundle fits create + dev buy + 18 bundle wallets + tip (trace-limited)", async () => {
   const build = async (n: number) => {
     const dev = Keypair.generate();
     const mint = Keypair.generate();
@@ -103,15 +120,23 @@ test("launch packing with a lookup table: one Jito bundle fits create + dev buy 
     const lookupTables = [syntheticTable(tableAddresses([head, ...groups, tip]))];
     return appendTip(packGroups(groups, { head, lookupTables }), tip);
   };
-  const drafts = await build(20);
-  for (const d of drafts) assert.ok(draftSize(d) <= MAX_TX_BYTES);
-  assert.ok(drafts.length <= 5, `20 wallets → ${drafts.length} txs`);
-  console.log(`  ALT: 20 bundle buys → ${drafts.length} txs (${drafts.map((d) => d.label.split(" + ").length).join("/")} groups per tx)`);
-  const max = async () => {
-    for (let n = 21; n < 40; n++) if ((await build(n)).length > 5) return n - 1;
-    return 39;
-  };
-  console.log(`  ALT: max bundle wallets in 5 txs = ${await max()}`);
+  const drafts = await build(18);
+  for (const d of drafts) {
+    assert.ok(draftSize(d) <= MAX_TX_BYTES);
+    assert.ok(d.trace! <= MAX_TX_TRACE, `${d.label}: trace ${d.trace}`);
+  }
+  assert.equal(drafts.length, 5, `18 wallets → ${drafts.length} txs`);
+  // Head: 2 priority + 31 create/dev buy + 2 × 15 buys = 63; then 4 buys (62) per tx, the tip riding in the last.
+  assert.deepEqual(drafts.map((d) => d.label.split(" + ").length), [2 + 2, 4, 4, 4, 4 + 1]);
+  assert.equal((await build(19)).length, 6, "the 64-instruction trace limit, not size, caps a table launch");
+});
+
+test("pack: the instruction trace limit splits transactions that would fit by size", () => {
+  const signer = Keypair.generate();
+  const heavy = (i: number) => ({ ...transferGroup(signer, Keypair.generate().publicKey, 1n, `h${i}`), trace: 20 });
+  const drafts = packGroups([heavy(0), heavy(1), heavy(2), heavy(3)]);
+  assert.deepEqual(drafts.map((d) => d.trace), [62, 22], "2 priority + 3 × 20, then the fourth");
+  assert.throws(() => packGroups([{ ...heavy(9), trace: 63 }]), /does not fit/);
 });
 
 test("pack: a group too large for one transaction is rejected", () => {

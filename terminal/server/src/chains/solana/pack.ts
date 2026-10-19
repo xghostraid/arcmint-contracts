@@ -1,6 +1,10 @@
 import { ComputeBudgetProgram, PublicKey, TransactionMessage, VersionedTransaction, type AddressLookupTableAccount, type Keypair, type TransactionInstruction } from "@solana/web3.js";
 
 export const MAX_TX_BYTES = 1232;
+/** Runtime cap on instructions per transaction, counting every CPI (MAX_INSTRUCTION_TRACE_LENGTH). */
+export const MAX_TX_TRACE = 64;
+/** Compute-unit limit and price instructions added to every compiled transaction. */
+const PRIORITY_TRACE = 2;
 const DUMMY_BLOCKHASH = "11111111111111111111111111111111";
 
 export interface Priority {
@@ -14,6 +18,12 @@ export interface IxGroup {
   instructions: TransactionInstruction[];
   signers: Keypair[];
   computeUnits: number;
+  /** Instructions the group executes including CPIs; defaults to its top-level count (no CPIs). */
+  trace?: number;
+}
+
+export function groupTrace(g: IxGroup): number {
+  return g.trace ?? g.instructions.length;
 }
 
 export interface TxDraft {
@@ -26,6 +36,8 @@ export interface TxDraft {
   prebuilt?: VersionedTransaction;
   /** Address lookup tables the message may load non-signer accounts from. */
   lookupTables?: AddressLookupTableAccount[];
+  /** Estimated instruction trace including the priority instructions. */
+  trace?: number;
 }
 
 export function cuLimit(computeUnits: number): number {
@@ -71,13 +83,16 @@ function draftFrom(groups: IxGroup[], head?: IxGroup, lookupTables?: AddressLook
     signers,
     instructions: all.flatMap((g) => g.instructions),
     computeUnits: all.reduce((n, g) => n + g.computeUnits, 0),
+    trace: PRIORITY_TRACE + all.reduce((n, g) => n + groupTrace(g), 0),
     ...(lookupTables?.length ? { lookupTables } : {}),
   };
 }
 
+const fits = (d: TxDraft) => (d.trace ?? 0) <= MAX_TX_TRACE && draftSize(d) <= MAX_TX_BYTES;
+
 /**
- * Greedily packs groups into as few transactions as fit under 1232 bytes, preserving order.
- * `head` (for example create + dev buy) always starts the first transaction.
+ * Greedily packs groups into as few transactions as fit under 1232 bytes and the 64-instruction trace limit,
+ * preserving order. `head` (for example create + dev buy) always starts the first transaction.
  */
 export function packGroups(groups: IxGroup[], opts: { head?: IxGroup; maxPerTx?: number; lookupTables?: AddressLookupTableAccount[] } = {}): TxDraft[] {
   const drafts: TxDraft[] = [];
@@ -92,13 +107,13 @@ export function packGroups(groups: IxGroup[], opts: { head?: IxGroup; maxPerTx?:
   };
   for (const group of groups) {
     const candidate = [...current, group];
-    if (candidate.length <= maxPerTx && draftSize(draftFrom(candidate, head, luts)) <= MAX_TX_BYTES) {
+    if (candidate.length <= maxPerTx && fits(draftFrom(candidate, head, luts))) {
       current = candidate;
       continue;
     }
     if (!current.length && !head) throw new Error(`"${group.label}" does not fit in one transaction`);
     flush();
-    if (draftSize(draftFrom([group], undefined, luts)) > MAX_TX_BYTES) throw new Error(`"${group.label}" does not fit in one transaction`);
+    if (!fits(draftFrom([group], undefined, luts))) throw new Error(`"${group.label}" does not fit in one transaction`);
     current = [group];
   }
   flush();
@@ -115,8 +130,9 @@ export function appendTip(drafts: TxDraft[], tip: IxGroup): TxDraft[] {
       signers: uniqueSigners([...last.signers, ...tip.signers]),
       instructions: [...last.instructions, ...tip.instructions],
       computeUnits: last.computeUnits + tip.computeUnits,
+      trace: (last.trace ?? PRIORITY_TRACE + last.instructions.length) + groupTrace(tip),
     };
-    if (draftSize(merged) <= MAX_TX_BYTES) return [...drafts.slice(0, -1), merged];
+    if (fits(merged)) return [...drafts.slice(0, -1), merged];
   }
   return [...drafts, draftFrom([tip], undefined, last?.lookupTables)];
 }

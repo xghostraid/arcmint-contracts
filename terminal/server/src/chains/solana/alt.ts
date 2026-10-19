@@ -4,7 +4,9 @@ import type { IxGroup, TxDraft } from "./pack.js";
 
 /** Addresses per extend instruction that keep the transaction under the size limit. */
 const EXTEND_CHUNK = 26;
-const EXTEND_CU = 20_000;
+/** The table program runs as core BPF on current validators: create + a 26-address extend measures ~24k CU. */
+const CREATE_CU = 40_000;
+const EXTEND_CU = 30_000;
 
 /** Every non-signer account the groups touch; signers can never be loaded from a table. */
 export function tableAddresses(groups: IxGroup[], extra: PublicKey[] = []): PublicKey[] {
@@ -41,15 +43,19 @@ export class LookupTables {
     private readonly executor: SolanaExecutor,
   ) {}
 
-  /** Creates and fills a table, then waits until it is active (one slot after the last extension). */
-  async create(authority: Keypair, addresses: PublicKey[], microLamports: number, timeoutMs = 60_000): Promise<CreatedTable> {
+  /**
+   * Creates and fills a table, then waits until the filled table is finalized. Block producers resolve lookups
+   * against the rooted bank and silently drop transactions whose table entries are not rooted yet, even though
+   * simulation (at "confirmed") passes; on mainnet that wait is ~32 slots (~13 s).
+   */
+  async create(authority: Keypair, addresses: PublicKey[], microLamports: number, timeoutMs = 90_000): Promise<CreatedTable> {
     const recentSlot = await this.conn.getSlot("finalized");
     const [createIx, address] = AddressLookupTableProgram.createLookupTable({ authority: authority.publicKey, payer: authority.publicKey, recentSlot });
     const drafts: TxDraft[] = [];
     for (let i = 0; i < addresses.length || i === 0; i += EXTEND_CHUNK) {
       const chunk = addresses.slice(i, i + EXTEND_CHUNK);
       const extend = chunk.length ? [AddressLookupTableProgram.extendLookupTable({ lookupTable: address, authority: authority.publicKey, payer: authority.publicKey, addresses: chunk })] : [];
-      drafts.push({ label: i === 0 ? "create lookup table" : `extend lookup table ${i / EXTEND_CHUNK}`, feePayer: authority, signers: [authority], instructions: i === 0 ? [createIx, ...extend] : extend, computeUnits: EXTEND_CU });
+      drafts.push({ label: i === 0 ? "create lookup table" : `extend lookup table ${i / EXTEND_CHUNK}`, feePayer: authority, signers: [authority], instructions: i === 0 ? [createIx, ...extend] : extend, computeUnits: i === 0 ? CREATE_CU : EXTEND_CU });
     }
     const exec = await this.executor.run(drafts, { mode: "sequential", microLamports });
     if (!exec.txs.every((t) => t.status === "confirmed")) {
@@ -58,14 +64,11 @@ export class LookupTables {
     }
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const table = (await this.conn.getAddressLookupTable(address, { commitment: "confirmed" })).value;
-      if (table && table.state.addresses.length === addresses.length) {
-        const slot = await this.conn.getSlot("confirmed");
-        if (slot > table.state.lastExtendedSlot) return { address: address.toBase58(), table, txs: exec.txs };
-      }
-      await new Promise((r) => setTimeout(r, 400));
+      const table = (await this.conn.getAddressLookupTable(address, { commitment: "finalized" })).value;
+      if (table && table.state.addresses.length === addresses.length) return { address: address.toBase58(), table, txs: exec.txs };
+      await new Promise((r) => setTimeout(r, 1_000));
     }
-    throw new Error(`Lookup table ${address.toBase58()} did not activate in time`);
+    throw new Error(`Lookup table ${address.toBase58()} was not finalized in time`);
   }
 
   /** Deactivation starts the ~512-slot cool-down after which the rent can be reclaimed with `close`. */

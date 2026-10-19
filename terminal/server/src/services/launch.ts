@@ -18,7 +18,11 @@ import { sol } from "../util/amount.js";
 import { enforceCap, finish, type ActionResult } from "./common.js";
 import { BUY_OVERHEAD_LAMPORTS } from "./trade.js";
 
-export const MAX_BUNDLE_WALLETS = 24;
+/**
+ * What one 5-transaction Jito bundle holds with a lookup table: the 64-instruction trace limit allows create + dev
+ * buy + 2 buys in the first transaction and 4 buys in each of the others (size alone would allow ~27).
+ */
+export const MAX_BUNDLE_WALLETS = 18;
 /** Lamports of rent per byte of account data (two years' worth, the rent-exempt minimum). */
 const RENT_PER_BYTE = 6_960n;
 const LOOKUP_TABLE_META_BYTES = 56n;

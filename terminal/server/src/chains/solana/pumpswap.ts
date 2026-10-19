@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
-import { PublicKey, type Connection, type Keypair } from "@solana/web3.js";
-import { NATIVE_MINT, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { PublicKey, type Connection, type Keypair, type TransactionInstruction } from "@solana/web3.js";
+import { ASSOCIATED_TOKEN_PROGRAM_ID, NATIVE_MINT, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import BN from "bn.js";
 import type { SwapSolanaState } from "@pump-fun/pump-swap-sdk";
 import type { IxGroup } from "./pack.js";
@@ -128,12 +128,18 @@ export function poolPrice(snapshot: Pick<PoolSnapshot, "baseReserve" | "quoteRes
   return Number(snapshot.quoteReserve + snapshot.virtualQuoteReserve) / Number(snapshot.baseReserve);
 }
 
+/** Instruction-trace estimate: AMM swaps measure 7–8 with CPIs, ATA creates 5, WSOL wrap/unwrap steps 1. */
+function swapTrace(instructions: TransactionInstruction[]): number {
+  const amm = pumpSwapSdk().PUMP_AMM_PROGRAM_ID;
+  return instructions.reduce((n, ix) => n + (ix.programId.equals(amm) ? 9 : ix.programId.equals(ASSOCIATED_TOKEN_PROGRAM_ID) ? 5 : 1), 0);
+}
+
 export async function swapBuyGroup(st: SwapSolanaState, user: Keypair, tokens: bigint, maxLamports: bigint, label: string): Promise<IxGroup> {
   const instructions = await pumpSwapSdk().PUMP_AMM_SDK.buyInstructions(st, new BN(tokens.toString()), new BN(maxLamports.toString()));
-  return { label, instructions, signers: [user], computeUnits: SWAP_CU };
+  return { label, instructions, signers: [user], computeUnits: SWAP_CU, trace: swapTrace(instructions) };
 }
 
 export async function swapSellGroup(st: SwapSolanaState, user: Keypair, tokens: bigint, minLamports: bigint, label: string): Promise<IxGroup> {
   const instructions = await pumpSwapSdk().PUMP_AMM_SDK.sellInstructions(st, new BN(tokens.toString()), new BN(minLamports.toString()));
-  return { label, instructions, signers: [user], computeUnits: SWAP_CU };
+  return { label, instructions, signers: [user], computeUnits: SWAP_CU, trace: swapTrace(instructions) };
 }

@@ -20,6 +20,15 @@ export const CREATE_AND_BUY_CU = 350_000;
 export const BUY_CU = 110_000;
 export const SELL_CU = 90_000;
 
+/**
+ * Instruction-trace cost (instruction + CPIs) measured on the cloned devnet programs: create_v2 16, ATA create 5,
+ * buy 9–10, sell 4. A transaction holds 64, so this, not size, caps how many buys a lookup-table tx carries.
+ */
+const CREATE_TRACE = 16;
+const ATA_CREATE_TRACE = 5;
+const BUY_TRACE = 10;
+const SELL_TRACE = 5;
+
 export interface PumpProtocol {
   global: Global;
   feeConfig: FeeConfig | null;
@@ -169,7 +178,7 @@ export async function buyGroup(args: {
     slippage: args.slippageBps / 100,
     tokenProgram: args.tokenProgram,
   });
-  return { label: args.label, instructions, signers: [args.user], computeUnits: BUY_CU };
+  return { label: args.label, instructions, signers: [args.user], computeUnits: BUY_CU, trace: BUY_TRACE + (args.ataExists ? 0 : ATA_CREATE_TRACE) };
 }
 
 export async function sellGroup(args: {
@@ -194,7 +203,7 @@ export async function sellGroup(args: {
     tokenProgram: args.state.tokenProgram,
     mayhemMode: args.state.curve.isMayhemMode,
   });
-  return { label: args.label, instructions, signers: [args.user], computeUnits: SELL_CU };
+  return { label: args.label, instructions, signers: [args.user], computeUnits: SELL_CU, trace: SELL_TRACE };
 }
 
 export async function createAndBuyGroup(args: {
@@ -233,7 +242,8 @@ export async function createAndBuyGroup(args: {
             mayhemMode: false,
           }),
         ];
-  return { label: `create ${args.symbol} + dev buy`, instructions, signers: [args.dev, args.mint], computeUnits: CREATE_AND_BUY_CU };
+  const trace = CREATE_TRACE + (args.lamports > 0n ? ATA_CREATE_TRACE + BUY_TRACE : 0);
+  return { label: `create ${args.symbol} + dev buy`, instructions, signers: [args.dev, args.mint], computeUnits: CREATE_AND_BUY_CU, trace };
 }
 
 export function lamportsWithSlippage(lamports: bigint, slippageBps: number): bigint {

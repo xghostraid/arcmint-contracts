@@ -179,10 +179,9 @@ export class StrategyEngine extends EventEmitter {
     }
     const budget = toLamports(String(input.budgetSol));
     if (spendsSol(kind, config) && budget <= 0n) throw new InputError("This strategy buys, so it needs a SOL budget above 0");
-    if (kind === "snipe") {
+    if (kind === "snipe" && !this.deps.ownLaunches().has(mint)) {
       const info = await this.deps.market.tokenInfo(mint);
-      const own = this.deps.wallets.ownAddresses();
-      if (!this.deps.ownLaunches().has(mint) && !(info.curve && own.has(info.curve.creator))) {
+      if (!(info.curve && this.deps.wallets.ownAddresses().has(info.curve.creator))) {
         throw new InputError("Supply snipe only runs on your own launches (a launch from this terminal, or a coin one of your wallets created)");
       }
     }

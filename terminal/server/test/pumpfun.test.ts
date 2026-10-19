@@ -6,6 +6,7 @@ import { applyBuy, applySell, buyGroup, createAndBuyGroup, freshCurve, quoteBuy,
 import { MAX_TX_BYTES, appendTip, draftSize, packGroups } from "../src/chains/solana/pack.js";
 import { tipGroup } from "../src/chains/solana/jito.js";
 import { transferGroup } from "../src/chains/solana/treasury.js";
+import { legStates } from "../src/services/trade.js";
 import { fakeGlobal } from "./helpers.js";
 
 const p = { global: fakeGlobal(), feeConfig: null };
@@ -22,6 +23,22 @@ test("pumpfun: chained quotes give later buyers fewer tokens for the same SOL", 
   for (let i = 1; i < outs.length; i++) assert.ok(outs[i]! < outs[i - 1]!, "monotonic decreasing");
   // The first buy on a fresh curve matches the SDK's create-time quote.
   assert.equal(quoteBuy(p, null, LAMPORTS), outs[0]);
+});
+
+test("legStates: ordered sends chain; parallel sends quote each leg after all the others", () => {
+  const start = freshCurve(p, Keypair.generate().publicKey);
+  const amounts = [LAMPORTS, 2n * LAMPORTS, 3n * LAMPORTS];
+  const step = (c: typeof start, l: bigint) => applyBuy(c, quoteBuy(p, c, l));
+  const ordered = legStates(start, amounts, step, false);
+  assert.equal(ordered[0], start);
+  assert.deepEqual(ordered[2], step(step(start, amounts[0]!), amounts[1]!));
+  const parallel = legStates(start, amounts, step, true);
+  // Each leg's worst case is every other buy landing first; that is never better than its place in the chain.
+  for (const [i, l] of amounts.entries()) {
+    assert.ok(quoteBuy(p, parallel[i]!, l) <= quoteBuy(p, ordered[i]!, l), `leg ${i}`);
+  }
+  assert.equal(quoteBuy(p, parallel[2]!, amounts[2]!), quoteBuy(p, ordered[2]!, amounts[2]!), "the last leg's worst case is its chained state");
+  assert.deepEqual(legStates(start, [LAMPORTS], step, true), [start], "a single leg is quoted against the live state");
 });
 
 test("pumpfun: buy then sell of the same tokens returns to the same reserves", () => {

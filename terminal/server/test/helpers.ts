@@ -1,4 +1,6 @@
-import { PublicKey, type Connection } from "@solana/web3.js";
+import { createRequire } from "node:module";
+import { PublicKey, type Connection, type VersionedTransactionResponse } from "@solana/web3.js";
+import bs58 from "bs58";
 import BN from "bn.js";
 import type { Global } from "@pump-fun/pump-sdk";
 import { loadConfig, type Config } from "../src/config.js";
@@ -63,4 +65,45 @@ export function fakeConnection(methods: Record<string, AnyFn>): Connection {
       };
     },
   }) as unknown as Connection;
+}
+
+type IdlField = { name: string; type: unknown };
+type Idl = { types: { name: string; type: { fields: IdlField[] } }[]; events: { name: string; discriminator: number[] }[] };
+
+function defaultFor(type: unknown): unknown {
+  if (type === "bool") return false;
+  if (type === "pubkey") return PublicKey.default;
+  if (type === "string") return "";
+  if (typeof type === "object" && type && "vec" in type) return [];
+  return new BN(0);
+}
+
+/** An Anchor event payload (discriminator + borsh) for one of the Pump programs, unspecified fields zeroed. */
+export function encodeEvent(program: "pump" | "amm", name: string, values: Record<string, unknown>): Buffer {
+  const require = createRequire(import.meta.url);
+  const { BorshCoder } = require("@coral-xyz/anchor") as typeof import("@coral-xyz/anchor");
+  const idl = (program === "pump" ? require("@pump-fun/pump-sdk").pumpIdl : require("@pump-fun/pump-swap-sdk").pumpAmmJson) as Idl;
+  const def = idl.types.find((t) => t.name === name)!;
+  const data: Record<string, unknown> = {};
+  for (const f of def.type.fields) data[f.name] = f.name in values ? values[f.name] : defaultFor(f.type);
+  const disc = Buffer.from(idl.events.find((e) => e.name === name)!.discriminator);
+  return Buffer.concat([disc, new BorshCoder(idl as never).types.encode(name, data)]);
+}
+
+export const PUMP_ID = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+export const AMM_ID = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
+
+/** A confirmed transaction response carrying the given logs and inner instructions. */
+export function fakeTx(opts: { keys: PublicKey[]; logs?: string[]; inner?: { programIdIndex: number; data: Buffer }[]; slot?: number; blockTime?: number; err?: unknown }): VersionedTransactionResponse {
+  return {
+    slot: opts.slot ?? 100,
+    blockTime: opts.blockTime ?? 1_700_000_000,
+    transaction: { message: { staticAccountKeys: opts.keys }, signatures: ["sig"] },
+    meta: {
+      err: opts.err ?? null,
+      logMessages: opts.logs ?? [],
+      innerInstructions: opts.inner ? [{ index: 0, instructions: opts.inner.map((i) => ({ programIdIndex: i.programIdIndex, accounts: [], data: bs58.encode(i.data) })) }] : [],
+      loadedAddresses: { writable: [], readonly: [] },
+    },
+  } as unknown as VersionedTransactionResponse;
 }

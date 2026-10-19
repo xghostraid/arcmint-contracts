@@ -345,7 +345,7 @@ export class StrategyEngine extends EventEmitter {
   private async checkLowBalances(s: Strategy, addresses: string[]): Promise<void> {
     const floor = toLamports(String(this.deps.config.lowBalanceSol));
     const balances = await this.deps.market.nativeBalances(addresses).catch(() => ({}) as Record<string, string>);
-    const low = addresses.filter((a) => balances[a] !== undefined && BigInt(balances[a]!) < floor && this.clock() - (this.lowBalanceAt.get(a) ?? 0) > LOW_BALANCE_REPEAT_MS);
+    const low = addresses.filter((a) => balances[a] !== undefined && BigInt(balances[a]!) < floor && (!this.lowBalanceAt.has(a) || this.clock() - this.lowBalanceAt.get(a)! > LOW_BALANCE_REPEAT_MS));
     if (!low.length) return;
     for (const a of low) this.lowBalanceAt.set(a, this.clock());
     const labels = low.map((a) => this.deps.wallets.findByAddress(a)?.label ?? a.slice(0, 6));

@@ -66,6 +66,25 @@ test("launch packing: create+dev buy alone, bundle buys packed several per tx, t
   console.log(`  12 bundle buys → ${buyDrafts.length} txs (${buyDrafts.map((d) => d.label.split(" + ").length).join("/")} per tx)`);
 });
 
+test("launch packing: one Jito bundle (≤5 txs) fits create + dev buy + 8 bundle wallets + tip", async () => {
+  const count = async (n: number) => {
+    const dev = Keypair.generate();
+    const mint = Keypair.generate();
+    const devTokens = quoteBuy(p, null, LAMPORTS);
+    const head = await createAndBuyGroup({ p, mint, name: "Test Token", symbol: "TEST", uri: "https://example.com/meta.json", dev, lamports: LAMPORTS, tokens: devTokens });
+    let curve = applyBuy(freshCurve(p, dev.publicKey), devTokens);
+    const groups = [];
+    for (let i = 0; i < n; i++) {
+      const tokens = quoteBuy(p, curve, LAMPORTS / 10n);
+      groups.push(await buyGroup({ p, mint: mint.publicKey, curve, curveInfo: null, tokenProgram: TOKEN_2022_PROGRAM_ID, user: Keypair.generate(), ataExists: false, lamports: LAMPORTS / 10n, tokens, slippageBps: 500, label: `b${i}` }));
+      curve = applyBuy(curve, tokens);
+    }
+    return appendTip([...packGroups([head]), ...packGroups(groups)], tipGroup(dev, 10_000)).length;
+  };
+  assert.equal(await count(8), 5);
+  assert.equal(await count(9), 6);
+});
+
 test("pack: a group too large for one transaction is rejected", () => {
   const signers = Array.from({ length: 20 }, () => Keypair.generate());
   const parts = signers.map((s, i) => transferGroup(s, Keypair.generate().publicKey, 1_000_000n, `t${i}`));

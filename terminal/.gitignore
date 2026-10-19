@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+.local-ledger/
+test-ledger/
+*.sqlite
+*.sqlite-*
+.env

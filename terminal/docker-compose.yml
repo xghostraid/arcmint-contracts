@@ -1,0 +1,37 @@
+services:
+  terminal:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TERMINAL_NETWORK: ${TERMINAL_NETWORK:-devnet}
+    volumes:
+      - terminal-data:/data
+    # Published on loopback only. On a VPS, reach it through an SSH tunnel
+    # (ssh -L 8787:127.0.0.1:8787 you@vps) or enable the `proxy` profile below.
+    ports:
+      - "127.0.0.1:8787:8787"
+
+  # Optional TLS + basic auth in front of the terminal: `docker compose --profile proxy up -d`.
+  # Set TERMINAL_DOMAIN and TERMINAL_BASIC_AUTH_HASH (from `caddy hash-password`) in .env.
+  proxy:
+    image: caddy:2
+    profiles: ["proxy"]
+    restart: unless-stopped
+    depends_on: [terminal]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      TERMINAL_DOMAIN: ${TERMINAL_DOMAIN:-}
+      TERMINAL_BASIC_AUTH_USER: ${TERMINAL_BASIC_AUTH_USER:-admin}
+      TERMINAL_BASIC_AUTH_HASH: ${TERMINAL_BASIC_AUTH_HASH:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+
+volumes:
+  terminal-data:
+  caddy-data:

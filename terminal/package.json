@@ -1,0 +1,22 @@
+{
+  "name": "terminal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted, single-user, self-custodial multi-wallet trading terminal (Solana first).",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "npm run dev -w server & npm run dev -w web",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "test": "npm test -w server",
+    "test:e2e": "npm run test:e2e -w server",
+    "validator": "node server/scripts/local-validator.mjs"
+  }
+}

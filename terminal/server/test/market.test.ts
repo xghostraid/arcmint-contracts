@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import { parseTrades, logEvents } from "../src/chains/solana/events.js";
-import { applySwap, poolPrice } from "../src/chains/solana/pumpswap.js";
+import { PumpSwap, applySwap, poolPrice } from "../src/chains/solana/pumpswap.js";
 import { buildCandles, computePnl } from "../src/services/dashboard.js";
 import { openDb } from "../src/db.js";
 import { TradeStore, type TradeRow } from "../src/market/trades.js";
@@ -96,6 +96,25 @@ test("pumpswap: reserve chaining and spot price", () => {
 });
 
 const row = (side: "buy" | "sell", sol: number, tokens: number, time: number, price = 1): TradeRow => ({ id: time, mint: "m", signature: `s${time}`, seq: 0, slot: time, blockTime: time, venue: "pumpfun", side, trader: "w", solLamports: String(sol), tokens: String(tokens), price });
+
+test("pumpswap: a non-canonical mint resolves to the pool holding the most SOL", async () => {
+  const vaults = [Keypair.generate().publicKey, Keypair.generate().publicKey, Keypair.generate().publicKey];
+  const pools = vaults.map(() => Keypair.generate().publicKey);
+  const tokenAccount = (lamports: bigint) => {
+    const d = Buffer.alloc(165);
+    d.writeBigUInt64LE(lamports, 64);
+    return { data: d };
+  };
+  const balances = new Map([vaults[0]!, vaults[1]!, vaults[2]!].map((v, i) => [v.toBase58(), [5n, 900n, 40n][i]!]));
+  const conn = {
+    getAccountInfo: async () => null,
+    getProgramAccounts: async () => pools.map((p, i) => ({ pubkey: p, account: { data: vaults[i]!.toBuffer() } })),
+    getMultipleAccountsInfo: async (keys: PublicKey[]) => keys.map((k) => tokenAccount(balances.get(k.toBase58())!)),
+  };
+  const found = await new PumpSwap(conn as never).findPool(mint);
+  assert.equal(found?.pool.toBase58(), pools[1]!.toBase58());
+  assert.equal(found?.canonical, false);
+});
 
 test("pnl: average cost, realized on sells, unrealized at spot, untracked tokens flagged", () => {
   const trades = [row("buy", 100, 1_000, 1), row("buy", 300, 1_000, 2), row("sell", 250, 1_000, 3)];

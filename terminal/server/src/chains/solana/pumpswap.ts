@@ -19,6 +19,10 @@ export const SWAP_CU = 220_000;
 /** Pool account layout: discriminator(8) pool_bump(1) index(2) creator(32) base_mint(32) quote_mint(32). */
 const POOL_BASE_MINT_OFFSET = 43;
 const POOL_QUOTE_MINT_OFFSET = 75;
+/** discriminator 8, bump 1, index 2, creator, base mint, quote mint, lp mint, base vault (32 each). */
+const POOL_QUOTE_VAULT_OFFSET = 171;
+/** SPL token account: mint 32, owner 32, then the u64 amount. */
+const TOKEN_AMOUNT_OFFSET = 64;
 
 export interface PoolSnapshot {
   pool: string;
@@ -37,7 +41,7 @@ export interface Reserves {
 export class PumpSwap {
   constructor(private readonly conn: Connection) {}
 
-  /** The canonical pool a graduated Pump.fun coin migrates to, else any SOL-quoted pool for the mint. */
+  /** The canonical pool a graduated Pump.fun coin migrates to, else the SOL-quoted pool for the mint holding the most SOL. */
   async findPool(mint: PublicKey): Promise<{ pool: PublicKey; canonical: boolean } | null> {
     const sdk = pumpSwapSdk();
     const canonical = sdk.canonicalPumpPoolPda(mint);
@@ -45,11 +49,18 @@ export class PumpSwap {
     const found = await this.conn
       .getProgramAccounts(sdk.PUMP_AMM_PROGRAM_ID, {
         commitment: "confirmed",
-        dataSlice: { offset: 0, length: 0 },
+        dataSlice: { offset: POOL_QUOTE_VAULT_OFFSET, length: 32 },
         filters: [{ memcmp: { offset: POOL_BASE_MINT_OFFSET, bytes: mint.toBase58() } }, { memcmp: { offset: POOL_QUOTE_MINT_OFFSET, bytes: NATIVE_MINT.toBase58() } }],
       })
       .catch(() => []);
-    return found.length ? { pool: found[0]!.pubkey, canonical: false } : null;
+    if (found.length <= 1) return found.length ? { pool: found[0]!.pubkey, canonical: false } : null;
+    // Anyone can open a pool for any mint, so prefer real liquidity over whichever pool the RPC lists first.
+    const vaults = found.map((f) => new PublicKey(f.account.data));
+    const infos = await this.conn.getMultipleAccountsInfo(vaults, "confirmed");
+    const sol = (i: number) => (infos[i] && infos[i]!.data.length >= TOKEN_AMOUNT_OFFSET + 8 ? infos[i]!.data.readBigUInt64LE(TOKEN_AMOUNT_OFFSET) : 0n);
+    let best = 0;
+    for (let i = 1; i < found.length; i++) if (sol(i) > sol(best)) best = i;
+    return { pool: found[best]!.pubkey, canonical: false };
   }
 
   /** Pool, config and reserves, fetched once and reused for every wallet in a batch. */

@@ -53,6 +53,22 @@ export interface TradeOrigin {
 /** Rough per-buy overhead: token account rent, pump volume-accumulator rent, fees. */
 export const BUY_OVERHEAD_LAMPORTS = 4_000_000n;
 
+/**
+ * The curve or pool state each leg of a batch is quoted against. Ordered sends (sequential, bundle) chain, so each
+ * leg sees what the previous ones leave. Parallel sends can land in any order, so each leg is quoted as if every
+ * other leg of the batch landed first; otherwise an early leg that lands last fails its slippage bound.
+ */
+export function legStates<S, L>(start: S, items: L[], step: (s: S, item: L) => S, parallel: boolean): S[] {
+  if (parallel && items.length > 1) return items.map((_, i) => items.reduce((s, it, j) => (j === i ? s : step(s, it)), start));
+  const out: S[] = [];
+  let s = start;
+  for (const it of items) {
+    out.push(s);
+    s = step(s, it);
+  }
+  return out;
+}
+
 export class TradeService {
   constructor(
     private readonly config: Config,
@@ -120,28 +136,34 @@ export class TradeService {
         const state = await this.sol.pump.curve(mint);
         if (!state) throw new InputError("Bonding curve not found");
         const atas = await this.sol.pump.ataExists(mint, ws.map((w) => signers.get(w.id)!.publicKey), state.tokenProgram);
-        let curve = state.curve;
+        const curves = legStates(state.curve, ws, (c, w) => applyBuy(c, quoteBuy(p, c, amount.get(w.id)!)), req.mode === "parallel");
         const groups: IxGroup[] = [];
         for (const [i, w] of ws.entries()) {
           const lamports = amount.get(w.id)!;
-          // Each buy is quoted against the curve left by the ones before it, so later buys in a batch don't overshoot.
+          const curve = curves[i]!;
           const tokens = quoteBuy(p, curve, lamports);
           groups.push(await buyGroup({ p, mint, curve, curveInfo: state.accountInfo, tokenProgram: state.tokenProgram, user: signers.get(w.id)!, ataExists: atas[i]!, lamports, tokens, slippageBps: req.slippageBps, label: `buy ${w.label}` }));
           legs.push({ walletId: w.id, address: w.address, label: w.label, lamports: lamports.toString(), tokens: tokens.toString() });
-          curve = applyBuy(curve, tokens);
         }
         drafts = this.draftsFor(groups, req, signers.get(ws[0]!.id)!);
       } else if (info.venue === "pumpswap") {
         const base = await this.sol.pumpswap.state(parsePubkey(info.pool!.address, "pool"));
         const states = await this.sol.pumpswap.forUsers(base, ws.map((w) => signers.get(w.id)!.publicKey));
-        let reserves = reservesOf(base);
+        const reserves = legStates(
+          reservesOf(base),
+          ws,
+          (r, w) => {
+            const q = swapQuoteBuy(base, r, amount.get(w.id)!, req.slippageBps);
+            return applySwap(r, "buy", q.tokens, q.poolQuoteIn);
+          },
+          req.mode === "parallel",
+        );
         const groups: IxGroup[] = [];
         for (const [i, w] of ws.entries()) {
           const lamports = amount.get(w.id)!;
-          const q = swapQuoteBuy(base, reserves, lamports, req.slippageBps);
+          const q = swapQuoteBuy(base, reserves[i]!, lamports, req.slippageBps);
           groups.push(await swapBuyGroup(states[i]!, signers.get(w.id)!, q.tokens, q.maxLamports, `buy ${w.label}`));
           legs.push({ walletId: w.id, address: w.address, label: w.label, lamports: lamports.toString(), tokens: q.tokens.toString() });
-          reserves = applySwap(reserves, "buy", q.tokens, q.poolQuoteIn);
         }
         drafts = this.draftsFor(groups, req, signers.get(ws[0]!.id)!);
       } else {
@@ -183,27 +205,34 @@ export class TradeService {
         const p = await this.sol.pump.protocol();
         const state = await this.sol.pump.curve(mint);
         if (!state) throw new InputError("Bonding curve not found");
-        let curve = state.curve;
+        const curves = legStates(state.curve, ws, (c, w) => applySell(c, amounts.get(w.id)!), req.mode === "parallel");
         const groups: IxGroup[] = [];
-        for (const w of ws) {
+        for (const [i, w] of ws.entries()) {
           const tokens = amounts.get(w.id)!;
+          const curve = curves[i]!;
           const expected = quoteSell(p, curve, tokens);
           groups.push(await sellGroup({ p, mint, state: { ...state, curve }, user: signers.get(w.id)!, tokens, expectedLamports: expected, slippageBps: req.slippageBps, label: `sell ${w.label}` }));
           legs.push({ walletId: w.id, address: w.address, label: w.label, lamports: expected.toString(), tokens: tokens.toString() });
-          curve = applySell(curve, tokens);
         }
         drafts = this.draftsFor(groups, req, signers.get(ws[0]!.id)!);
       } else if (info.venue === "pumpswap") {
         const base = await this.sol.pumpswap.state(parsePubkey(info.pool!.address, "pool"));
         const states = await this.sol.pumpswap.forUsers(base, ws.map((w) => signers.get(w.id)!.publicKey));
-        let reserves = reservesOf(base);
+        const reserves = legStates(
+          reservesOf(base),
+          ws,
+          (r, w) => {
+            const tokens = amounts.get(w.id)!;
+            return applySwap(r, "sell", tokens, swapQuoteSell(base, r, tokens, req.slippageBps).poolQuoteOut);
+          },
+          req.mode === "parallel",
+        );
         const groups: IxGroup[] = [];
         for (const [i, w] of ws.entries()) {
           const tokens = amounts.get(w.id)!;
-          const q = swapQuoteSell(base, reserves, tokens, req.slippageBps);
+          const q = swapQuoteSell(base, reserves[i]!, tokens, req.slippageBps);
           groups.push(await swapSellGroup(states[i]!, signers.get(w.id)!, tokens, q.minLamports, `sell ${w.label}`));
           legs.push({ walletId: w.id, address: w.address, label: w.label, lamports: q.lamports.toString(), tokens: tokens.toString() });
-          reserves = applySwap(reserves, "sell", tokens, q.poolQuoteOut);
         }
         drafts = this.draftsFor(groups, req, signers.get(ws[0]!.id)!);
       } else {

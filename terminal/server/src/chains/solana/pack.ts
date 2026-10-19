@@ -1,4 +1,4 @@
-import { ComputeBudgetProgram, PublicKey, TransactionMessage, VersionedTransaction, type Keypair, type TransactionInstruction } from "@solana/web3.js";
+import { ComputeBudgetProgram, PublicKey, TransactionMessage, VersionedTransaction, type AddressLookupTableAccount, type Keypair, type TransactionInstruction } from "@solana/web3.js";
 
 export const MAX_TX_BYTES = 1232;
 const DUMMY_BLOCKHASH = "11111111111111111111111111111111";
@@ -24,6 +24,8 @@ export interface TxDraft {
   computeUnits: number;
   /** A transaction built elsewhere (Jupiter); compiled as-is and only signed. */
   prebuilt?: VersionedTransaction;
+  /** Address lookup tables the message may load non-signer accounts from. */
+  lookupTables?: AddressLookupTableAccount[];
 }
 
 export function cuLimit(computeUnits: number): number {
@@ -42,7 +44,7 @@ export function compileDraft(draft: TxDraft, blockhash: string, microLamports: n
     payerKey: draft.feePayer.publicKey,
     recentBlockhash: blockhash,
     instructions: [...priorityIxs({ microLamports, computeUnits: draft.computeUnits }), ...draft.instructions],
-  }).compileToV0Message();
+  }).compileToV0Message(draft.lookupTables);
   return new VersionedTransaction(message);
 }
 
@@ -60,7 +62,7 @@ function uniqueSigners(signers: Keypair[]): Keypair[] {
   return [...seen.values()];
 }
 
-function draftFrom(groups: IxGroup[], head?: IxGroup): TxDraft {
+function draftFrom(groups: IxGroup[], head?: IxGroup, lookupTables?: AddressLookupTableAccount[]): TxDraft {
   const all = head ? [head, ...groups] : groups;
   const signers = uniqueSigners(all.flatMap((g) => g.signers));
   return {
@@ -69,6 +71,7 @@ function draftFrom(groups: IxGroup[], head?: IxGroup): TxDraft {
     signers,
     instructions: all.flatMap((g) => g.instructions),
     computeUnits: all.reduce((n, g) => n + g.computeUnits, 0),
+    ...(lookupTables?.length ? { lookupTables } : {}),
   };
 }
 
@@ -76,25 +79,26 @@ function draftFrom(groups: IxGroup[], head?: IxGroup): TxDraft {
  * Greedily packs groups into as few transactions as fit under 1232 bytes, preserving order.
  * `head` (for example create + dev buy) always starts the first transaction.
  */
-export function packGroups(groups: IxGroup[], opts: { head?: IxGroup; maxPerTx?: number } = {}): TxDraft[] {
+export function packGroups(groups: IxGroup[], opts: { head?: IxGroup; maxPerTx?: number; lookupTables?: AddressLookupTableAccount[] } = {}): TxDraft[] {
   const drafts: TxDraft[] = [];
+  const luts = opts.lookupTables;
   let current: IxGroup[] = [];
   let head = opts.head;
   const maxPerTx = opts.maxPerTx ?? Number.POSITIVE_INFINITY;
   const flush = () => {
-    if (current.length || head) drafts.push(draftFrom(current, head));
+    if (current.length || head) drafts.push(draftFrom(current, head, luts));
     current = [];
     head = undefined;
   };
   for (const group of groups) {
     const candidate = [...current, group];
-    if (candidate.length <= maxPerTx && draftSize(draftFrom(candidate, head)) <= MAX_TX_BYTES) {
+    if (candidate.length <= maxPerTx && draftSize(draftFrom(candidate, head, luts)) <= MAX_TX_BYTES) {
       current = candidate;
       continue;
     }
     if (!current.length && !head) throw new Error(`"${group.label}" does not fit in one transaction`);
     flush();
-    if (draftSize(draftFrom([group])) > MAX_TX_BYTES) throw new Error(`"${group.label}" does not fit in one transaction`);
+    if (draftSize(draftFrom([group], undefined, luts)) > MAX_TX_BYTES) throw new Error(`"${group.label}" does not fit in one transaction`);
     current = [group];
   }
   flush();
@@ -114,7 +118,7 @@ export function appendTip(drafts: TxDraft[], tip: IxGroup): TxDraft[] {
     };
     if (draftSize(merged) <= MAX_TX_BYTES) return [...drafts.slice(0, -1), merged];
   }
-  return [...drafts, draftFrom([tip])];
+  return [...drafts, draftFrom([tip], undefined, last?.lookupTables)];
 }
 
 export function signDraft(tx: VersionedTransaction, draft: TxDraft): VersionedTransaction {

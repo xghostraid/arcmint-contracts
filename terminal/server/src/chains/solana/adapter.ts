@@ -8,8 +8,9 @@ import { SolanaExecutor } from "./executor.js";
 import { JitoClient } from "./jito.js";
 import { JupiterClient } from "./jupiter.js";
 import { PumpFun, curveProgress, marketCapLamports, PUMP_TOTAL_SUPPLY } from "./pumpfun.js";
+import { PumpSwap, poolPrice } from "./pumpswap.js";
 
-export type VenueId = "pumpfun" | "jupiter";
+export type VenueId = "pumpfun" | "pumpswap" | "jupiter";
 
 export interface TokenInfo {
   mint: string;
@@ -26,6 +27,18 @@ export interface TokenInfo {
     progressPct: number;
     marketCapLamports: string;
     priceLamportsPerToken: number;
+  };
+  pool: null | {
+    address: string;
+    canonical: boolean;
+    baseReserve: string;
+    quoteReserve: string;
+  };
+  /** Spot price and size from whichever venue is live; null when there is none on this network. */
+  market: null | {
+    priceLamportsPerToken: number;
+    marketCapLamports: string;
+    liquidityLamports: string;
   };
 }
 
@@ -44,6 +57,7 @@ export class SolanaAdapter {
   readonly conn: Connection;
   readonly chain: ChainInfo;
   readonly pump: PumpFun;
+  readonly pumpswap: PumpSwap;
   readonly jupiter: JupiterClient | null;
   readonly executor: SolanaExecutor;
 
@@ -51,6 +65,7 @@ export class SolanaAdapter {
     this.chain = solanaChainFor(config.network);
     this.conn = conn ?? new Connection(config.rpcUrl, { commitment: "confirmed", wsEndpoint: config.wsUrl });
     this.pump = new PumpFun(this.conn);
+    this.pumpswap = new PumpSwap(this.conn);
     const mainnet = config.network === "mainnet";
     this.jupiter = mainnet ? new JupiterClient(config.jupiterUrl) : null;
     this.executor = new SolanaExecutor(this.conn, mainnet ? new JitoClient(config.jitoUrl) : null);
@@ -107,6 +122,8 @@ export class SolanaAdapter {
     }
     const state = await this.pump.curve(mint).catch(() => null);
     let curve: TokenInfo["curve"] = null;
+    let pool: TokenInfo["pool"] = null;
+    let market: TokenInfo["market"] = null;
     let venue: VenueId | null = null;
     let venueNote: string;
     if (state) {
@@ -124,15 +141,24 @@ export class SolanaAdapter {
     if (state && !state.curve.complete) {
       venue = "pumpfun";
       venueNote = "Pump.fun bonding curve (direct)";
-    } else if (this.jupiter) {
-      venue = "jupiter";
-      venueNote = state ? "Graduated from Pump.fun; routed through Jupiter (PumpSwap, Raydium, Meteora …)" : "Routed through Jupiter";
+      market = { priceLamportsPerToken: curve!.priceLamportsPerToken, marketCapLamports: curve!.marketCapLamports, liquidityLamports: state.curve.realQuoteReserves.toString() };
     } else {
-      venueNote = state
-        ? "Graduated from Pump.fun. Jupiter routing is mainnet-only; direct PumpSwap support lands in Phase 2."
-        : "No supported venue on this network (Jupiter routing is mainnet-only).";
+      const found = await this.pumpswap.findPool(mint).catch(() => null);
+      if (found) {
+        const snap = this.pumpswap.snapshot(await this.pumpswap.state(found.pool), found.canonical);
+        const price = poolPrice(snap);
+        pool = { address: snap.pool, canonical: snap.canonical, baseReserve: snap.baseReserve.toString(), quoteReserve: snap.quoteReserve.toString() };
+        market = { priceLamportsPerToken: price, marketCapLamports: BigInt(Math.floor(price * Number(supply))).toString(), liquidityLamports: (snap.quoteReserve * 2n).toString() };
+        venue = "pumpswap";
+        venueNote = found.canonical ? "Graduated to PumpSwap (direct)" : "PumpSwap pool (direct)";
+      } else if (this.jupiter) {
+        venue = "jupiter";
+        venueNote = state ? "Graduated from Pump.fun; routed through Jupiter (Raydium, Meteora …)" : "Routed through Jupiter";
+      } else {
+        venueNote = state ? "Graduated from Pump.fun, but no PumpSwap pool was found on this network." : "No supported venue on this network (Jupiter routing is mainnet-only).";
+      }
     }
-    return { mint: mint.toBase58(), name, symbol, decimals, supply: supply.toString(), tokenProgram: mintInfo.owner.toBase58(), venue, venueNote, curve };
+    return { mint: mint.toBase58(), name, symbol, decimals, supply: supply.toString(), tokenProgram: mintInfo.owner.toBase58(), venue, venueNote, curve, pool, market };
   }
 }
 

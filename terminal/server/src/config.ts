@@ -18,6 +18,15 @@ export interface Config {
   webDir: string | undefined;
   defaultPriorityMicroLamports: number;
   defaultJitoTipLamports: number;
+  /** Strategy engine: global cap on bot orders per rolling minute. */
+  botMaxActionsPerMinute: number;
+  /** Alert when a bot wallet's SOL drops below this. */
+  lowBalanceSol: number;
+  ingestPollSeconds: number;
+  ingestBackfill: number;
+  ingestWebsocket: boolean;
+  telegramBotToken: string | undefined;
+  telegramChatId: string | undefined;
 }
 
 const DEFAULT_RPC: Record<NetworkKey, string> = {
@@ -59,5 +68,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webDir: env.TERMINAL_WEB_DIR?.trim() || undefined,
     defaultPriorityMicroLamports: num(env.TERMINAL_PRIORITY_MICROLAMPORTS, 100_000),
     defaultJitoTipLamports: num(env.TERMINAL_JITO_TIP_LAMPORTS, 1_000_000),
+    botMaxActionsPerMinute: num(env.TERMINAL_BOT_MAX_ACTIONS_PER_MINUTE, 30),
+    lowBalanceSol: num(env.TERMINAL_LOW_BALANCE_SOL, 0.05),
+    ingestPollSeconds: num(env.TERMINAL_INGEST_POLL_SECONDS, 10),
+    ingestBackfill: num(env.TERMINAL_INGEST_BACKFILL, 1000),
+    ingestWebsocket: env.TERMINAL_INGEST_WEBSOCKET !== "0",
+    telegramBotToken: env.TELEGRAM_BOT_TOKEN?.trim() || undefined,
+    telegramChatId: env.TELEGRAM_CHAT_ID?.trim() || undefined,
   };
 }

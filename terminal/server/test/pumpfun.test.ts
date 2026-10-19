@@ -6,6 +6,7 @@ import { applyBuy, applySell, buyGroup, createAndBuyGroup, freshCurve, quoteBuy,
 import { MAX_TX_BYTES, appendTip, draftSize, packGroups } from "../src/chains/solana/pack.js";
 import { tipGroup } from "../src/chains/solana/jito.js";
 import { transferGroup } from "../src/chains/solana/treasury.js";
+import { syntheticTable, tableAddresses } from "../src/chains/solana/alt.js";
 import { fakeGlobal } from "./helpers.js";
 
 const p = { global: fakeGlobal(), feeConfig: null };
@@ -83,6 +84,34 @@ test("launch packing: one Jito bundle (≤5 txs) fits create + dev buy + 8 bundl
   };
   assert.equal(await count(8), 5);
   assert.equal(await count(9), 6);
+});
+
+test("launch packing with a lookup table: one Jito bundle fits create + dev buy + 20 bundle wallets + tip", async () => {
+  const build = async (n: number) => {
+    const dev = Keypair.generate();
+    const mint = Keypair.generate();
+    const devTokens = quoteBuy(p, null, LAMPORTS);
+    const head = await createAndBuyGroup({ p, mint, name: "Test Token", symbol: "TEST", uri: "https://example.com/meta.json", dev, lamports: LAMPORTS, tokens: devTokens });
+    let curve = applyBuy(freshCurve(p, dev.publicKey), devTokens);
+    const groups = [];
+    for (let i = 0; i < n; i++) {
+      const tokens = quoteBuy(p, curve, LAMPORTS / 10n);
+      groups.push(await buyGroup({ p, mint: mint.publicKey, curve, curveInfo: null, tokenProgram: TOKEN_2022_PROGRAM_ID, user: Keypair.generate(), ataExists: false, lamports: LAMPORTS / 10n, tokens, slippageBps: 500, label: `b${i}` }));
+      curve = applyBuy(curve, tokens);
+    }
+    const tip = tipGroup(dev, 10_000, () => 0);
+    const lookupTables = [syntheticTable(tableAddresses([head, ...groups, tip]))];
+    return appendTip(packGroups(groups, { head, lookupTables }), tip);
+  };
+  const drafts = await build(20);
+  for (const d of drafts) assert.ok(draftSize(d) <= MAX_TX_BYTES);
+  assert.ok(drafts.length <= 5, `20 wallets → ${drafts.length} txs`);
+  console.log(`  ALT: 20 bundle buys → ${drafts.length} txs (${drafts.map((d) => d.label.split(" + ").length).join("/")} groups per tx)`);
+  const max = async () => {
+    for (let n = 21; n < 40; n++) if ((await build(n)).length > 5) return n - 1;
+    return 39;
+  };
+  console.log(`  ALT: max bundle wallets in 5 txs = ${await max()}`);
 });
 
 test("pack: a group too large for one transaction is rejected", () => {

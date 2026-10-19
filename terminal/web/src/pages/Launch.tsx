@@ -324,7 +324,7 @@ export function Launch({ onOpenToken }: { onOpenToken: (mint: string) => void })
                               onClick={() =>
                                 void reclaim.run(async () => {
                                   const r = await api<{ status: string; error?: string }>("POST", `/launches/${h.id}/reclaim-table`);
-                                  setReclaimNote({ ...reclaimNote, [h.id]: r.error ?? r.status });
+                                  setReclaimNote({ ...reclaimNote, [h.id]: r.error ?? "" });
                                   loadHistory();
                                   return r;
                                 })

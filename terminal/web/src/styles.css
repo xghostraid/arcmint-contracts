@@ -507,6 +507,9 @@ button.chip.active {
   border-color: var(--accent);
   color: #fff;
 }
+button.chip.active .muted {
+  color: #ffe4d6;
+}
 .token-tabs {
   display: flex;
   flex-wrap: wrap;

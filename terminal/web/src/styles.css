@@ -499,3 +499,48 @@ button.link {
 .own {
   color: var(--accent);
 }
+.bad-text {
+  color: var(--red);
+}
+button.chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.token-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.chart {
+  height: 320px;
+  width: 100%;
+}
+.table tr.own-row td {
+  background: #1f1712;
+}
+.scroll {
+  max-height: 320px;
+  overflow: auto;
+}
+.scroll.tall {
+  max-height: 560px;
+}
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.nav-badge {
+  background: var(--green);
+  color: #04130a;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 0 7px;
+}
+.banner .link {
+  color: #fff;
+  text-decoration: underline;
+}

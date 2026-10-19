@@ -81,6 +81,16 @@ export function Trade({ initialMint }: { initialMint?: string }) {
                 <Stat label="Creator" value={info.creatorIsOwn ? "your wallet" : "external"} />
               </>
             )}
+            {info.venue === "pumpswap" && info.pool && info.market && (
+              <>
+                <Stat label="Pool market cap" value={`${lamportsToSol(info.market.marketCapLamports, 2)} SOL`} />
+                <Stat label="Pool liquidity" value={`${lamportsToSol(info.market.liquidityLamports, 2)} SOL`} sub={info.pool.canonical ? "canonical PumpSwap pool" : "non-canonical pool (largest found)"} />
+                <div className="stat">
+                  <div className="stat-label">Pool</div>
+                  <Addr address={info.pool.address} />
+                </div>
+              </>
+            )}
           </div>
         )}
       </Card>
